@@ -281,6 +281,7 @@ impl<'data, P: EnginePlatform> CommonGroupState<'data, P> {
     pub fn new(output_sections: &OutputSections<P>) -> Self {
         Self {
             mem_sizes: output_sections.new_part_map(),
+            sorted_section_mem_sizes: output_sections.new_part_map(),
             section_attributes: Default::default(),
             dynamic_symbol_definitions: Default::default(),
             format_specific: Default::default(),
@@ -329,6 +330,17 @@ impl<'data, P: EnginePlatform> CommonGroupState<'data, P> {
 
     pub fn allocate(&mut self, part_id: PartId, size: u64) {
         self.mem_sizes.increment(part_id, size);
+    }
+
+    /// Run `f` with `mem_sizes` isolated, then add whatever it allocated to
+    /// `sorted_section_mem_sizes`. Used for input sections the epilogue writes.
+    pub fn with_sorted_section_reloc_sizes<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        let empty = self.mem_sizes.new_empty_like();
+        let saved = std::mem::replace(&mut self.mem_sizes, empty);
+        let result = f(self);
+        self.sorted_section_mem_sizes.merge(&self.mem_sizes);
+        self.mem_sizes = saved;
+        result
     }
 
     pub fn store_section_attributes(&mut self, part_id: PartId, header: &P::SectionHeader) {

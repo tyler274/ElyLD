@@ -229,15 +229,22 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
 
         let section = Section::create(header, self, part_id, resources.output_sections)?;
 
-        <A::Platform as Platform>::load_object_section_relocations::<A>(
-            self,
-            common,
-            queue,
-            crate::platform_graph(resources),
-            section,
-            section_index,
-            scope,
-        )?;
+        let mut load_relocs = |common: &mut CommonGroupState<'data, P>| {
+            <A::Platform as Platform>::load_object_section_relocations::<A>(
+                self,
+                common,
+                queue,
+                crate::platform_graph(resources),
+                section,
+                section_index,
+                scope,
+            )
+        };
+        if unloaded.needs_sorting {
+            common.with_sorted_section_reloc_sizes(load_relocs)?;
+        } else {
+            load_relocs(common)?;
+        }
 
         tracing::debug!(loaded_section = %self.object.section_display_name(section_index), file = %self.input);
 

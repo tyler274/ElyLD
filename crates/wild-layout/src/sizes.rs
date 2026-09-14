@@ -358,8 +358,10 @@ pub fn compute_total_section_part_sizes<'data, 'scope, P: EnginePlatform>(
     timing_phase!("Compute total section sizes");
 
     let mut total_sizes: OutputSectionPartMap<u64> = output_sections.new_part_map();
+    let mut sorted_section_reloc_sizes: OutputSectionPartMap<u64> = output_sections.new_part_map();
     for group_state in group_states.iter() {
         total_sizes.merge(&group_state.common.mem_sizes);
+        sorted_section_reloc_sizes.merge(&group_state.common.sorted_section_mem_sizes);
     }
 
     // Compute and allocate the .gdb_index section size if --gdb-index is enabled.
@@ -386,6 +388,12 @@ pub fn compute_total_section_part_sizes<'data, 'scope, P: EnginePlatform>(
     let Some(FileLayoutState::Epilogue(epilogue)) = last_group.files.last_mut() else {
         unreachable!();
     };
+
+    last_group
+        .common
+        .mem_sizes
+        .merge(&sorted_section_reloc_sizes);
+    total_sizes.merge(&sorted_section_reloc_sizes);
 
     epilogue.apply_late_size_adjustments(&mut last_group.common, &mut total_sizes, resources)?;
     relocate_gnu_build_id_allocation(
