@@ -219,7 +219,11 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         let header = self.object.section(section_index)?;
 
         // Warn about RWX sections like GNU ld does, as they pose a security risk.
-        if header.is_alloc() && header.is_writable() && header.is_executable() {
+        if resources.symbol_db.args.warn_rwx_segments()
+            && header.is_alloc()
+            && header.is_writable()
+            && header.is_executable()
+        {
             resources.symbol_db.warning(format!(
                 "{}: section `{}` has RWX (read+write+execute) permissions",
                 self.input,

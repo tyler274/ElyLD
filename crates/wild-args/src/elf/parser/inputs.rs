@@ -143,7 +143,7 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
             "execstack",
             "Mark object as requiring an executable stack",
             |args, _| {
-                args.execstack = true;
+                args.execstack_mode = super::super::ExecStackMode::ForceYes;
                 Ok(())
             },
         )
@@ -151,7 +151,7 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
             "noexecstack",
             "Mark object as not requiring an executable stack",
             |args, _| {
-                args.execstack = false;
+                args.execstack_mode = super::super::ExecStackMode::ForceNo;
                 Ok(())
             },
         )

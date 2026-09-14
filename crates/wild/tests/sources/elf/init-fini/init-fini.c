@@ -1,5 +1,5 @@
 // GNU `-init`/`-fini` (libnuma) set DT_INIT/DT_FINI to named symbols.
-// `--warn-common` and `-Map` (busybox) are accepted and ignored.
+// `--warn-common` and `-Map` (busybox) are accepted.
 
 //#AbstractConfig:default
 //#CompArgs:-fPIC

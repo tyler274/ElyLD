@@ -93,6 +93,8 @@ fn process_alternatives<'data, P: EnginePlatform>(
 
         match select_symbol(symbol_db, per_symbol_flags, first, &alternatives, resolved) {
             Ok(selected) => {
+                maybe_warn_common(symbol_db, first, &alternatives, resolved);
+
                 symbol_db.update_definition(first, selected);
 
                 for &alt in &alternatives {
@@ -227,6 +229,44 @@ fn select_symbol<'data, P: EnginePlatform>(
     }
 
     Ok(first_id)
+}
+
+fn maybe_warn_common<'data, P: EnginePlatform>(
+    symbol_db: &AtomicSymbolDb<'data, '_, P>,
+    first_id: SymbolId,
+    alternatives: &[SymbolId],
+    resolved: &[ResolvedGroup<'data, P>],
+) {
+    if !symbol_db.db.args.warn_common() {
+        return;
+    }
+
+    let mut common_ids = Vec::new();
+    let mut strong_ids = Vec::new();
+    for id in std::iter::once(first_id).chain(alternatives.iter().copied()) {
+        match symbol_db.symbol_strength(id, resolved) {
+            SymbolStrength::Common(_) => common_ids.push(id),
+            SymbolStrength::Strong => strong_ids.push(id),
+            _ => {}
+        }
+    }
+
+    if common_ids.len() > 1 {
+        symbol_db.db.warning(format!(
+            "{}: multiple common of `{}`",
+            symbol_db.file(symbol_db.file_id_for_symbol(common_ids[0])),
+            symbol_db.symbol_name_for_display(first_id),
+        ));
+    }
+
+    if let (Some(&common_id), Some(&strong_id)) = (common_ids.first(), strong_ids.first()) {
+        symbol_db.db.warning(format!(
+            "{}: common of `{}` overridden by definition in {}",
+            symbol_db.file(symbol_db.file_id_for_symbol(common_id)),
+            symbol_db.symbol_name_for_display(first_id),
+            symbol_db.file(symbol_db.file_id_for_symbol(strong_id)),
+        ));
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]

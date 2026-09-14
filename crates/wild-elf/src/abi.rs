@@ -1502,9 +1502,13 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         args: &Self::Args,
     ) -> Result {
         // If the .note.GNU-stack section has SHF_EXECINSTR, the input file is requesting an
-        // executable stack.
-        if input_section.is_executable() && !args.execstack {
-            bail!("{object}: requires executable stack, but -z execstack is not specified");
+        // executable stack. GNU ld infers `PT_GNU_STACK` PF_X unless `-z noexecstack`. Wild
+        // errors by default (`--error-execstack`) unless `-z execstack` or `--no-error-execstack`.
+        if input_section.is_executable() {
+            args.note_executable_stack_request();
+            if args.error_on_inferred_execstack() {
+                bail!("{object}: requires executable stack, but -z execstack is not specified");
+            }
         }
         Ok(())
     }

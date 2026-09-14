@@ -194,12 +194,25 @@ impl<F: FileSystem> Linker<F> {
             }
         }
 
-        match args {
+        let result = match args {
             Args::Coff(_) => crate::bail!("PE/COFF (Windows) support is not yet implemented"),
             Args::Elf(elf_args) => crate::elf::link_for_arch(self, elf_args),
             Args::MachO(macho_args) => crate::macho::link_for_arch(self, macho_args),
             Args::Wasm(wasm_args) => crate::wasm::link_for_arch(self, wasm_args),
+        };
+
+        if result.is_ok()
+            && args.common().fatal_warnings
+            && args
+                .common()
+                .warning_count
+                .load(std::sync::atomic::Ordering::Relaxed)
+                > 0
+        {
+            crate::bail!("warnings being treated as errors");
         }
+
+        result
     }
 
     fn link_for_arch<'data, P, A>(
@@ -245,6 +258,13 @@ impl<F: FileSystem> Linker<F> {
                 for input in &file_loader.loaded_files {
                     writeln!(buf, "{}", input.filename.display())?;
                 }
+            }
+            if args.print_stats() {
+                eprintln!(
+                    "wild: stats: {} input files, output `{}`",
+                    file_loader.loaded_files.len(),
+                    args.output().display()
+                );
             }
         }
 
@@ -373,6 +393,8 @@ impl<F: FileSystem> Linker<F> {
             symbol_db.handle_rust_version_script(rust_vscript, &mut per_symbol_flags);
         }
 
+        symbol_db.check_undefined_version_script_symbols()?;
+
         let layout_rules = layout_rules_builder.build::<P>(args);
 
         let resolved = resolver.resolve_sections_and_canonicalise_undefined(
@@ -389,6 +411,7 @@ impl<F: FileSystem> Linker<F> {
             &layout.section_layouts,
         ));
         wild_layout::gc_stats::maybe_write_gc_stats(&layout.group_layouts, &layout.symbol_db)?;
+        wild_layout::map::maybe_write_map(&layout)?;
 
         let plugin_active = plugin.as_ref().is_some_and(P::plugin_is_initialised);
         let mut incremental_session = if args.incremental() {

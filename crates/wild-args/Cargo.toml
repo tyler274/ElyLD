@@ -19,6 +19,7 @@ object.workspace = true
 rayon.workspace = true
 strum.workspace = true
 tracing.workspace = true
+colored.workspace = true
 wild-error = { path = "../wild-error", version = "0.10.0" }
 wild-fs = { path = "../wild-fs", version = "0.10.0" }
 wild-platform = { path = "../wild-platform", version = "0.10.0" }

@@ -65,6 +65,12 @@ pub struct CommonArgs {
     #[debug(skip)]
     pub warning_callback: Box<WarningCallback>,
 
+    /// Number of warnings emitted through [`Self::warning_callback`]. Used by `--fatal-warnings`.
+    pub warning_count: std::sync::atomic::AtomicU32,
+
+    /// GNU `--fatal-warnings`: treat warnings as errors at the end of the link.
+    pub fatal_warnings: bool,
+
     /// The version of the linker being used.
     pub version: std::borrow::Cow<'static, str>,
 
@@ -149,6 +155,8 @@ impl Default for CommonArgs {
             sym_info: None,
             time_phase_options: None,
             warning_callback: Box::new(default_warning_callback),
+            warning_count: std::sync::atomic::AtomicU32::new(0),
+            fatal_warnings: false,
             version: std::borrow::Cow::Borrowed("unknown version"),
             has_flavor: false,
             incremental: env::var("WILD_INCREMENTAL").is_ok_and(|v| v == "1"),
