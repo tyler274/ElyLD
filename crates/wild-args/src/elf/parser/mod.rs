@@ -19,35 +19,10 @@ pub(super) const SILENTLY_IGNORED_FLAGS: &[&str] = &[
     // Just like other modern linkers, we don't need groups in order to resolve cycles.
     "start-group",
     "end-group",
-    // TODO: This is supposed to suppress built-in search paths, but I don't think we have any
-    // built-in search paths. Perhaps we should?
-    "nostdlib",
-    // TODO
-    "no-undefined-version",
-    "fatal-warnings",
-    "color-diagnostics",
-    "undefined-version",
-    "sort-common",
-    "stats",
-    "verbose",
-    // Busybox / GNU ld warning-only flags.
-    "warn-common",
-    "no-warn-common",
-    "print-map",
-    // Kernel vmlinux.lds / Makefile flags that we do not implement yet.
-    "no-warn-rwx-segments",
-    "warn-rwx-segments",
-    // GCC 15 / glibc pass these once they detect a GNU ld --version line.
-    "no-error-execstack",
-    "error-execstack",
-    "warn-execstack",
-    "no-warn-execstack",
 ];
 const SILENTLY_IGNORED_SHORT_FLAGS: &[&str] = &[
     "(",
     ")",
-    // GNU `-M` / `--print-map`: write a link map to stdout.
-    "M",
     // On Illumos, the Clang driver inserts a meaningless -C flag before calling any non-GNU ld
     // linker.
     #[cfg(target_os = "illumos")]
@@ -67,7 +42,6 @@ const DEFAULT_FLAGS: &[&str] = &[
     "no-copy-dt-needed-entries",
     "no-add-needed",
     "discard-locals",
-    "no-fatal-warnings",
 ];
 const DEFAULT_SHORT_FLAGS: &[&str] = &[
     "X", // alias for --discard-locals
@@ -77,6 +51,7 @@ pub(super) fn setup_argument_parser() -> ArgumentParser<ElfArgs> {
     let mut parser = ArgumentParser::<ElfArgs>::new();
     add_search_and_output_flags(&mut parser);
     add_info_and_script_flags(&mut parser);
+    add_gnu_compat_flags(&mut parser);
     parser
         .declare_with_param()
         .long("hash-style")
@@ -468,6 +443,204 @@ pub(super) fn setup_argument_parser() -> ArgumentParser<ElfArgs> {
     add_default_flags(&mut parser);
 
     parser
+}
+
+fn add_gnu_compat_flags(parser: &mut ArgumentParser<ElfArgs>) {
+    parser
+        .declare()
+        .long("nostdlib")
+        .help("Do not search built-in library directories (ELF has none, so this is a no-op)")
+        .execute(|args, _modifier_stack| {
+            args.nostdlib = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("undefined-version")
+        .help("Allow version script symbols that are not defined (default)")
+        .execute(|args, _modifier_stack| {
+            args.allow_undefined_version = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-undefined-version")
+        .help("Error if a version script names a symbol that is not defined")
+        .execute(|args, _modifier_stack| {
+            args.allow_undefined_version = false;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("fatal-warnings")
+        .help("Treat warnings as errors")
+        .execute(|args, _modifier_stack| {
+            args.common_mut().fatal_warnings = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-fatal-warnings")
+        .help("Do not treat warnings as errors (default)")
+        .execute(|args, _modifier_stack| {
+            args.common_mut().fatal_warnings = false;
+            Ok(())
+        });
+
+    parser
+        .declare_with_optional_param()
+        .long("color-diagnostics")
+        .help("Color diagnostic output [always|auto|never] (bare flag means always)")
+        .execute(|_args, _modifier_stack, value| {
+            apply_color_diagnostics(value)?;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-color-diagnostics")
+        .help("Disable color on diagnostic output")
+        .execute(|_args, _modifier_stack| {
+            set_color_diagnostics(ColorDiagnostics::Never);
+            Ok(())
+        });
+
+    parser
+        .declare_with_optional_param()
+        .long("sort-common")
+        .help("Sort common symbols by alignment [ascending|descending] (default descending)")
+        .execute(|args, _modifier_stack, value| {
+            args.sort_common = Some(match value {
+                None | Some("descending") => super::SortCommonOrder::Descending,
+                Some("ascending") => super::SortCommonOrder::Ascending,
+                Some(other) => {
+                    bail!("Invalid --sort-common `{other}`, expected ascending or descending")
+                }
+            });
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("stats")
+        .help("Print a brief summary after linking")
+        .execute(|args, _modifier_stack| {
+            args.print_stats = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("verbose")
+        .help("Print opened input files (same as --trace)")
+        .execute(|args, _modifier_stack| {
+            args.trace = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("warn-common")
+        .help("Warn when multiple commons of the same name are merged")
+        .execute(|args, _modifier_stack| {
+            args.warn_common = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-warn-common")
+        .help("Do not warn about common symbols (default)")
+        .execute(|args, _modifier_stack| {
+            args.warn_common = false;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("warn-rwx-segments")
+        .help("Warn about writable and executable LOAD segments (default)")
+        .execute(|args, _modifier_stack| {
+            args.warn_rwx_segments = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-warn-rwx-segments")
+        .help("Do not warn about writable and executable LOAD segments")
+        .execute(|args, _modifier_stack| {
+            args.warn_rwx_segments = false;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("error-execstack")
+        .help("Error if an input requests an executable stack without -z execstack (default)")
+        .execute(|args, _modifier_stack| {
+            args.error_execstack = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-error-execstack")
+        .help("Do not error when an input requests an executable stack; infer PT_GNU_STACK PF_X")
+        .execute(|args, _modifier_stack| {
+            args.error_execstack = false;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("warn-execstack")
+        .help("Warn if the output stack is executable")
+        .execute(|args, _modifier_stack| {
+            args.warn_execstack = true;
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("no-warn-execstack")
+        .help("Do not warn if the output stack is executable (default)")
+        .execute(|args, _modifier_stack| {
+            args.warn_execstack = false;
+            Ok(())
+        });
+}
+
+fn apply_color_diagnostics(value: Option<&str>) -> wild_error::error::Result {
+    let mode = match value {
+        None | Some("always") => ColorDiagnostics::Always,
+        Some("auto") => ColorDiagnostics::Auto,
+        Some("never") => ColorDiagnostics::Never,
+        Some(other) => {
+            bail!("Invalid --color-diagnostics `{other}`, expected always, auto, or never")
+        }
+    };
+    set_color_diagnostics(mode);
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum ColorDiagnostics {
+    Auto,
+    Always,
+    Never,
+}
+
+fn set_color_diagnostics(mode: ColorDiagnostics) {
+    match mode {
+        ColorDiagnostics::Always => colored::control::set_override(true),
+        ColorDiagnostics::Never => colored::control::set_override(false),
+        ColorDiagnostics::Auto => colored::control::unset_override(),
+    }
 }
 
 fn add_silently_ignored_flags(parser: &mut ArgumentParser<ElfArgs>) {

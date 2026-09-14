@@ -5,6 +5,11 @@
 //#ReferenceLinkers:bfd,lld,mold
 //#DiffMatchAny:true
 
+//#Config:warn-common:default
+//#ReferenceLinkers:
+//#LinkArgs:--warn-common
+//#ExpectWarningWild:multiple common of `data`
+
 #include "../common/runtime.h"
 
 int a;

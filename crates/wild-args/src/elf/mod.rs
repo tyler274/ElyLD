@@ -16,6 +16,7 @@ use parser::{IGNORED_FLAGS, setup_argument_parser};
 use std::ffi::CString;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use strum::{EnumMessage as _, IntoEnumIterator as _};
 use wild_error::error::{Error, Result};
 use wild_error::{bail, env, error};
@@ -89,6 +90,11 @@ pub struct ElfArgs {
     /// If set, GC stats will be written to the specified filename.
     pub write_gc_stats: Option<PathBuf>,
 
+    /// GNU `-Map=FILE`: write a link map to this path.
+    pub map_file: Option<PathBuf>,
+    /// GNU `-M` / `--print-map`: write a link map to stdout.
+    pub print_map: bool,
+
     /// If set, and we're writing GC stats, then ignore any input files that contain any of the
     /// specified substrings.
     pub gc_stats_ignore: Vec<String>,
@@ -96,7 +102,28 @@ pub struct ElfArgs {
     pub verbose_gc_stats: bool,
 
     pub dependency_file: Option<PathBuf>,
-    pub execstack: bool,
+    /// `-z execstack` / `-z noexecstack`. Default infers from input `.note.GNU-stack`.
+    pub execstack_mode: ExecStackMode,
+    /// Set when an input `.note.GNU-stack` has `SHF_EXECINSTR`.
+    pub inputs_request_execstack: AtomicBool,
+    /// GNU `--error-execstack`. Default on so an inferred executable stack is an error unless
+    /// `-z execstack` or `--no-error-execstack` is given.
+    pub error_execstack: bool,
+    /// GNU `--warn-execstack`.
+    pub warn_execstack: bool,
+    /// GNU `--warn-rwx-segments` (default on) / `--no-warn-rwx-segments`.
+    pub warn_rwx_segments: bool,
+    /// GNU `--warn-common`.
+    pub warn_common: bool,
+    /// GNU `--undefined-version` (default) / `--no-undefined-version`.
+    pub allow_undefined_version: bool,
+    /// GNU `--sort-common` / `--sort-common=ascending|descending`. Commons are already bucketed
+    /// by alignment (GNU descending); the value is stored for compatibility.
+    pub sort_common: Option<SortCommonOrder>,
+    /// GNU `--nostdlib`. ELF has no built-in library search paths, so this is currently a no-op.
+    pub nostdlib: bool,
+    /// GNU `--stats`.
+    pub print_stats: bool,
     pub got_plt_syms: bool,
     pub b_symbolic: BSymbolicKind,
     pub relax: bool,
@@ -144,6 +171,25 @@ pub struct ElfArgs {
 pub enum SortSectionMode {
     Name,
     Alignment,
+}
+
+/// GNU `-z execstack` / `-z noexecstack`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExecStackMode {
+    /// Infer from input `.note.GNU-stack` sections.
+    #[default]
+    Infer,
+    /// `-z execstack`
+    ForceYes,
+    /// `-z noexecstack`
+    ForceNo,
+}
+
+/// GNU `--sort-common[=ascending|descending]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortCommonOrder {
+    Ascending,
+    Descending,
 }
 
 #[derive(Debug)]
@@ -294,13 +340,24 @@ impl Default for ElfArgs {
             version_script_path: None,
             should_write_eh_frame_hdr: false,
             write_gc_stats: None,
+            map_file: None,
+            print_map: false,
             wrap: Vec::new(),
             gc_stats_ignore: Vec::new(),
             verbose_gc_stats: false,
             rpath: None,
             soname: None,
             enable_new_dtags: true,
-            execstack: false,
+            execstack_mode: ExecStackMode::Infer,
+            inputs_request_execstack: AtomicBool::new(false),
+            error_execstack: true,
+            warn_execstack: false,
+            warn_rwx_segments: true,
+            warn_common: false,
+            allow_undefined_version: true,
+            sort_common: None,
+            nostdlib: false,
+            print_stats: false,
             needs_origin_handling: false,
             needs_nodelete_handling: false,
             should_write_linker_identity: true,
@@ -551,6 +608,50 @@ impl platform::Args for ElfArgs {
 
     fn verbose_gc_stats(&self) -> bool {
         self.verbose_gc_stats
+    }
+
+    fn map_file(&self) -> Option<&Path> {
+        self.map_file.as_deref()
+    }
+
+    fn print_map(&self) -> bool {
+        self.print_map
+    }
+
+    fn warn_common(&self) -> bool {
+        self.warn_common
+    }
+
+    fn warn_rwx_segments(&self) -> bool {
+        self.warn_rwx_segments
+    }
+
+    fn warn_execstack(&self) -> bool {
+        self.warn_execstack
+    }
+
+    fn output_has_execstack(&self) -> bool {
+        match self.execstack_mode {
+            ExecStackMode::ForceYes => true,
+            ExecStackMode::ForceNo => false,
+            ExecStackMode::Infer => self.inputs_request_execstack.load(Ordering::Relaxed),
+        }
+    }
+
+    fn note_executable_stack_request(&self) {
+        self.inputs_request_execstack.store(true, Ordering::Relaxed);
+    }
+
+    fn error_on_inferred_execstack(&self) -> bool {
+        self.error_execstack && matches!(self.execstack_mode, ExecStackMode::Infer)
+    }
+
+    fn allow_undefined_version(&self) -> bool {
+        self.allow_undefined_version
+    }
+
+    fn print_stats(&self) -> bool {
+        self.print_stats
     }
 
     fn rosegment(&self) -> bool {
@@ -1339,7 +1440,7 @@ mod tests {
 
     #[test]
     fn test_gcc15_gnu_ld_flags_parse() {
-        parse_args([
+        let args = parse_args([
             "--no-error-execstack",
             "--warn-execstack",
             "-z",
@@ -1349,6 +1450,64 @@ mod tests {
             "-z",
             "pack-relative-relocs",
         ]);
+        assert!(!args.error_execstack);
+        assert!(args.warn_execstack);
+        assert!(args.warn_rwx_segments);
+        assert!(args.allow_undefined_version);
+    }
+
+    #[test]
+    fn test_gnu_compat_flags_parse() {
+        use super::{ExecStackMode, SortCommonOrder};
+
+        let args = parse_args([
+            "--nostdlib",
+            "--no-undefined-version",
+            "--fatal-warnings",
+            "--color-diagnostics=never",
+            "--sort-common=ascending",
+            "--stats",
+            "--verbose",
+            "--warn-common",
+            "--no-warn-rwx-segments",
+            "--error-execstack",
+            "--no-warn-execstack",
+            "-z",
+            "execstack",
+        ]);
+        assert!(args.nostdlib);
+        assert!(!args.allow_undefined_version);
+        assert!(args.common.fatal_warnings);
+        assert_eq!(args.sort_common, Some(SortCommonOrder::Ascending));
+        assert!(args.print_stats);
+        assert!(args.trace);
+        assert!(args.warn_common);
+        assert!(!args.warn_rwx_segments);
+        assert!(args.error_execstack);
+        assert!(!args.warn_execstack);
+        assert_eq!(args.execstack_mode, ExecStackMode::ForceYes);
+        assert!(args.output_has_execstack());
+
+        let descending = parse_args([
+            "--sort-common",
+            "--undefined-version",
+            "--no-fatal-warnings",
+        ]);
+        assert_eq!(descending.sort_common, Some(SortCommonOrder::Descending));
+        assert!(descending.allow_undefined_version);
+        assert!(!descending.common.fatal_warnings);
+
+        let noexec = parse_args(["-z", "noexecstack"]);
+        assert_eq!(noexec.execstack_mode, ExecStackMode::ForceNo);
+        assert!(!noexec.output_has_execstack());
+
+        let err = parse_args_err(["--color-diagnostics=rainbow"]).to_string();
+        assert!(err.contains("color-diagnostics"), "{err}");
+        let err = parse_args_err(["--sort-common=sideways"]).to_string();
+        assert!(err.contains("sort-common"), "{err}");
+
+        // `--color-diagnostics` is process-wide; restore the default for other tests in this binary.
+        colored::control::unset_override();
     }
 
     #[test]
@@ -1364,6 +1523,10 @@ mod tests {
         ]);
         assert_eq!(args.init_symbol.as_deref(), Some("numa_init"));
         assert_eq!(args.fini_symbol.as_deref(), Some("numa_exit"));
+        assert_eq!(
+            args.map_file.as_deref(),
+            Some(std::path::Path::new("busybox_unstripped.map"))
+        );
         assert!(
             args.common.inputs.is_empty(),
             "-Map path must be consumed as an option argument, not an input file"
@@ -1372,6 +1535,11 @@ mod tests {
         let equals = parse_args(["--init=my_init", "--fini=my_fini", "-Map=out.map", "-M"]);
         assert_eq!(equals.init_symbol.as_deref(), Some("my_init"));
         assert_eq!(equals.fini_symbol.as_deref(), Some("my_fini"));
+        assert_eq!(
+            equals.map_file.as_deref(),
+            Some(std::path::Path::new("out.map"))
+        );
+        assert!(equals.print_map);
         assert!(equals.common.inputs.is_empty());
     }
 }

@@ -90,10 +90,43 @@
 //#NoSym:this_function_is_not_used
 //#AssertOutputFileMatches:gc-stats.txt:Discarded .* of executable code
 
+//#Config:map-file:default
+//#ReferenceLinkers:
+//#Object:runtime.c
+//#LinkArgs:-Map=$OUT_DIR/link.map
+//#AssertOutputFileMatches:link.map:Linker script and memory map
+//#AssertOutputFileMatches:link.map:_start
+//#AssertOutputFileMatches:link.map:\.text
+
 //#Config:unsupported-z-flag
 //#Object:runtime.c
 //#LinkArgs:-z foobar
 //#ExpectWarning:warning.*foobar
+
+//#Config:verbose:default
+//#ReferenceLinkers:
+//#Object:runtime.c
+//#LinkArgs:--verbose
+//#ExpectMessage:runtime
+
+//#Config:stats:default
+//#ReferenceLinkers:
+//#Object:runtime.c
+//#LinkArgs:--stats --color-diagnostics=never --sort-common --nostdlib
+//#ExpectWarningWild:wild: stats:
+
+//#Config:undefined-version-ok:default
+//#ReferenceLinkers:
+//#Object:runtime.c
+//#LinkArgs:--shared --undefined-version --version-script=./unused-version-symbol.map
+//#RunEnabled:false
+//#DiffEnabled:false
+
+//#Config:no-undefined-version:default
+//#ReferenceLinkers:
+//#Object:runtime.c
+//#LinkArgs:--shared --no-undefined-version --version-script=./unused-version-symbol.map
+//#ExpectErrorWild:symbol not defined
 
 #include "../common/runtime.h"
 

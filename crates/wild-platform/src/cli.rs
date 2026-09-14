@@ -118,6 +118,16 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
         false
     }
 
+    /// GNU `-Map=FILE`.
+    fn map_file(&self) -> Option<&Path> {
+        None
+    }
+
+    /// GNU `-M` / `--print-map`.
+    fn print_map(&self) -> bool {
+        false
+    }
+
     fn should_strip_debug(&self) -> bool;
 
     fn should_strip_all(&self) -> bool;
@@ -301,6 +311,44 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     fn is_ignored_flag(&self, _flag: &str) -> bool;
 
     fn warning(&self, message: impl Into<String>);
+
+    /// GNU `--warn-common`: warn when merging multiple commons or when a common is overridden.
+    fn warn_common(&self) -> bool {
+        false
+    }
+
+    /// GNU `--warn-rwx-segments` (default on): warn about W+X LOAD segments / RWX input sections.
+    fn warn_rwx_segments(&self) -> bool {
+        true
+    }
+
+    /// GNU `--warn-execstack`: warn when the output stack is executable.
+    fn warn_execstack(&self) -> bool {
+        false
+    }
+
+    /// Whether the output `PT_GNU_STACK` should be marked executable.
+    fn output_has_execstack(&self) -> bool {
+        false
+    }
+
+    /// Record that an input `.note.GNU-stack` requested an executable stack.
+    fn note_executable_stack_request(&self) {}
+
+    /// Error when an input requests an executable stack and `-z execstack` was not given.
+    fn error_on_inferred_execstack(&self) -> bool {
+        false
+    }
+
+    /// GNU `--undefined-version`: allow version-script names that never match a defined symbol.
+    fn allow_undefined_version(&self) -> bool {
+        true
+    }
+
+    /// GNU `--stats`: print a brief link summary after a successful link.
+    fn print_stats(&self) -> bool {
+        false
+    }
 
     fn incremental(&self) -> bool {
         false

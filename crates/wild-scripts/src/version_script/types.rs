@@ -449,6 +449,23 @@ impl<'data> RegularVersionScript<'data> {
         self.versions.iter()
     }
 
+    /// Exact (non-glob) symbol names listed in the version script, with the version they are
+    /// assigned to. Used by `--no-undefined-version`.
+    pub fn exact_symbol_assignments(
+        &self,
+    ) -> impl Iterator<Item = (&'data [u8], &PreHashed<UnversionedSymbolName<'data>>)> {
+        self.versions.iter().flat_map(|version| {
+            let ver_name = version.name;
+            let body = &version.version_body;
+            body.globals
+                .general
+                .exact
+                .iter()
+                .chain(body.locals.general.exact.iter())
+                .map(move |name| (ver_name, name))
+        })
+    }
+
     pub fn version_for_symbol(
         &self,
         name: &PreHashed<UnversionedSymbolName>,

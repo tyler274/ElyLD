@@ -126,8 +126,21 @@ pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
     parser
         .declare_with_param()
         .long("Map")
-        .help("Write a link map to the specified file (not yet supported)")
-        .execute(|_args, _modifier_stack, _value| Ok(()));
+        .help("Print a link map to the specified file")
+        .execute(|args, _modifier_stack, value| {
+            args.map_file = Some(PathBuf::from(value));
+            Ok(())
+        });
+
+    parser
+        .declare()
+        .long("print-map")
+        .short("M")
+        .help("Print a link map to the standard output")
+        .execute(|args, _modifier_stack| {
+            args.print_map = true;
+            Ok(())
+        });
 
     parser
         .declare_with_param()

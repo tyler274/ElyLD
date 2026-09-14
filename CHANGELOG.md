@@ -50,6 +50,8 @@ possible to use libwild with input and output files in memory.
 - Evaluate the modulo operator in linker scripts (#2292)
 - Implement `OUTPUT_FORMAT` and `OUTPUT_ARCH` in linker scripts (#2295)
 - Implement `SORT_BY_NAME` and `SORT_BY_ALIGNMENT` (#2296)
+- Write GNU-style linker maps for `-Map` / `--print-map`
+- Honour GNU ld `--fatal-warnings`, `--warn-common`, `--warn-rwx-segments`, `--warn-execstack`, `--error-execstack`, `--undefined-version`, `--verbose`, `--stats`, `--color-diagnostics`, `--sort-common`, and `--nostdlib`
 
 ### ⚡ Performance
 

@@ -46,7 +46,9 @@ pub(crate) fn write_program_headers<C: ElfClass>(
 
         // Support executable stack (Wild defaults to non-executable stack)
         let mut segment_flags = segment_details.segment_flags;
-        if layout.program_segments.is_stack_segment(segment_id) && layout.args().execstack {
+        if layout.program_segments.is_stack_segment(segment_id)
+            && layout.args().output_has_execstack()
+        {
             segment_flags |= pf::EXECUTABLE;
         }
 

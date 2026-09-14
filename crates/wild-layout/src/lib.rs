@@ -9,6 +9,7 @@ pub mod grouping;
 pub mod incremental;
 pub mod input_data;
 pub mod layout_rules;
+pub mod map;
 pub mod output_section_id;
 pub mod output_section_part_map;
 pub mod output_trace;
@@ -37,7 +38,9 @@ use std::sync::Mutex;
 use wild_error::error::{Context, Result};
 use wild_platform::output_section_map::OutputSectionMap;
 use wild_platform::value_flags::PerSymbolFlags;
-use wild_platform::{Arch, Args as _, FileId, ObjectFile, Platform, SectionAttributes as _};
+use wild_platform::{
+    Arch, Args as _, FileId, ObjectFile, Platform, ProgramSegmentDef as _, SectionAttributes as _,
+};
 
 pub mod addresses;
 mod diagnostics;
@@ -588,7 +591,35 @@ where
 
     P::maybe_compress_debug_sections::<A>(&mut layout)?;
 
+    warn_execstack_and_rwx(&layout);
+
     Ok(layout)
+}
+
+fn warn_execstack_and_rwx<P: EnginePlatform>(layout: &Layout<P>) {
+    if layout.args().should_output_partial_object() {
+        return;
+    }
+
+    if layout.args().warn_rwx_segments() {
+        for segment in &layout.segment_layouts.segments {
+            let def = *layout.program_segments.segment_def(segment.id);
+            if def.is_loadable() && def.is_writable() && def.is_executable() {
+                layout
+                    .symbol_db
+                    .warning("created a writable and executable LOAD segment");
+            }
+            if def.is_tls() && def.is_executable() {
+                layout
+                    .symbol_db
+                    .warning("created an executable TLS segment");
+            }
+        }
+    }
+
+    if layout.args().output_has_execstack() && layout.args().warn_execstack() {
+        layout.symbol_db.warning("creating an executable stack");
+    }
 }
 
 pub fn objects_iter<'groups, 'data, P: EnginePlatform>(

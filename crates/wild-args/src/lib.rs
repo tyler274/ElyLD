@@ -32,6 +32,9 @@ macro_rules! impl_platform_args_from_common {
 
         fn warning(&self, message: impl Into<String>) {
             (self.common.warning_callback)(wild_error::error::Warning::new(message.into()));
+            self.common
+                .warning_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
 
         fn incremental(&self) -> bool {

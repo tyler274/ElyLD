@@ -1,0 +1,6 @@
+{
+    global:
+        this_symbol_is_not_defined;
+    local:
+        *;
+};

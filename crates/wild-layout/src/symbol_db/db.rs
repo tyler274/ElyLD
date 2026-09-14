@@ -936,6 +936,54 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
         self.args.warning(message);
     }
 
+    /// GNU `--no-undefined-version`: exact version-script names must name a defined symbol.
+    pub fn check_undefined_version_script_symbols(&self) -> Result {
+        if self.args.allow_undefined_version() {
+            return Ok(());
+        }
+
+        let mut missing = Vec::new();
+        match &self.version_script {
+            VersionScript::Regular(script) => {
+                for (version, name) in script.exact_symbol_assignments() {
+                    let defined = self
+                        .get_unversioned(name)
+                        .is_some_and(|id| !self.is_undefined(id));
+                    if !defined {
+                        missing.push((version, name.bytes()));
+                    }
+                }
+            }
+            VersionScript::Rust(script) => {
+                for name in &script.global {
+                    let hashed = UnversionedSymbolName::prehashed(name);
+                    let defined = self
+                        .get_unversioned(&hashed)
+                        .is_some_and(|id| !self.is_undefined(id));
+                    if !defined {
+                        missing.push((b"", *name));
+                    }
+                }
+            }
+        }
+
+        missing.sort_by_key(|&(ver, name)| (ver, name));
+        missing.dedup();
+
+        if let Some(&(version, name)) = missing.first() {
+            let version = if version.is_empty() {
+                String::from("(global)")
+            } else {
+                String::from_utf8_lossy(version).into_owned()
+            };
+            wild_error::bail!(
+                "version script assignment of {version} to symbol {} failed: symbol not defined",
+                String::from_utf8_lossy(name)
+            );
+        }
+        Ok(())
+    }
+
     pub fn part_id_for_symbol(&self, symbol_id: SymbolId) -> PartId {
         let file_id = self.file_id_for_symbol(symbol_id);
         let file = self.file(file_id);
