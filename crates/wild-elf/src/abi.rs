@@ -2002,7 +2002,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn verify_allowed_input_section_name(name: &[u8]) -> Result {
-        if name.starts_with(secnames::GNU_LTO_SYMTAB_PREFIX.as_bytes()) {
+        if name.starts_with(secnames::GNU_LTO_SECTION_PREFIX.as_bytes()) {
+            // Fat LTO objects linked without `--plugin` discard these in layout.
+            // Slim IR that reached here was not claimed by a plugin.
             if cfg!(all(feature = "plugins", unix)) {
                 bail!("Found GCC LTO input that we didn't supply to linker plugin");
             }

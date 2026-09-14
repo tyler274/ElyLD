@@ -147,7 +147,7 @@
 //#DiffIgnore:section-diff-failed..text
 //#DoesNotContain: foo
 
-// Fat LTO objects linked without -flto on the link line (native ELF, or IR if claimed).
+// Fat LTO objects linked without -flto on the link line (native ELF).
 //#Config:gcc-fat-native:default
 //#Compiler:gcc
 //#CompArgs:-flto -ffat-lto-objects -O1
@@ -155,6 +155,17 @@
 //#Object:linker-plugin-lto-2.c
 //#LinkArgs:-nostdlib -znow
 //#ReferenceLinkers:
+//#DiffEnabled:false
+
+// CPython `_bootstrap_python`: objects compiled `-flto -ffat-lto-objects`,
+// linked with `-fno-lto` so collect2 does not pass `--plugin`.
+//#Config:gcc-fat-fno-lto:default
+//#Compiler:gcc
+//#CompArgs:-flto -ffat-lto-objects -O1
+//#LinkerDriver:gcc
+//#LinkArgs:-Wl,-znow -fno-lto -nostdlib
+//#Object:runtime.c
+//#Object:linker-plugin-lto-2.c
 //#DiffEnabled:false
 
 //#Config:clang-fat-native:default

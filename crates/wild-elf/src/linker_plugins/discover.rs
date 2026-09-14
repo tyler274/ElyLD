@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use wild_error::error::Result;
 
 pub(super) fn discover_llvm_gold_plugin() -> Result<PathBuf> {
@@ -45,16 +45,51 @@ pub(super) fn discover_llvm_gold_plugin() -> Result<PathBuf> {
 }
 
 pub(super) fn discover_gcc_lto_plugin() -> Result<PathBuf> {
-    for compiler in ["gcc", "cc"] {
-        if let Some(path) = command_stdout_trim(compiler, &["-print-file-name=liblto_plugin.so"])
-            && Path::new(&path).is_file()
-        {
-            return Ok(PathBuf::from(path));
+    let mut compilers = Vec::new();
+    if let Ok(cc) = std::env::var("CC")
+        && let Some(first) = cc.split_whitespace().next()
+        && !first.is_empty()
+    {
+        compilers.push(first.to_owned());
+    }
+    for name in ["gcc", "cc", "g++"] {
+        if !compilers.iter().any(|c| c == name) {
+            compilers.push(name.to_owned());
+        }
+    }
+
+    for compiler in &compilers {
+        if let Some(path) = gcc_plugin_from_compiler(compiler) {
+            return Ok(path);
         }
     }
     wild_error::bail!(
         "Input file contains GCC-IR, but linker plugin was not supplied and liblto_plugin.so could not be found"
     )
+}
+
+fn gcc_plugin_from_compiler(compiler: &str) -> Option<PathBuf> {
+    if let Some(path) = command_stdout_trim(compiler, &["-print-file-name=liblto_plugin.so"]) {
+        let p = PathBuf::from(&path);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    // Nix/wrapped gcc often reports the bare name for `-print-file-name=liblto_plugin.so`
+    // even when the plugin sits next to `cc1` / `lto-wrapper` in libexec.
+    for probe in ["cc1", "lto-wrapper"] {
+        let arg = format!("-print-file-name={probe}");
+        if let Some(path) = command_stdout_trim(compiler, &[&arg]) {
+            let p = PathBuf::from(path);
+            if p.is_file() {
+                let plugin = p.parent()?.join("liblto_plugin.so");
+                if plugin.is_file() {
+                    return Some(plugin);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn rustc_llvm_version() -> Option<u32> {

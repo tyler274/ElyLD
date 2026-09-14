@@ -737,9 +737,18 @@ impl<'data, P: LoadPlatform, F: FileSystem> TemporaryState<'data, P, F> {
         &self,
         input_ref: InputRef<'data>,
         file: Option<&Arc<std::fs::File>>,
-        kind: FileKind,
+        mut kind: FileKind,
     ) -> Result<InputRecord<'data, P>> {
         let data = input_ref.data();
+
+        if kind.is_compiler_ir()
+            && !self.args.has_linker_plugin()
+            && crate::file_kind::is_fat_lto_object(data)
+        {
+            // GNU ld uses the native ELF in `-ffat-lto-objects` files when the
+            // driver omits `--plugin` (`gcc -fno-lto`, CPython `_bootstrap_python`).
+            kind = FileKind::ElfObject;
+        }
 
         // The plugin API docs say to pass files to the plugin before the linker tries to identify
         // the them. Unfortunately the plugin API doesn't provide a fast way to identify files. The

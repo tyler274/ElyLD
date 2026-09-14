@@ -118,6 +118,46 @@ fn is_gcc_bitcode(data: &[u8], header: &FileHeader64<LittleEndian>) -> Option<bo
     Some(memchr::memmem::find(strings, b"\0.gnu.lto_.").is_some())
 }
 
+/// `-ffat-lto-objects` files contain both IL and native ELF. GNU ld uses the
+/// native side when no linker plugin is supplied.
+pub(crate) fn is_fat_lto_object(data: &[u8]) -> bool {
+    if !cfg!(all(feature = "plugins", unix)) {
+        return false;
+    }
+    if !data.starts_with(&object::elf::ELFMAG) {
+        return false;
+    }
+    const HEADER_LEN: usize = size_of::<FileHeader64<LittleEndian>>();
+    if data.len() < HEADER_LEN {
+        return false;
+    }
+    let header: &FileHeader64<LittleEndian> = object::from_bytes(&data[..HEADER_LEN]).unwrap().0;
+    if header.e_type.get(LittleEndian) != object::elf::ET_REL {
+        return false;
+    }
+    let e = LittleEndian;
+    let Ok(sections) = header.sections(e, data) else {
+        return false;
+    };
+    let alloc = object::elf::SHF_ALLOC;
+    for section in sections.iter() {
+        if !section.sh_flags(e).contains(alloc) {
+            continue;
+        }
+        if section.sh_type(e) == SHT_LLVM_LTO {
+            continue;
+        }
+        let Ok(name) = sections.section_name(e, section) else {
+            continue;
+        };
+        if name.starts_with(b".gnu.lto_") || name == b".llvmbc" || name == b".llvm.lto" {
+            continue;
+        }
+        return true;
+    }
+    false
+}
+
 // TODO: Use object crate once a new version is up.
 const SHT_LLVM_LTO: object::elf::SectionType = object::elf::SectionType(0x6fff4c0c);
 

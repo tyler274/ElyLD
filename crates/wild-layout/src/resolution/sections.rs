@@ -462,6 +462,14 @@ fn resolve_section<'data, P: EnginePlatform>(
         .section_name(input_section_index)
         .unwrap_or_default();
 
+    if section_name.starts_with(b".gnu.lto_")
+        || section_name == b".llvmbc"
+        || section_name == b".llvm.lto"
+    {
+        // Leftover compiler IL in `-ffat-lto-objects` files linked without a plugin.
+        return Ok((SectionSlot::Discard, crate::part_id::UNMAPPED));
+    }
+
     P::verify_allowed_input_section_name(section_name)?;
 
     let raw_alignment = obj.common.object.section_alignment(input_section)?;
