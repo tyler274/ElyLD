@@ -828,6 +828,10 @@ impl platform::Args for ElfArgs {
         IGNORED_FLAGS.contains(&flag)
     }
 
+    fn has_linker_plugin(&self) -> bool {
+        self.plugin_path.is_some()
+    }
+
     fn should_export_all_dynamic_symbols(&self) -> bool {
         self.export_all_dynamic_symbols
     }

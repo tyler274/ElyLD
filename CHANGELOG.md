@@ -116,6 +116,7 @@ possible to use libwild with input and output files in memory.
 - OR GNU property notes within file before ANDing across files (#2309)
 - Allocate `--sort-section` dynamic relocs on the epilogue group that writes them
 - Honour GNU `-init`/`-fini` for `DT_INIT`/`DT_FINI` and accept `--warn-common`/`-Map`
+- Use native ELF in `-ffat-lto-objects` files when the driver omits `--plugin`
 
 ### 📚 Documentation
 

@@ -310,6 +310,12 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
 
     fn is_ignored_flag(&self, _flag: &str) -> bool;
 
+    /// Whether the driver passed `--plugin`. Fat LTO objects are used as native
+    /// ELF when this is false, matching GNU ld with `gcc -fno-lto`.
+    fn has_linker_plugin(&self) -> bool {
+        false
+    }
+
     fn warning(&self, message: impl Into<String>);
 
     /// GNU `--warn-common`: warn when merging multiple commons or when a common is overridden.
