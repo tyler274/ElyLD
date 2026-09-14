@@ -148,6 +148,16 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
 
     fn entry_point<'a>(&'a self, linker_script_entry: Option<&'a [u8]>) -> EntryPoint<'a>;
 
+    /// GNU `-init` / `--init`: symbol whose address is written as `DT_INIT`.
+    fn dt_init_symbol_name(&self) -> Option<&[u8]> {
+        None
+    }
+
+    /// GNU `-fini` / `--fini`: symbol whose address is written as `DT_FINI`.
+    fn dt_fini_symbol_name(&self) -> Option<&[u8]> {
+        None
+    }
+
     fn version_script_path(&self) -> Option<&Path> {
         None
     }
