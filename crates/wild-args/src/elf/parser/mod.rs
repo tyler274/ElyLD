@@ -30,6 +30,10 @@ pub(super) const SILENTLY_IGNORED_FLAGS: &[&str] = &[
     "sort-common",
     "stats",
     "verbose",
+    // Busybox / GNU ld warning-only flags.
+    "warn-common",
+    "no-warn-common",
+    "print-map",
     // Kernel vmlinux.lds / Makefile flags that we do not implement yet.
     "no-warn-rwx-segments",
     "warn-rwx-segments",
@@ -42,6 +46,8 @@ pub(super) const SILENTLY_IGNORED_FLAGS: &[&str] = &[
 const SILENTLY_IGNORED_SHORT_FLAGS: &[&str] = &[
     "(",
     ")",
+    // GNU `-M` / `--print-map`: write a link map to stdout.
+    "M",
     // On Illumos, the Clang driver inserts a meaningless -C flag before calling any non-GNU ld
     // linker.
     #[cfg(target_os = "illumos")]

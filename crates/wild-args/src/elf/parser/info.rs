@@ -107,6 +107,30 @@ pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
 
     parser
         .declare_with_param()
+        .long("init")
+        .help("Set DT_INIT to the address of the specified symbol")
+        .execute(|args, _modifier_stack, value| {
+            args.init_symbol = Some(value.to_owned());
+            Ok(())
+        });
+
+    parser
+        .declare_with_param()
+        .long("fini")
+        .help("Set DT_FINI to the address of the specified symbol")
+        .execute(|args, _modifier_stack, value| {
+            args.fini_symbol = Some(value.to_owned());
+            Ok(())
+        });
+
+    parser
+        .declare_with_param()
+        .long("Map")
+        .help("Write a link map to the specified file (not yet supported)")
+        .execute(|_args, _modifier_stack, _value| Ok(()));
+
+    parser
+        .declare_with_param()
         .long("wild-experiments")
         .help("List of numbers. Used to tweak internal parameters. '_' keeps default value.")
         .execute(|args, _modifier_stack, value| {

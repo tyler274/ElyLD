@@ -16,7 +16,7 @@ use rayon::Scope;
 use wild_error::debug_assert_bail;
 use wild_error::error::{Context as _, Result};
 use wild_platform::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
-use wild_platform::{FileId, ObjectFile, PRELUDE_FILE_ID, Platform, Symbol as _};
+use wild_platform::{Args as _, FileId, ObjectFile, PRELUDE_FILE_ID, Platform, Symbol as _};
 use wild_scripts::linker_script::Expression;
 use wild_util::hash::{PassThroughHashMap, PreHashed};
 
@@ -207,11 +207,19 @@ fn load_prelude<'scope, 'data, P: EnginePlatform>(
     resources: &'scope ResolutionResources<'data, 'scope, P>,
     scope: &Scope<'scope>,
 ) {
-    // The start symbol could be defined within an archive entry. If it is, then we need to load
-    // it. We don't currently store the resulting SymbolId, but instead look it up again during
-    // layout. Skip when there is no entry (e.g. Wasm `--no-entry`).
-    if let Some(entry_name) = resources.symbol_db.entry_symbol_name() {
-        let symbol_id = load_symbol_named(resources, &mut SymbolId::undefined(), entry_name, scope);
+    // The start / DT_INIT / DT_FINI symbols could be defined within an archive entry. If they
+    // are, then we need to load them. We don't currently store the resulting SymbolId, but
+    // instead look them up again during layout. Skip when there is no entry (e.g. Wasm
+    // `--no-entry`).
+    for name in [
+        resources.symbol_db.entry_symbol_name(),
+        resources.symbol_db.args.dt_init_symbol_name(),
+        resources.symbol_db.args.dt_fini_symbol_name(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let symbol_id = load_symbol_named(resources, &mut SymbolId::undefined(), name, scope);
 
         if let Some(symbol_id) = symbol_id {
             resources

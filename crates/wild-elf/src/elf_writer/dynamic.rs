@@ -16,6 +16,7 @@ use wild_error::{bail, ensure, error};
 use wild_layout::file_writer::insufficient_allocation;
 use wild_layout::output_section_id::OutputSectionId;
 use wild_layout::output_section_part_map::OutputSectionPartMap;
+use wild_layout::symbol::UnversionedSymbolName;
 use wild_layout::symbol_db::SymbolId;
 use wild_layout::{DynamicLayout, EpilogueLayout, OutputRecordLayout, verbose_timing_phase};
 use wild_platform::output_section_map::OutputSectionMap;
@@ -62,6 +63,16 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
 
     let inputs = DynamicEntryInputs {
         args: layout.args(),
+        dt_init: dt_init_fini_address(
+            layout,
+            layout.args().init_symbol.as_deref(),
+            output_section_id::INIT,
+        ),
+        dt_fini: dt_init_fini_address(
+            layout,
+            layout.args().fini_symbol.as_deref(),
+            output_section_id::FINI,
+        ),
         has_static_tls: layout.has_static_tls,
         has_variant_pcs: layout.has_variant_pcs,
         section_layouts: &layout.merged_section_layouts,
@@ -244,13 +255,13 @@ pub(crate) const NUM_EPILOGUE_DYNAMIC_ENTRIES: usize = EPILOGUE_DYNAMIC_ENTRY_WR
 pub(crate) const EPILOGUE_DYNAMIC_ENTRY_WRITERS: &[DynamicEntryWriter] = &[
     DynamicEntryWriter::optional(
         object::elf::DT_INIT,
-        |inputs| inputs.has_data_in_section(output_section_id::INIT),
-        |inputs| inputs.vma_of_section(output_section_id::INIT),
+        |inputs| inputs.dt_init.is_some(),
+        |inputs| inputs.dt_init.unwrap_or(0),
     ),
     DynamicEntryWriter::optional(
         object::elf::DT_FINI,
-        |inputs| inputs.has_data_in_section(output_section_id::FINI),
-        |inputs| inputs.vma_of_section(output_section_id::FINI),
+        |inputs| inputs.dt_fini.is_some(),
+        |inputs| inputs.dt_fini.unwrap_or(0),
     ),
     DynamicEntryWriter::optional(
         object::elf::DT_INIT_ARRAY,
@@ -508,6 +519,8 @@ pub(crate) struct DynamicEntryWriter {
 
 pub(crate) struct DynamicEntryInputs<'layout> {
     pub(crate) args: &'layout ElfArgs,
+    pub(crate) dt_init: Option<u64>,
+    pub(crate) dt_fini: Option<u64>,
     pub(crate) has_static_tls: bool,
     pub(crate) has_variant_pcs: bool,
     pub(crate) section_layouts: &'layout OutputSectionMap<OutputRecordLayout>,
@@ -571,6 +584,28 @@ impl DynamicEntryInputs<'_> {
     pub(crate) fn has_data_in_section(&self, id: OutputSectionId) -> bool {
         self.size_of_section(id) > 0
     }
+}
+
+/// GNU `-init`/`-fini` name a symbol for `DT_INIT`/`DT_FINI`. Otherwise use the `.init`/`.fini`
+/// section VMA when those sections have contents, matching previous Wild behaviour.
+fn dt_init_fini_address<C: ElfClass>(
+    layout: &ElfLayout<C>,
+    named: Option<&str>,
+    section_id: OutputSectionId,
+) -> Option<u64> {
+    if let Some(name) = named {
+        return named_symbol_address(layout, name.as_bytes());
+    }
+    let section = layout.merged_section_layouts.get(section_id);
+    (section.file_size > 0).then_some(section.mem_offset)
+}
+
+fn named_symbol_address<C: ElfClass>(layout: &ElfLayout<C>, name: &[u8]) -> Option<u64> {
+    let symbol_id = layout
+        .symbol_db
+        .get_unversioned(&UnversionedSymbolName::prehashed(name))?;
+    let symbol_id = layout.symbol_db.definition(symbol_id);
+    Some(layout.local_symbol_resolution(symbol_id)?.raw_value)
 }
 
 impl DynamicEntryWriter {

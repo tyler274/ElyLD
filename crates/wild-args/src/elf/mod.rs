@@ -59,6 +59,10 @@ pub struct ElfArgs {
     pub require_defined: Vec<String>,
     pub relro: bool,
     pub entry: Option<String>,
+    /// GNU `-init` / `--init`: address written as `DT_INIT`.
+    pub init_symbol: Option<String>,
+    /// GNU `-fini` / `--fini`: address written as `DT_FINI`.
+    pub fini_symbol: Option<String>,
     pub export_all_dynamic_symbols: bool,
     pub export_list: Vec<String>,
     pub export_list_path: Option<PathBuf>,
@@ -310,6 +314,8 @@ impl Default for ElfArgs {
             require_defined: Vec::new(),
             relro: true,
             entry: None,
+            init_symbol: None,
+            fini_symbol: None,
             b_symbolic: BSymbolicKind::None,
             export_all_dynamic_symbols: false,
             export_list: Vec::new(),
@@ -621,6 +627,14 @@ impl platform::Args for ElfArgs {
             );
         }
         platform::EntryPoint::Symbol(linker_script_entry.unwrap_or(b"_start"))
+    }
+
+    fn dt_init_symbol_name(&self) -> Option<&[u8]> {
+        self.init_symbol.as_deref().map(str::as_bytes)
+    }
+
+    fn dt_fini_symbol_name(&self) -> Option<&[u8]> {
+        self.fini_symbol.as_deref().map(str::as_bytes)
     }
 
     fn start_address_for_section(&self, section_name: SectionName) -> Option<u64> {
@@ -1335,5 +1349,29 @@ mod tests {
             "-z",
             "pack-relative-relocs",
         ]);
+    }
+
+    #[test]
+    fn test_init_fini_and_busybox_flags_parse() {
+        let args = parse_args([
+            "-init",
+            "numa_init",
+            "-fini",
+            "numa_exit",
+            "--warn-common",
+            "-Map",
+            "busybox_unstripped.map",
+        ]);
+        assert_eq!(args.init_symbol.as_deref(), Some("numa_init"));
+        assert_eq!(args.fini_symbol.as_deref(), Some("numa_exit"));
+        assert!(
+            args.common.inputs.is_empty(),
+            "-Map path must be consumed as an option argument, not an input file"
+        );
+
+        let equals = parse_args(["--init=my_init", "--fini=my_fini", "-Map=out.map", "-M"]);
+        assert_eq!(equals.init_symbol.as_deref(), Some("my_init"));
+        assert_eq!(equals.fini_symbol.as_deref(), Some("my_fini"));
+        assert!(equals.common.inputs.is_empty());
     }
 }

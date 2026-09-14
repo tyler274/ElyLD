@@ -72,6 +72,7 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
         }
 
         self.load_entry_point::<A>(resources, queue, scope);
+        self.load_dt_init_fini_symbols::<A>(resources, queue, scope);
         self.internal_symbols
             .load_force_undefined_symbols::<A>(resources, queue, scope);
 
@@ -133,17 +134,38 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
         let Some(entry_name) = resources.symbol_db.entry_symbol_name() else {
             return;
         };
-        let Some(symbol_id) = resources
+        // We'll emit a warning when writing the file if it's an executable and the symbol is
+        // missing.
+        self.entry_symbol_id = Self::load_gc_root_symbol::<A>(resources, queue, scope, entry_name);
+    }
+
+    fn load_dt_init_fini_symbols<'scope, A: Arch<Platform = P>>(
+        &self,
+        resources: &'scope GraphResources<'data, '_, P>,
+        queue: &mut LocalWorkQueue<P>,
+        scope: &Scope<'scope>,
+    ) {
+        for name in [
+            resources.symbol_db.args.dt_init_symbol_name(),
+            resources.symbol_db.args.dt_fini_symbol_name(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            Self::load_gc_root_symbol::<A>(resources, queue, scope, name);
+        }
+    }
+
+    fn load_gc_root_symbol<'scope, A: Arch<Platform = P>>(
+        resources: &'scope GraphResources<'data, '_, P>,
+        queue: &mut LocalWorkQueue<P>,
+        scope: &Scope<'scope>,
+        name: &[u8],
+    ) -> Option<SymbolId> {
+        let symbol_id = resources
             .symbol_db
-            .get_unversioned(&UnversionedSymbolName::prehashed(entry_name))
-        else {
-            // We'll emit a warning when writing the file if it's an executable.
-            return;
-        };
-
+            .get_unversioned(&UnversionedSymbolName::prehashed(name))?;
         let symbol_id = resources.symbol_db.definition(symbol_id);
-
-        self.entry_symbol_id = Some(symbol_id);
         let file_id = resources.symbol_db.file_id_for_symbol(symbol_id);
         let old_flags = resources
             .per_symbol_flags
@@ -157,6 +179,7 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
                 scope,
             );
         }
+        Some(symbol_id)
     }
 
     pub fn finalise_sizes(
