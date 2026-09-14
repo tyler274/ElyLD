@@ -112,6 +112,7 @@ possible to use libwild with input and output files in memory.
 - Skip mapping symbols in unloaded sections during relocatable link (#2305)
 - Do not store the section name of a section symbol in .strtab (#2310)
 - OR GNU property notes within file before ANDing across files (#2309)
+- Allocate `--sort-section` dynamic relocs on the epilogue group that writes them
 
 ### 📚 Documentation
 

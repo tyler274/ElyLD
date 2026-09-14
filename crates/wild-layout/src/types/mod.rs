@@ -481,6 +481,12 @@ pub struct DynamicLayout<'data, P: Platform> {
 pub struct CommonGroupState<'data, P: Platform> {
     pub mem_sizes: OutputSectionPartMap<u64>,
 
+    /// Dynamic-reloc / RELR space for `SectionSlot::Sorted` input sections.
+    /// Those sections are written by the epilogue (`--sort-section` / script
+    /// `SORT*`), so this map is merged into the epilogue group's `mem_sizes`
+    /// after the graph walk.
+    pub sorted_section_mem_sizes: OutputSectionPartMap<u64>,
+
     pub section_attributes: HashMap<OutputSectionId, P::SectionAttributes>,
 
     /// Dynamic symbols that need to be defined. Because of the ordering requirements for symbol
