@@ -333,7 +333,18 @@ pub fn create_internal_symbol_resolution<'data, P: EnginePlatform>(
         }
         SymbolPlacement::SectionEnd(section_id) => {
             let sec = resources.section_layouts.get(section_id);
-            sec.mem_offset + sec.mem_size
+            let end = sec.mem_offset + sec.mem_size;
+            // Executables: `_TLS_MODULE_BASE_` is used with TLSDESC + DTPOFF. The
+            // thread pointer sits at the alignment-rounded TLS end, which can be
+            // past the last `.tbss` byte (e.g. 64-byte-aligned doctest TLS). Putting
+            // the symbol at the unrounded end makes `__tls_init` write at TP-0x30.
+            if def_info.name == b"_TLS_MODULE_BASE_" {
+                resources.segment_layouts.tls_layout.as_ref().map_or(end, |seg| {
+                    seg.alignment.align_up(seg.mem_offset + seg.mem_size)
+                })
+            } else {
+                end
+            }
         }
         SymbolPlacement::SectionGroupEnd(section_id) => {
             let mut end = {

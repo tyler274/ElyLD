@@ -321,6 +321,7 @@
 //!
 //! section="section-name": Type: string. Asserts the name of the section in which the symbol is
 //! located. Use `ABS` for a symbol with `SHN_ABS`. Use `COMMON` for a symbol with `SHN_COMMON`.
+//! Use `UND` for a symbol with `SHN_UNDEF`.
 //!
 //! segment="segment-name": Type: string. Asserts the name of the segment containing the symbol's
 //! section. Requires that section is also specified.
@@ -6881,6 +6882,7 @@ where
             match sym.section() {
                 object::SymbolSection::Absolute if exp_name == "ABS" => {}
                 object::SymbolSection::Common if exp_name == "COMMON" => {}
+                object::SymbolSection::Undefined if exp_name == "UND" => {}
                 object::SymbolSection::Section(index) => {
                     let section = obj.section_by_index(index)?;
                     let section_name = section.name()?;
