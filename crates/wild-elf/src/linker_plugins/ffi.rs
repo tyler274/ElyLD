@@ -396,8 +396,15 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
             .get_unversioned(&UnversionedSymbolName::prehashed(real_name.as_bytes()))
             .map(|id| symbol_db.definition(id))
     } else {
+        // IR definitions must not be treated as preempted by a DSO with the same name.
+        // nix-store-tests links libgtest_main.so (which exports `main`) alongside an LTO
+        // `main`; reporting the DSO as prevailing makes GCC drop the IR `main` and CRT's
+        // GOT reloc has no resolution. Undefs may still resolve to dynamics.
         symbol_db
-            .get(&wild_layout::symbol::symbol_name_from_raw(&raw_name), true)
+            .get(
+                &wild_layout::symbol::symbol_name_from_raw(&raw_name),
+                sym.is_undefined(),
+            )
             .map(|id| symbol_db.definition(id))
     };
 

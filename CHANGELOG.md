@@ -122,6 +122,7 @@ possible to use libwild with input and output files in memory.
 - Copy undefined DSO symbols into `.symtab` as well as `.dynsym`
 - Place `_TLS_MODULE_BASE_` at the alignment-rounded TLS end on executables so TLSDESC+DTPOFF matches the thread pointer
 - Resolve `--wrap` after LTO to the codegen object, not the disabled IR input (nix-util `--wrap=__assert_fail`)
+- Keep LTO `main` as the prevailing definition so CRT GOT relocs do not point at a disabled IR input (nix-store-tests / libgtest_main.so)
 
 ### 📚 Documentation
 
