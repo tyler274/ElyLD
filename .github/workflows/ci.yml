@@ -163,7 +163,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          path: wild
+          path: elyld
 
       - name: Checkout NixOS flake
         uses: actions/checkout@v7
@@ -175,12 +175,12 @@ jobs:
       - name: Install Nix
         uses: nixbuild/nix-quick-install-action@v35
 
-      - name: Point Cyrene at this ElyLD
+      - name: Point Cyrene at this ElyLD and GitHub ElyMalloc
         working-directory: nixos
         run: |
           nix flake lock \
-            --override-input wild "path:${{ github.workspace }}/wild" \
-            --override-input mimalloc-rs github:tyler274/mimalloc
+            --override-input elyld "path:${{ github.workspace }}/elyld" \
+            --override-input elymalloc github:tyler274/ElyMalloc
 
       - name: Build Cyrene's elyld-ld
         working-directory: nixos
