@@ -430,8 +430,19 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
         }
     } else if symbol_id_range.contains(symbol_id) {
         let flags = per_symbol_flags.flags_for_symbol(symbol_id);
+        let is_wrap_impl = wrap_names.iter().any(|w| {
+            let wrap = format!("__wrap_{w}");
+            let real = format!("__real_{w}");
+            raw_name.name == w.as_bytes()
+                || raw_name.name == wrap.as_bytes()
+                || raw_name.name == real.as_bytes()
+        });
 
-        if flags.contains(ValueFlags::HAS_NON_IR_REF) {
+        // `--wrap` implementations must stay as globals in the LTO output. Relocs in codegen
+        // objects still name the original symbol; Wild remaps them after the IR inputs are
+        // disabled. If the plugin internalises a weak `__wrap_*`, those relocs have no
+        // resolution (nix-util `-Wl,--wrap=__assert_fail`).
+        if flags.contains(ValueFlags::HAS_NON_IR_REF) || is_wrap_impl {
             PluginSymbolResolution::PrevailingDef
         } else if flags.contains(ValueFlags::EXPORT_DYNAMIC) {
             PluginSymbolResolution::PrevailingDefIronlyExp
