@@ -339,9 +339,13 @@ pub fn create_internal_symbol_resolution<'data, P: EnginePlatform>(
             // past the last `.tbss` byte (e.g. 64-byte-aligned doctest TLS). Putting
             // the symbol at the unrounded end makes `__tls_init` write at TP-0x30.
             if def_info.name == b"_TLS_MODULE_BASE_" {
-                resources.segment_layouts.tls_layout.as_ref().map_or(end, |seg| {
-                    seg.alignment.align_up(seg.mem_offset + seg.mem_size)
-                })
+                resources
+                    .segment_layouts
+                    .tls_layout
+                    .as_ref()
+                    .map_or(end, |seg| {
+                        seg.alignment.align_up(seg.mem_offset + seg.mem_size)
+                    })
             } else {
                 end
             }
