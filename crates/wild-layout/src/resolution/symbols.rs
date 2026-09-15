@@ -215,6 +215,10 @@ fn load_prelude<'scope, 'data, P: EnginePlatform>(
         resources.symbol_db.entry_symbol_name(),
         resources.symbol_db.args.dt_init_symbol_name(),
         resources.symbol_db.args.dt_fini_symbol_name(),
+        // PIE/exec CRT (`Scrt1.o`) references `main` via GOT. If `main` is only in IR, the
+        // plugin must see a non-IR ref or it will internalise the symbol and the CRT reloc
+        // has no resolution (nix-store-tests).
+        Some(&b"main"[..]),
     ]
     .into_iter()
     .flatten()

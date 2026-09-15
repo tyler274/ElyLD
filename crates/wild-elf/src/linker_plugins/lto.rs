@@ -112,11 +112,19 @@ pub(crate) fn mark_wrap_symbols_as_non_ir_ref<'data, P: EnginePlatform>(
             format!("__wrap_{name}"),
             format!("__real_{name}"),
         ] {
-            if let Some(symbol_id) =
-                symbol_db.get_unversioned(&UnversionedSymbolName::prehashed(lookup_name.as_bytes()))
-            {
-                per_symbol_flags.set_flag(symbol_id, ValueFlags::HAS_NON_IR_REF);
-            }
+            mark_non_ir_ref(symbol_db, per_symbol_flags, lookup_name.as_bytes());
         }
+    }
+
+    mark_non_ir_ref(symbol_db, per_symbol_flags, b"main");
+}
+
+fn mark_non_ir_ref<'data, P: EnginePlatform>(
+    symbol_db: &SymbolDb<'data, P>,
+    per_symbol_flags: &mut PerSymbolFlags,
+    name: &[u8],
+) {
+    if let Some(symbol_id) = symbol_db.get_unversioned(&UnversionedSymbolName::prehashed(name)) {
+        per_symbol_flags.set_flag(symbol_id, ValueFlags::HAS_NON_IR_REF);
     }
 }

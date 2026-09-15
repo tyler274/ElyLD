@@ -722,6 +722,8 @@ impl<'db, 'data, P: Platform> SequencedInput<'db, 'data, P> {
         match self {
             SequencedInput::Object(o) => o.symbol_strength(symbol_id),
             SequencedInput::StubLibrary(o) => o.symbol_strength(symbol_id),
+            #[cfg(all(feature = "plugins", unix))]
+            SequencedInput::LtoInput(o) => o.symbol_strength(symbol_id),
             _ => SymbolStrength::Undefined,
         }
     }
