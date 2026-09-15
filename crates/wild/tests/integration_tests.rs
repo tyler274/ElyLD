@@ -3842,8 +3842,8 @@ fn get_c_compiler(
     cross_arch: Option<Architecture>,
 ) -> Result<String> {
     match (cross_arch, compiler, c_language) {
-        (None, "gcc", CLanguage::C) => Ok("gcc".to_string()),
-        (None, "gcc", CLanguage::Cpp) => Ok("g++".to_string()),
+        (None, "gcc" | "g++", CLanguage::C) => Ok("gcc".to_string()),
+        (None, "gcc" | "g++", CLanguage::Cpp) => Ok("g++".to_string()),
         (_, "clang", CLanguage::C) => Ok("clang".to_string()),
         (_, "clang", CLanguage::Cpp) => Ok("clang++".to_string()),
         (

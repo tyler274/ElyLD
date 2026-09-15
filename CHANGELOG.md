@@ -121,6 +121,7 @@ possible to use libwild with input and output files in memory.
 - Keep PT_DYNAMIC file offset in sync with `.dynamic` when compressing debug sections next to aligned `.tbss`
 - Copy undefined DSO symbols into `.symtab` as well as `.dynsym`
 - Place `_TLS_MODULE_BASE_` at the alignment-rounded TLS end on executables so TLSDESC+DTPOFF matches the thread pointer
+- Resolve `--wrap` after LTO to the codegen object, not the disabled IR input (nix-util `--wrap=__assert_fail`)
 
 ### 📚 Documentation
 

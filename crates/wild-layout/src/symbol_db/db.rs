@@ -436,10 +436,14 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
                 .get_unversioned(&UnversionedSymbolName::prehashed(real_name))
                 .or_else(|| self.get_unversioned(&UnversionedSymbolName::prehashed(name_bytes)));
 
-            let wrap_name = format!("__wrap_{name}");
-            if let Some(wrap_id) =
-                self.get_unversioned(&UnversionedSymbolName::prehashed(wrap_name.as_bytes()))
-            {
+            let wrap_name = allocator.alloc_slice_copy(format!("__wrap_{name}").as_bytes());
+            let wrap_id = self.get_unversioned(&UnversionedSymbolName::prehashed(wrap_name));
+
+            // After LTO, `__wrap_foo` in the name table still points at the IR input. Relocs
+            // against `foo` must use the codegen object; the IR input is disabled and has no
+            // resolution. Prefer that live definition, or a non-DSO definition of `foo` if the
+            // plugin emitted the wrapper under the original name.
+            if let Some(wrap_id) = self.select_wrap_definition(wrap_id, orig_id) {
                 self.override_name(UnversionedSymbolName::prehashed(name_bytes), wrap_id);
             }
 
@@ -447,6 +451,59 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
                 self.override_name(UnversionedSymbolName::prehashed(real_name), orig_id);
             }
         }
+    }
+
+    /// Picks a `--wrap` definition that will still exist after LTO inputs are disabled.
+    fn select_wrap_definition(
+        &self,
+        wrap_id: Option<SymbolId>,
+        orig_id: Option<SymbolId>,
+    ) -> Option<SymbolId> {
+        if wrap_id.is_none() {
+            return None;
+        }
+        if let Some(id) = wrap_id.and_then(|id| self.prefer_regular_object(id)) {
+            return Some(id);
+        }
+        // If the plugin emitted the wrapper under the original name, that definition shows up as a
+        // non-DSO alternative of `__real_foo`. Do not use `__real_foo` itself when it is already a
+        // regular object — that is the symbol being wrapped.
+        orig_id
+            .and_then(|id| {
+                if self.is_regular_object_symbol(id) {
+                    None
+                } else {
+                    self.first_regular_object_alternative(id)
+                }
+            })
+            .or(wrap_id)
+    }
+
+    fn prefer_regular_object(&self, symbol_id: SymbolId) -> Option<SymbolId> {
+        if self.is_regular_object_symbol(symbol_id) {
+            return Some(symbol_id);
+        }
+        self.first_regular_object_alternative(symbol_id)
+    }
+
+    fn first_regular_object_alternative(&self, first_id: SymbolId) -> Option<SymbolId> {
+        for bucket in &self.buckets {
+            let Some(alternatives) = bucket.alternative_definitions.get(&first_id) else {
+                continue;
+            };
+            return alternatives
+                .iter()
+                .copied()
+                .find(|&id| self.is_regular_object_symbol(id));
+        }
+        None
+    }
+
+    fn is_regular_object_symbol(&self, symbol_id: SymbolId) -> bool {
+        matches!(
+            self.file(self.file_id_for_symbol(symbol_id)),
+            SequencedInput::Object(obj) if !obj.is_dynamic()
+        )
     }
 
     /// Restores name-table entries for wrapped symbols to their original (pre-wrap) definitions.
