@@ -21,6 +21,8 @@ pub(crate) struct LinkerDefinedIndices {
     /// Index of `__stack_pointer` among the defined globals prepended by
     /// `emit_reserved_linker_definitions` (not the Wasm module global index).
     pub(crate) stack_pointer_defined_slot: Option<u32>,
+    /// Defined-global slot of `__tls_base` in the same prepended list.
+    pub(crate) tls_base_defined_slot: Option<u32>,
     pub(crate) call_ctors_func: Option<u32>,
     pub(crate) weak_undef_stubs: Vec<WeakUndefFunctionStub>,
     /// Linker-defined globals including GOT.mem.
@@ -126,6 +128,11 @@ impl LinkerDefinedIndices {
         // Defined-global slot before `__stack_pointer` (used for its init expression).
         let stack_pointer_defined_slot = needs_stack_pointer
             .then_some(u32::from(needs_memory_base) + u32::from(needs_table_base));
+        let tls_base_defined_slot = needs_tls_base.then_some(
+            u32::from(needs_memory_base)
+                + u32::from(needs_table_base)
+                + u32::from(needs_stack_pointer),
+        );
         let memory_base_global = needs_memory_base.then(|| {
             let idx = next_global;
             next_global += 1;
@@ -193,6 +200,7 @@ impl LinkerDefinedIndices {
             stack_pointer_global,
             tls_base_global,
             stack_pointer_defined_slot,
+            tls_base_defined_slot,
             call_ctors_func,
             weak_undef_stubs,
             num_defined_globals,

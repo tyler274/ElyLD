@@ -14,13 +14,14 @@ use rayon::prelude::*;
 use std::borrow::Cow;
 use std::ops::Range;
 use wasm_encoder::{NameMap, NameSection};
-use wasmparser::{BinaryReader, ConstExpr, DataKind, MemoryType, RelocationType};
+use wasmparser::{BinaryReader, ConstExpr, DataKind, MemoryType, RelocationType, SymbolFlags};
 use wild_error::error::{Context as _, Result};
 use wild_error::{bail, ensure};
 use wild_layout::part_id::PartId;
 use wild_layout::symbol_db::SymbolDb;
 use wild_layout::{timing_phase, verbose_timing_phase};
 use wild_platform::Args as _;
+use wild_util::alignment::Alignment;
 
 #[derive(Debug, Default)]
 pub struct WasmLayout<'data> {
@@ -35,6 +36,7 @@ pub struct WasmLayout<'data> {
     pub(crate) element_functions: Vec<u32>,
     pub(crate) function_table_slots: Vec<u32>,
     pub(crate) memory_base: u32,
+    pub(crate) tls_base: u32,
     pub(crate) data_end: u32,
     pub(crate) unsupported_output: Vec<&'static str>,
     pub(crate) object_index_maps: Vec<WasmObjectIndexMap>,
@@ -715,30 +717,93 @@ pub(crate) fn ensure_stack_size_aligned(stack_size: u32) -> Result {
     Ok(())
 }
 
+fn data_segment_original_index(input: &WasmObjectLayoutInput<'_>, filtered_idx: usize) -> u32 {
+    input
+        .data_segment_original_indices
+        .get(filtered_idx)
+        .copied()
+        .unwrap_or(filtered_idx as u32)
+}
+
+fn data_segment_alignment(input: &WasmObjectLayoutInput<'_>, original_index: u32) -> Alignment {
+    input
+        .segment_infos
+        .get(original_index as usize)
+        .map_or(wild_util::alignment::MIN, |info| info.alignment)
+}
+
+fn data_segment_is_tls(input: &WasmObjectLayoutInput<'_>, original_index: u32) -> bool {
+    if let Some(info) = input.segment_infos.get(original_index as usize) {
+        return info.is_tls();
+    }
+    input.symbols.iter().any(|sym| {
+        sym.kind == WasmSymbolKind::Data
+            && !sym.is_undefined()
+            && sym.index == original_index
+            && sym.raw_flags().contains(SymbolFlags::TLS)
+    })
+}
+
+pub(crate) fn input_has_tls_segments(input: &WasmObjectLayoutInput<'_>) -> bool {
+    (0..input.data_segments.len())
+        .any(|i| data_segment_is_tls(input, data_segment_original_index(input, i)))
+}
+
+pub(crate) fn max_tls_alignment(inputs: &[WasmObjectLayoutInput<'_>]) -> Alignment {
+    inputs
+        .iter()
+        .flat_map(|input| {
+            (0..input.data_segments.len()).filter_map(|i| {
+                let original_index = data_segment_original_index(input, i);
+                data_segment_is_tls(input, original_index)
+                    .then(|| data_segment_alignment(input, original_index))
+            })
+        })
+        .max()
+        .unwrap_or(wild_util::alignment::MIN)
+}
+
+/// `R_WASM_MEMORY_ADDR_TLS_*` is an offset from `__tls_base`. `abs_addr == 0` means the symbol is
+/// weak-undefined or its segment was GC'd. So do not use the local symbol's `UNDEFINED` flag, which
+/// is also set on cross-object references to a defined TLS symbol.
+fn tls_reloc_value(abs_addr: Option<u32>, tls_base: u32, addend: i64) -> Result<u32> {
+    let Some(abs_addr) = abs_addr else {
+        return Ok(0);
+    };
+    let offset = abs_addr.checked_sub(tls_base).ok_or_else(|| {
+        wild_error::error!(
+            "TLS relocation address 0x{abs_addr:x} is before TLS base 0x{tls_base:x}"
+        )
+    })?;
+    let value = i64::from(offset)
+        .checked_add(addend)
+        .ok_or_else(|| wild_error::error!("Wasm TLS relocation value overflow"))?;
+    let value = i32::try_from(value)
+        .map_err(|_| wild_error::error!("Wasm TLS relocation value out of range"))?;
+    Ok(value as u32)
+}
+
 pub(crate) fn layout_object_data<'data>(
     input: &WasmObjectLayoutInput<'data>,
     index_map: &WasmObjectIndexMap,
     memory_cursor: &mut u32,
+    want_tls: bool,
 ) -> Result<Vec<WasmDataSegmentLayout<'data>>> {
     let segment_reloc_ranges =
         classify_data_reloc_ranges(&input.data_segments, &input.data_relocations);
     let mut segments = Vec::with_capacity(input.data_segments.len());
     for (filtered_idx, segment) in input.data_segments.iter().enumerate() {
+        let original_index = data_segment_original_index(input, filtered_idx);
+        if data_segment_is_tls(input, original_index) != want_tls {
+            continue;
+        }
         let DataKind::Active { memory_index, .. } = segment.kind else {
             bail!("passive data segments are not emitted");
         };
         let output_memory_index =
             remap_wasm_index(&index_map.memory_indices, memory_index, "memory")?;
-        let original_index = input
-            .data_segment_original_indices
-            .get(filtered_idx)
-            .copied()
-            .unwrap_or(filtered_idx as u32);
         // Linking `SegmentInfo.alignment` is a power-of-two exponent.
-        let align = input
-            .segment_infos
-            .get(original_index as usize)
-            .map_or(wild_util::alignment::MIN, |info| info.alignment);
+        let align = data_segment_alignment(input, original_index);
         *memory_cursor = u32::try_from(align.align_up(u64::from(*memory_cursor)))
             .map_err(|_| wild_error::error!("Wasm data segment alignment overflow"))?;
         let output_memory_offset = *memory_cursor;
@@ -819,7 +884,7 @@ pub(crate) struct WasmObjectIndexMap {
     pub(crate) global_indices: Vec<u32>,
     pub(crate) memory_indices: Vec<u32>,
     pub(crate) table_indices: Vec<u32>,
-    pub(crate) data_addresses: Vec<u32>,
+    pub(crate) data_addresses: Vec<Option<u32>>,
     pub(crate) got_mem_globals: Vec<Option<u32>>,
     pub(crate) got_func_globals: Vec<Option<u32>>,
     pub(crate) function_symbol_redirects: Vec<Option<u32>>,
@@ -834,6 +899,7 @@ impl WasmObjectIndexMap {
         symbols: &[WasmSymbol],
         function_table_slots: &[u32],
         memory_base: u32,
+        tls_base: u32,
     ) -> Result<u32> {
         if reloc.ty == RelocationType::TypeIndexLeb {
             return remap_wasm_index(&self.type_indices, reloc.index, "type");
@@ -891,7 +957,8 @@ impl WasmObjectIndexMap {
             RelocationType::MemoryAddrLeb
             | RelocationType::MemoryAddrSleb
             | RelocationType::MemoryAddrI32
-            | RelocationType::MemoryAddrRelSleb => {
+            | RelocationType::MemoryAddrRelSleb
+            | RelocationType::MemoryAddrTlsSleb => {
                 ensure!(
                     sym.kind == WasmSymbolKind::Data,
                     "R_WASM_MEMORY_ADDR_* references non-data symbol"
@@ -907,12 +974,15 @@ impl WasmObjectIndexMap {
                         )
                     })?;
                 if reloc.ty == RelocationType::MemoryAddrRelSleb {
-                    let relative = i64::from(addr) - i64::from(memory_base) + reloc.addend;
+                    let relative =
+                        i64::from(addr.unwrap_or(0)) - i64::from(memory_base) + reloc.addend;
                     let relative = i32::try_from(relative)
                         .map_err(|_| wild_error::error!("Wasm REL_SLEB relocation out of range"))?;
                     Ok(relative as u32)
+                } else if reloc.ty == RelocationType::MemoryAddrTlsSleb {
+                    tls_reloc_value(addr, tls_base, reloc.addend)
                 } else {
-                    Ok(addr)
+                    Ok(addr.unwrap_or(0))
                 }
             }
             RelocationType::TableIndexSleb

@@ -5,7 +5,7 @@ use object::macho::{
     S_GB_ZEROFILL, S_THREAD_LOCAL_REGULAR, S_THREAD_LOCAL_ZEROFILL, S_ZEROFILL, SECTION_ATTRIBUTES,
     Section64,
 };
-use object::{Endianness, macho};
+use object::{Endianness, SectionIndex, macho};
 use std::num::NonZeroU64;
 use wild_args::macho::MachOArgs;
 use wild_layout::layout_rules::SectionKind;
@@ -33,7 +33,7 @@ pub(crate) const DYLINKER_PATH: &[u8] = b"/usr/lib/dyld";
 pub(crate) const MAX_SEGMENT_COUNT: usize = 6;
 pub(crate) const CHAINED_FIXUP_TABLE_BASE_SIZE: u64 = (size_of::<ChainedFixupsHeader>()
     + size_of::<u32>() * (MAX_SEGMENT_COUNT + /* leading segment count */ 1)
-    + size_of::<ChainedStartsInSegment>())
+    + size_of::<ChainedStartsInSegment>() * MAX_SEGMENT_COUNT)
     as u64;
 pub(crate) const CHAINED_FIXUP_IMPORT_SIZE: u64 = size_of::<u32>() as u64;
 pub(crate) const CHAINED_FIXUP_PAGE_START_SIZE: u64 = size_of::<u16>() as u64;
@@ -134,6 +134,7 @@ pub struct LayoutExt {
     pub(crate) imported_symbols: Vec<ImportedSymbolWithResolution>,
     /// Final addresses of initializer functions, in input relocation order.
     pub(crate) init_function_addresses: Vec<u64>,
+    pub(crate) fixups: Vec<Fixup>,
 }
 
 #[derive(Debug, Default)]
@@ -141,6 +142,7 @@ pub struct FinaliseSizesExt {
     pub(super) imported_libraries: Vec<FileId>,
     pub(super) imported_symbols: Vec<SymbolId>,
     pub(super) init_functions: Vec<SymbolId>,
+    pub(super) pending_fixups: Vec<PendingFixup>,
 }
 
 #[derive(Debug, Default)]
@@ -158,8 +160,27 @@ pub struct PreludeLayoutExt {
 #[derive(derive_more::Debug, Clone, Copy)]
 pub(crate) struct ImportedSymbolWithResolution {
     pub(crate) symbol_id: SymbolId,
-    pub(crate) got_address: NonZeroU64,
+    pub(crate) got_address: Option<NonZeroU64>,
     pub(crate) plt_address: Option<NonZeroU64>,
+}
+
+#[derive(Debug)]
+pub struct PendingFixup {
+    pub(crate) file_id: FileId,
+    pub(crate) section_index: SectionIndex,
+    pub(crate) offset_in_section: u64,
+    pub(crate) symbol_id: SymbolId,
+}
+
+#[derive(Debug)]
+pub struct Fixup {
+    pub(crate) ordinal: u64,
+    pub(crate) fixup_address: u64,
+}
+
+#[derive(Debug, Default)]
+pub struct CommonGroupStateExt {
+    pub(crate) pending_fixups: Vec<PendingFixup>,
 }
 
 #[derive(Debug, Copy, Clone, Default)]

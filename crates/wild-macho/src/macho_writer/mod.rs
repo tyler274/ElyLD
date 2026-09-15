@@ -67,8 +67,8 @@ pub(crate) fn write<'data, A: Arch<Platform = MachO>>(
         })?;
 
     let mut section_buffers = split_output_into_sections(layout, &mut sized_output.out).0;
-    write_got_entries(layout, section_buffers.get_mut(output_section_id::GOT))?;
     write_plt_entries::<A>(layout, section_buffers.get_mut(output_section_id::PLT_GOT))?;
+    write_chained_fixups(layout, &mut sized_output.out)?;
 
     write_code_signature_metadata(layout, sized_output)?;
     write_uuid(layout, sized_output)?;

@@ -99,6 +99,7 @@ impl WasmRelocation {
             | RelocationType::MemoryAddrLeb
             | RelocationType::MemoryAddrSleb
             | RelocationType::MemoryAddrRelSleb
+            | RelocationType::MemoryAddrTlsSleb
             | RelocationType::TypeIndexLeb
             | RelocationType::GlobalIndexLeb
             | RelocationType::EventIndexLeb
@@ -171,7 +172,8 @@ pub(crate) fn apply_relocation(bytes: &mut [u8], reloc: &WasmRelocation, value: 
         RelocationType::TableIndexSleb
         | RelocationType::TableIndexRelSleb
         | RelocationType::MemoryAddrSleb
-        | RelocationType::MemoryAddrRelSleb => {
+        | RelocationType::MemoryAddrRelSleb
+        | RelocationType::MemoryAddrTlsSleb => {
             let buf: &mut [u8; 5] = slot.try_into().expect("slot_size returned 5");
             write_sleb128_5(buf, value as i32);
         }
@@ -198,6 +200,7 @@ pub(crate) fn is_memory_addr_relocation(ty: RelocationType) -> bool {
             | RelocationType::MemoryAddrSleb
             | RelocationType::MemoryAddrI32
             | RelocationType::MemoryAddrRelSleb
+            | RelocationType::MemoryAddrTlsSleb
     )
 }
 
@@ -233,7 +236,9 @@ pub(crate) fn reloc_value_with_addend(base: u32, addend: i64) -> Result<u32> {
 pub(crate) fn finalize_reloc_value(reloc: &WasmRelocation, base: u32) -> Result<u32> {
     if matches!(
         reloc.ty,
-        RelocationType::MemoryAddrRelSleb | RelocationType::TableIndexRelSleb
+        RelocationType::MemoryAddrRelSleb
+            | RelocationType::TableIndexRelSleb
+            | RelocationType::MemoryAddrTlsSleb
     ) {
         Ok(base)
     } else {

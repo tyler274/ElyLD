@@ -43,7 +43,6 @@ pub struct File<'data> {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[expect(unused)]
 pub(crate) struct WasmSegmentInfo<'data> {
     pub(crate) name: &'data str,
     pub(crate) alignment: Alignment,
@@ -51,8 +50,7 @@ pub(crate) struct WasmSegmentInfo<'data> {
 }
 
 impl WasmSegmentInfo<'_> {
-    #[expect(unused)]
-    fn is_tls(self) -> bool {
+    pub(crate) fn is_tls(self) -> bool {
         self.flags.contains(wasmparser::SegmentFlags::TLS)
             || self.name.starts_with(".tdata")
             || self.name.starts_with(".tbss")

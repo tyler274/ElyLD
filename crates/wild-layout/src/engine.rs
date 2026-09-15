@@ -19,6 +19,7 @@ use wild_platform::Platform;
 pub trait EnginePlatform:
     for<'data> Platform<
         Layout<'data> = Layout<'data, Self>,
+        GroupLayout<'data> = crate::GroupLayout<'data, Self>,
         SymbolDb<'data> = SymbolDb<'data, Self>,
         Resolver<'data> = Resolver<'data, Self>,
         ObjectLayoutState<'data> = ObjectLayoutState<'data, Self>,

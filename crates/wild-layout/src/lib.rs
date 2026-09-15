@@ -552,7 +552,8 @@ where
 
     let num_sections = output_sections.num_sections();
 
-    let format_specific = P::create_layout_ext(finalise_sizes_ext, &symbol_resolutions)?;
+    let format_specific =
+        P::create_layout_ext(finalise_sizes_ext, &symbol_resolutions, &group_layouts)?;
 
     let incremental_reverse_relocs = Mutex::new(crate::incremental::ReverseRelocIndex::new());
 

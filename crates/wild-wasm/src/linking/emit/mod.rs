@@ -4,8 +4,9 @@ use crate::{
     WasmSymbol, WasmSymbolKind, any_object_needs_linker_memory, apply_got_to_index_maps,
     data_segment_memory_offsets_by_original_index, ensure_stack_size_aligned,
     fill_exported_data_global_inits, fill_function_symbol_redirects, fill_got_func_inits,
-    fill_got_mem_inits, layout_file_id_to_index, layout_object_data, resolve_cross_object_imports,
-    setup_got_mem_and_indices, try_data_symbol_memory_address, validate_shared_memory_features,
+    fill_got_mem_inits, input_has_tls_segments, layout_file_id_to_index, layout_object_data,
+    max_tls_alignment, resolve_cross_object_imports, setup_got_mem_and_indices,
+    try_data_symbol_memory_address, validate_shared_memory_features,
 };
 mod encode;
 mod memory;
@@ -17,6 +18,7 @@ use hashbrown::{HashMap, HashSet};
 #[allow(unused_imports)]
 pub(crate) use memory::*;
 use rayon::prelude::*;
+use wild_error::bail;
 use wild_error::ensure;
 use wild_error::error::{Context as _, Result};
 use wild_layout as layout;
@@ -64,6 +66,9 @@ where
 
     if symbol_db.args.shared_memory {
         validate_shared_memory_features(&layout_inputs, symbol_db)?;
+        if layout_inputs.iter().any(input_has_tls_segments) {
+            bail!("shared-memory TLS is not supported yet");
+        }
     }
 
     let file_id_to_index = layout_file_id_to_index(&layout_inputs);
@@ -204,12 +209,32 @@ where
         }
         {
             timing_phase!("Layout Wasm data segments");
+            let n_objects = layout_inputs.len();
+            layout.object_data_layouts = (0..n_objects).map(|_| Vec::new()).collect();
             for (obj_idx, input) in layout_inputs.iter().enumerate() {
-                layout.object_data_layouts.push(layout_object_data(
+                layout.object_data_layouts[obj_idx] = layout_object_data(
                     input,
                     &layout.object_index_maps[obj_idx],
                     &mut memory_cursor,
-                )?);
+                    false,
+                )?;
+            }
+            if layout_inputs.iter().any(input_has_tls_segments) {
+                let tls_align = max_tls_alignment(&layout_inputs);
+                memory_cursor = u32::try_from(tls_align.align_up(u64::from(memory_cursor)))
+                    .map_err(|_| wild_error::error!("Wasm TLS alignment overflow"))?;
+                layout.tls_base = memory_cursor;
+                for (obj_idx, input) in layout_inputs.iter().enumerate() {
+                    let tls_segments = layout_object_data(
+                        input,
+                        &layout.object_index_maps[obj_idx],
+                        &mut memory_cursor,
+                        true,
+                    )?;
+                    layout.object_data_layouts[obj_idx].extend(tls_segments);
+                }
+            } else {
+                layout.tls_base = data_start;
             }
             for input in &mut layout_inputs {
                 layout
@@ -298,6 +323,7 @@ where
             stack_first,
         )?;
         fill_stack_pointer_init(&mut layout, &indices, stack_size, stack_first)?;
+        fill_tls_base_init(&mut layout, &indices)?;
         ensure_entry_export(&mut layout.exports, entry.as_ref());
         ensure_force_exports(
             &mut layout.exports,
@@ -449,7 +475,7 @@ pub(crate) fn compute_data_addresses(
         .zip(per_object_symbols.iter())
         .enumerate()
     {
-        let mut data_addresses = vec![0u32; symbols.len()];
+        let mut data_addresses = vec![None; symbols.len()];
         for (sym_idx, sym) in symbols.iter().enumerate() {
             if sym.kind != WasmSymbolKind::Data {
                 continue;
@@ -460,7 +486,7 @@ pub(crate) fn compute_data_addresses(
                 if let Some(addr) =
                     try_data_symbol_memory_address(&segment_offsets_by_object[obj_idx], sym)?
                 {
-                    data_addresses[sym_idx] = addr;
+                    data_addresses[sym_idx] = Some(addr);
                 }
                 continue;
             }
@@ -477,7 +503,7 @@ pub(crate) fn compute_data_addresses(
                         &segment_offsets_by_object[def_obj_idx],
                         &def_sym,
                     )? {
-                        data_addresses[sym_idx] = addr;
+                        data_addresses[sym_idx] = Some(addr);
                     }
                     continue;
                 }
@@ -489,7 +515,7 @@ pub(crate) fn compute_data_addresses(
                 && let Some(address) =
                     known.data_address(data_start, data_end, stack_size, heap_end, stack_first)?
             {
-                data_addresses[sym_idx] = address;
+                data_addresses[sym_idx] = Some(address);
             }
         }
         index_map.data_addresses = data_addresses;

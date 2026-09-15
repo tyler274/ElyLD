@@ -141,6 +141,7 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
     type VerneedTable<'data>: VerneedTable<'data>;
 
     type Layout<'data>;
+    type GroupLayout<'data>;
     type SymbolDb<'data>;
     type Resolver<'data>;
     type ResolutionResources<'data, 'scope>
@@ -496,6 +497,7 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
     fn create_layout_ext<'data>(
         finalise_sizes_ext: Self::FinaliseSizesExt<'data>,
         _resolutions: &Self::SymbolResolutions,
+        _group_layouts: &[Self::GroupLayout<'data>],
     ) -> Result<Self::LayoutExt<'data>>;
 
     fn load_exception_frame_data<'data, 'scope, A: Arch<Platform = Self>>(

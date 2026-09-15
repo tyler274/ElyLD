@@ -162,7 +162,7 @@ pub(crate) const UNREACHABLE_FUNCTION_BODY: &[u8] = &[0x00, 0x00, 0x0b];
 /// `i32.const` body for `LINKER_MEMORY_BASE`.
 pub(crate) const LINKER_MEMORY_BASE_INIT_EXPR: &[u8] = &[0x41, 0x80, 0x08];
 
-/// `i32.const 0`. Used for immutable `__tls_base` when no TLS segment is laid out.
+/// `i32.const 0` for `__tls_base` and GOT slots.
 pub(crate) const ZERO_I32_INIT_EXPR: &[u8] = &[0x41, 0x00];
 
 /// `i32.const 1` for `DEFAULT_TABLE_BASE`.

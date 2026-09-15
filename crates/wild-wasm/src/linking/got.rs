@@ -826,7 +826,8 @@ pub(crate) fn fill_got_mem_inits(
                 .data_addresses
                 .get(symbol_offset)
                 .copied()
-                .ok_or_else(|| wild_error::error!("GOT.mem missing data address for definition"))?,
+                .ok_or_else(|| wild_error::error!("GOT.mem missing data address for definition"))?
+                .unwrap_or(0),
             GotMemDef::LinkerDefined(known) => known
                 .data_address(data_start, data_end, stack_size, heap_end, stack_first)?
                 .ok_or_else(|| {

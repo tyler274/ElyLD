@@ -3,13 +3,14 @@ use super::types::BuildVersionCommand;
 use super::types::{
     BuiltInSectionDetails, CHAINED_FIXUP_IMPORT_SIZE, CHAINED_FIXUP_PAGE_START_SIZE,
     CHAINED_FIXUP_TABLE_BASE_SIZE, CS_BLOCK_SIZE, CS_HASH_SIZE, CS_HEADERS_SIZE,
-    CodeSignatureCommand, DYLINKER_PATH, DyldChainedFixupsCommand, DylinkerCommand,
-    DynamicTagValues, EntryPointCommand, FileHeader, FinaliseSizesExt, GOT_ENTRY_SIZE,
-    INIT_OFFSET_ENTRY_SIZE, ImportedSymbolWithResolution, LE, LayoutExt, MACHO_COMMAND_ALIGNMENT,
-    MachOSegmentType, NonAddressableIndexes, ObjectLayoutStateExt, PLT_ENTRY_SIZE,
-    PreludeLayoutExt, ProgramSegmentDef, RawSymbolName, RelocationList, SectionAttributes,
-    SectionEntry, SectionHeader, SegmentCommand, SegmentName, SymtabCommand, SymtabEntry,
-    UuidCommand, VerneedTable, code_signature_padded_identifier_size, load_dylib_command_size,
+    CodeSignatureCommand, CommonGroupStateExt, DYLINKER_PATH, DyldChainedFixupsCommand,
+    DylinkerCommand, DynamicTagValues, EntryPointCommand, FileHeader, FinaliseSizesExt, Fixup,
+    GOT_ENTRY_SIZE, INIT_OFFSET_ENTRY_SIZE, ImportedSymbolWithResolution, LE, LayoutExt,
+    MACHO_COMMAND_ALIGNMENT, MAX_SEGMENT_COUNT, MachOSegmentType, NonAddressableIndexes,
+    ObjectLayoutStateExt, PLT_ENTRY_SIZE, PreludeLayoutExt, ProgramSegmentDef,
+    RawSymbolName, RelocationList, SectionAttributes, SectionEntry, SectionHeader, SegmentCommand,
+    SegmentName, SymtabCommand, SymtabEntry, UuidCommand, VerneedTable,
+    code_signature_padded_identifier_size, load_dylib_command_size,
 };
 use super::{
     DEFAULT_SECTION_RULES, DynamicLayoutExt, DynamicLayoutStateExt, EpilogueLayoutExt, File, MachO,
@@ -30,7 +31,7 @@ use object::{Endianness, macho};
 use std::slice::Iter;
 use wild_args::macho::MachOArgs;
 use wild_error::error::Result;
-use wild_error::{ensure, error};
+use wild_error::{bail, ensure, error};
 use wild_fs::fs::{FileReplacementMode, FileSystem};
 use wild_layout as layout;
 use wild_layout::layout_rules::SectionKind;
@@ -43,13 +44,13 @@ use wild_layout::part_id::PartId;
 use wild_layout::symbol_db::SymbolId;
 use wild_layout::{
     OutputRecordLayout, Resolution, SectionGcUnit, StubLibraryLayoutState, SymbolCopyInfo,
-    SymbolResolutions, resolution, verbose_timing_phase,
+    resolution, verbose_timing_phase,
 };
 use wild_platform as platform;
 use wild_platform::program_segments::ProgramSegments;
 use wild_platform::{ObjectFile, OutputKind, SectionAttributes as _};
 use wild_util::alignment;
-use wild_util::alignment::{Alignment, MACHO_PAGE_ALIGNMENT};
+use wild_util::alignment::Alignment;
 
 impl platform::Platform for MachO {
     const NUM_SINGLE_PART_SECTIONS: u32 = SinglePartSectionId::Count as u32;
@@ -101,7 +102,7 @@ impl platform::Platform for MachO {
     type NonAddressableCounts = ();
     type EpilogueLayoutExt = EpilogueLayoutExt;
     type GroupLayoutExt = ();
-    type CommonGroupStateExt = ();
+    type CommonGroupStateExt = CommonGroupStateExt;
     type StubLibraryLayoutStateExt = DynamicLayoutStateExt;
     type StubLibraryLayoutExt = DynamicLayoutExt;
     type ArchIdentifier = ();
@@ -127,6 +128,7 @@ impl platform::Platform for MachO {
     type ResolvedObjectExt<'data> = ();
     type GcUnit = wild_layout::SectionGcUnit;
     type Layout<'data> = wild_layout::Layout<'data, Self>;
+    type GroupLayout<'data> = wild_layout::GroupLayout<'data, Self>;
     type SymbolDb<'data> = wild_layout::symbol_db::SymbolDb<'data, Self>;
     type Resolver<'data> = wild_layout::resolution::Resolver<'data, Self>;
     type ResolutionResources<'data, 'scope>
@@ -354,7 +356,7 @@ impl platform::Platform for MachO {
 
     fn load_object_section_relocations<'data, 'scope, A: platform::Arch<Platform = Self>>(
         state: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        common: &mut wild_layout::CommonGroupState<'data, Self>,
         queue: &mut wild_layout::LocalWorkQueue<Self>,
         resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
         _section: wild_layout::Section,
@@ -363,7 +365,7 @@ impl platform::Platform for MachO {
     ) -> Result {
         // TODO
         for rel in state.relocations(section_index)?.relocations {
-            process_relocation::<A>(state, rel, section_index, resources, queue, scope)?;
+            process_relocation::<A>(state, common, rel, section_index, resources, queue, scope)?;
         }
         Ok(())
     }
@@ -460,8 +462,10 @@ impl platform::Platform for MachO {
         let mut imported_libraries = Vec::new();
         let mut imported_symbols = Vec::new();
         let mut init_functions = Vec::new();
+        let mut pending_fixups = Vec::new();
 
         for group in groups {
+            pending_fixups.append(&mut group.common.format_specific.pending_fixups);
             for file in &group.files {
                 match file {
                     layout::FileLayoutState::Object(state) => {
@@ -496,12 +500,14 @@ impl platform::Platform for MachO {
             imported_libraries,
             imported_symbols,
             init_functions,
+            pending_fixups,
         })
     }
 
     fn create_layout_ext<'data>(
         finalise_sizes_ext: Self::FinaliseSizesExt<'data>,
-        resolutions: &SymbolResolutions<Self>,
+        resolutions: &Self::SymbolResolutions,
+        group_layouts: &[Self::GroupLayout<'data>],
     ) -> Result<Self::LayoutExt<'data>> {
         let mut layout_ext = LayoutExt::default();
 
@@ -513,22 +519,18 @@ impl platform::Platform for MachO {
                     .get(symbol_id)
                     .with_context(|| "missing resolution for a stub library symbol".to_string())?;
 
-                let got_address = resolution
-                    .format_specific
-                    .got_address
-                    .ok_or_else(|| error!("missing GOT entry for a stub library symbol"))?;
-
                 Ok(ImportedSymbolWithResolution {
                     symbol_id,
-                    got_address,
+                    got_address: resolution.format_specific.got_address,
                     plt_address: resolution.format_specific.plt_address,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
 
+        // Tiebreak by both `got_address` and `symbol_id` for imports that don't have a GOT entry.
         layout_ext.imported_symbols = imported_symbols
             .into_iter()
-            .sorted_by_key(|symbol| symbol.got_address)
+            .sorted_by_key(|symbol| (symbol.got_address, symbol.symbol_id))
             .collect();
         layout_ext.init_function_addresses = finalise_sizes_ext
             .init_functions
@@ -543,6 +545,43 @@ impl platform::Platform for MachO {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let mut fixups = Vec::with_capacity(finalise_sizes_ext.pending_fixups.len());
+
+        for (ordinal, import) in layout_ext.imported_symbols.iter().enumerate() {
+            if let Some(got_address) = import.got_address {
+                fixups.push(Fixup {
+                    ordinal: ordinal as u64,
+                    fixup_address: got_address.get(),
+                });
+            }
+        }
+
+        for pending in finalise_sizes_ext.pending_fixups {
+            let group = &group_layouts[pending.file_id.group()];
+            let layout::FileLayout::Object(object) = &group.files[pending.file_id.file()] else {
+                bail!("Fixup location belongs to a non-object input");
+            };
+
+            let section_address = object.section_resolutions[pending.section_index.0]
+                .address()
+                .context("Invalid section address for fixup")?;
+            let fixup_address = section_address
+                .checked_add(pending.offset_in_section)
+                .context("Invalid fixup address")?;
+            let ordinal = layout_ext
+                .imported_symbols
+                .iter()
+                .position(|import| import.symbol_id == pending.symbol_id)
+                .context("Invalid import ordinal for fixup")?;
+
+            fixups.push(Fixup {
+                ordinal: ordinal as u64,
+                fixup_address,
+            });
+        }
+
+        fixups.sort_unstable_by_key(|fixup| fixup.fixup_address);
+        layout_ext.fixups = fixups;
         Ok(layout_ext)
     }
 
@@ -559,7 +598,7 @@ impl platform::Platform for MachO {
 
     fn process_init_func_section<'data, 'scope, A: platform::Arch<Platform = Self>>(
         object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        common: &mut wild_layout::CommonGroupState<'data, Self>,
         section_index: object::SectionIndex,
         resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
         queue: &mut wild_layout::LocalWorkQueue<Self>,
@@ -590,7 +629,7 @@ impl platform::Platform for MachO {
                     .symbol_id_range
                     .input_to_id(object::SymbolIndex(info.r_symbolnum as usize)),
             );
-            process_relocation::<A>(object, rel, section_index, resources, queue, scope)?;
+            process_relocation::<A>(object, common, rel, section_index, resources, queue, scope)?;
         }
 
         Ok(())
@@ -668,10 +707,10 @@ impl platform::Platform for MachO {
             })
             .sum::<u64>();
 
-        // Chained fixups record start information per page. At this point the final GOT size is
-        // known, so reserve the fixup table entries needed to describe the GOT pages.
-        fixup_table_size += CHAINED_FIXUP_PAGE_START_SIZE
-            * (state.imported_symbols.len() as u64).div_ceil(MACHO_PAGE_ALIGNMENT.value());
+        // TODO: Since we currently only support one page per segment, this is fine as a cap. But
+        // once we support multiple pages, we should figure out how to find exactly how many
+        // `page_start`s were emitted.
+        fixup_table_size += CHAINED_FIXUP_PAGE_START_SIZE * MAX_SEGMENT_COUNT as u64;
 
         mem_sizes.increment(
             part_id::CHAINED_FIXUP_TABLE,

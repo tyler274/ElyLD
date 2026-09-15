@@ -128,6 +128,26 @@ pub(crate) fn fill_stack_pointer_init(
     Ok(())
 }
 
+/// Write `__tls_base` init after TLS layout.
+pub(crate) fn fill_tls_base_init(
+    layout: &mut WasmLayout<'_>,
+    indices: &LinkerDefinedIndices,
+) -> Result {
+    let Some(defined_slot) = indices.tls_base_defined_slot else {
+        return Ok(());
+    };
+    let global = layout
+        .globals
+        .get_mut(defined_slot as usize)
+        .ok_or_else(|| wild_error::error!("Wasm TLS base global missing"))?;
+    ensure!(
+        !global.ty.mutable && global.ty.content_type == wasmparser::ValType::I32,
+        "Wasm TLS base global has unexpected type"
+    );
+    global.init_expr_body = Cow::Owned(encode_i32_const_u32(layout.tls_base));
+    Ok(())
+}
+
 pub(crate) fn linker_output_memory_type(
     inputs: &[WasmObjectLayoutInput<'_>],
     shared: bool,
