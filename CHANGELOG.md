@@ -119,6 +119,8 @@ possible to use libwild with input and output files in memory.
 - Use native ELF in `-ffat-lto-objects` files when the driver omits `--plugin`
 - Size the start/stop GC map after assigning custom output-section IDs
 - Keep PT_DYNAMIC file offset in sync with `.dynamic` when compressing debug sections next to aligned `.tbss`
+- Copy undefined DSO symbols into `.symtab` as well as `.dynsym`
+- Place `_TLS_MODULE_BASE_` at the alignment-rounded TLS end on executables so TLSDESC+DTPOFF matches the thread pointer
 
 ### 📚 Documentation
 

@@ -1002,6 +1002,8 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         // We define _TLS_MODULE_BASE_ either at the start or end of the TLS segment, depending on
         // whether we're building a shared object or an executable. This symbol is used for TLSDESC.
         // See https://www.fsfla.org/~lxoliva/writeups/TLS/RFC-TLSDESC-x86.txt for more details.
+        // Executables use the alignment-rounded TLS end (the thread pointer), not the last
+        // `.tbss` byte; `create_internal_symbol_resolution` applies that rounding.
         let mut elf_symbol = SymtabEntry::<C>::default();
         elf_symbol.set_binding_and_type(object::elf::STB_GLOBAL, object::elf::STT_TLS);
         symbols.add_symbol(InternalSymDefInfo {
@@ -1520,18 +1522,31 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         flags: ValueFlags,
     ) -> Result {
         if flags.is_dynamic() && flags.has_resolution() {
-            let name = symbol_db.symbol_name(symbol_id)?;
-            let name = Self::RawSymbolName::parse(name.bytes()).name();
+            let raw_name = symbol_db.symbol_name(symbol_id)?;
+            let raw_bytes = raw_name.bytes();
+            let name = Self::RawSymbolName::parse(raw_bytes).name();
+            let strtab_name = symtab_name_for_strtab(raw_bytes);
 
             if flags.needs_copy_relocation() {
                 // The dynamic symbol is a definition, so is handled by the epilogue. We only
                 // need to deal with the symtab entry here.
                 common.allocate(part_id::SYMTAB_GLOBAL, C::SYMTAB_ENTRY_SIZE);
-                common.allocate(part_id::STRTAB, name.len() as u64 + 1);
-                intern_strtab_name(&mut common.format_specific.strtab_names, name);
+                common.allocate(part_id::STRTAB, strtab_name.len() as u64 + 1);
+                intern_strtab_name(&mut common.format_specific.strtab_names, strtab_name);
             } else if !flags.needs_canonical_plt() {
                 common.allocate(part_id::DYNSTR, name.len() as u64 + 1);
                 common.allocate(part_id::DYNSYM, C::SYMTAB_ENTRY_SIZE);
+                // GNU ld copies symbols from input DSOs into .symtab as well as .dynsym
+                // (`nm -an` blank-address `U` lines). Unresolved symbols that live on a
+                // regular object (DYNAMIC|ABSOLUTE) stay in .dynsym only.
+                if symbol_db
+                    .file(symbol_db.file_id_for_symbol(symbol_id))
+                    .is_dynamic()
+                {
+                    common.allocate(part_id::SYMTAB_GLOBAL, C::SYMTAB_ENTRY_SIZE);
+                    common.allocate(part_id::STRTAB, strtab_name.len() as u64 + 1);
+                    intern_strtab_name(&mut common.format_specific.strtab_names, strtab_name);
+                }
             }
         }
 

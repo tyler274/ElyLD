@@ -716,14 +716,14 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
                     ValueFlags::empty(),
                 )?;
             } else if !res.flags.needs_canonical_plt() {
-                let entry = table_writer.dynsym_writer.undefined_symbol(false, name)?;
-
                 let symbol_type = if symbol.st_type() == object::elf::STT_GNU_IFUNC {
                     // An undefined reference to an IFUNC needs to be emitted as type FUNC.
                     object::elf::STT_FUNC
                 } else {
                     symbol.st_type()
                 };
+
+                let entry = table_writer.dynsym_writer.undefined_symbol(false, name)?;
 
                 // Note, for undefined symbols, we always use default visibility.
                 entry.set_binding_and_type(symbol.st_bind(), symbol_type);
@@ -736,6 +736,13 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
                         versym,
                     )?;
                 }
+
+                // Match GNU ld: undefined dynamic symbols also appear in .symtab so
+                // `nm -an` prints blank-address `U` lines (needed by nixpkgs blas-3).
+                let symtab_entry = table_writer
+                    .debug_symbol_writer
+                    .undefined_symbol(false, name)?;
+                symtab_entry.set_binding_and_type(symbol.st_bind(), symbol_type);
             }
 
             table_writer
