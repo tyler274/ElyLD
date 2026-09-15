@@ -14,11 +14,11 @@ use std::mem::{replace, take};
 use std::ops::Range;
 use std::sync::Mutex;
 use thread_local::ThreadLocal;
-use wild_args::Experiment;
-use wild_error::error::{Context as _, Result};
-use wild_platform as platform;
-use wild_util::alignment;
-use wild_util::hash::PreHashed;
+use elyld_args::Experiment;
+use elyld_error::error::{Context as _, Result};
+use elyld_platform as platform;
+use elyld_util::alignment;
+use elyld_util::hash::PreHashed;
 
 pub(super) fn process_input_section<'data, 'offsets>(
     input_section: &StringMergeInputSection<'data>,
@@ -553,7 +553,7 @@ impl<'data> MergeString<'data> {
 }
 
 fn hash_merge_string(bytes: &[u8], is_string: bool, entsize: u32) -> u64 {
-    wild_util::hash::hash_bytes(bytes)
+    elyld_util::hash::hash_bytes(bytes)
         ^ if is_string { 0 } else { 0x517c_c1b7_2722_0a95 }
         ^ 0x9e37_79b9_7f4a_7c15u64.wrapping_mul(u64::from(entsize))
 }

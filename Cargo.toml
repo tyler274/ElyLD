@@ -4,26 +4,26 @@ members = [
   "crates/linker-layout",
   "crates/linker-trace",
   "crates/linker-utils",
-  "crates/wild",
-  "crates/libwild",
-  "crates/wild-error",
-  "crates/wild-util",
-  "crates/wild-fs",
-  "crates/wild-scripts",
-  "crates/wild-platform",
-  "crates/wild-args",
-  "crates/wild-layout",
-  "crates/wild-wasm",
-  "crates/wild-macho",
-  "crates/wild-elf",
+  "crates/elyld",
+  "crates/libelyld",
+  "crates/elyld-error",
+  "crates/elyld-util",
+  "crates/elyld-fs",
+  "crates/elyld-scripts",
+  "crates/elyld-platform",
+  "crates/elyld-args",
+  "crates/elyld-layout",
+  "crates/elyld-wasm",
+  "crates/elyld-macho",
+  "crates/elyld-elf",
   "crates/benchmarks/runner",
 ]
 resolver = "2"
 
 [workspace.package]
-repository = "https://github.com/wild-linker/wild"
+repository = "https://github.com/tyler274/wild"
 license = "MIT OR Apache-2.0"
-version = "0.10.0"
+version = "1.0.0"
 rust-version = "1.97.1"
 edition = "2024"
 

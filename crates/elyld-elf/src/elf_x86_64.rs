@@ -15,10 +15,10 @@ use object::elf::{
     GNU_PROPERTY_X86_UINT32_OR_AND_HI, GNU_PROPERTY_X86_UINT32_OR_AND_LO,
     GNU_PROPERTY_X86_UINT32_OR_HI, GNU_PROPERTY_X86_UINT32_OR_LO,
 };
-use wild_error::error::Result;
-use wild_error::{error, malfunction_point_ret};
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{OutputKind, Platform, PreviousRelocationInfo};
+use elyld_error::error::Result;
+use elyld_error::{error, malfunction_point_ret};
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{OutputKind, Platform, PreviousRelocationInfo};
 
 pub struct ElfX86_64;
 
@@ -38,7 +38,7 @@ macro_rules! rel_info_from_type {
     };
 }
 
-impl wild_platform::Arch for ElfX86_64 {
+impl elyld_platform::Arch for ElfX86_64 {
     type Relaxation = Relaxation;
     type Platform = Elf64;
 
@@ -89,7 +89,7 @@ impl wild_platform::Arch for ElfX86_64 {
         plt_entry: &mut [u8],
         got_address: u64,
         plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         plt_entry.copy_from_slice(PLT_ENTRY_TEMPLATE);
         let offset: i32 = (got_address.wrapping_sub(plt_address + 0xb) as i64)
             .try_into()
@@ -102,7 +102,7 @@ impl wild_platform::Arch for ElfX86_64 {
         x86_64_rel_type_to_string(r_type)
     }
 
-    fn tp_offset_start(layout: &wild_layout::Layout<Elf64>) -> u64 {
+    fn tp_offset_start(layout: &elyld_layout::Layout<Elf64>) -> u64 {
         layout.tls_end_address()
     }
 
@@ -480,7 +480,7 @@ impl wild_platform::Arch for ElfX86_64 {
         relocations: &<Self::Platform as Platform>::RelocationSections,
         section: &<Self::Platform as Platform>::SectionHeader,
         offset_in_section: u64,
-    ) -> Result<wild_platform::SourceInfo> {
+    ) -> Result<elyld_platform::SourceInfo> {
         crate::dwarf_address_info::get_source_info::<crate::Class64, Self>(
             object,
             relocations,
@@ -509,7 +509,7 @@ pub struct Relaxation {
     mandatory: bool,
 }
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, section_bytes: &mut [u8], offset_in_section: &mut u64, addend: &mut i64) {
         self.kind.apply(section_bytes, offset_in_section, addend);
     }
@@ -573,8 +573,8 @@ impl TlsGdForm {
 
 #[test]
 fn test_relaxation() {
-    use wild_args::RelocationModel;
-    use wild_platform::{Arch as _, Relaxation as _};
+    use elyld_args::RelocationModel;
+    use elyld_platform::{Arch as _, Relaxation as _};
 
     #[track_caller]
     fn check(

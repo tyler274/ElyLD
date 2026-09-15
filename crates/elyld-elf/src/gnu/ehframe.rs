@@ -2,7 +2,7 @@
 use crate::types::ElfClass;
 use crate::types::{ElfCrel, ElfRela};
 use std::mem::offset_of;
-use wild_platform::{FrameIndex, Relocation};
+use elyld_platform::{FrameIndex, Relocation};
 use zerocopy::{FromBytes, IntoBytes, KnownLayout};
 
 /// See https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/ehframehdr.html

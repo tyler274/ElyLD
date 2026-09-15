@@ -15,13 +15,13 @@ use std::borrow::Cow;
 use std::ops::Range;
 use wasm_encoder::{NameMap, NameSection};
 use wasmparser::{BinaryReader, ConstExpr, DataKind, MemoryType, RelocationType, SymbolFlags};
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout::part_id::PartId;
-use wild_layout::symbol_db::SymbolDb;
-use wild_layout::{timing_phase, verbose_timing_phase};
-use wild_platform::Args as _;
-use wild_util::alignment::Alignment;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout::part_id::PartId;
+use elyld_layout::symbol_db::SymbolDb;
+use elyld_layout::{timing_phase, verbose_timing_phase};
+use elyld_platform::Args as _;
+use elyld_util::alignment::Alignment;
 
 #[derive(Debug, Default)]
 pub struct WasmLayout<'data> {
@@ -70,7 +70,7 @@ pub(crate) struct WasmEncodedSections {
 impl WasmEncodedSections {
     pub(crate) fn add_sizes_to(
         &self,
-        sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
         add_encoded_section_size(sizes, part_id::WASM_TYPE, self.ty.as_ref());
         add_encoded_section_size(sizes, part_id::WASM_IMPORT, self.import.as_ref());
@@ -97,7 +97,7 @@ pub(crate) struct ObjectNameEntries<'a> {
 }
 
 pub(crate) fn add_encoded_section_size(
-    sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+    sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     part_id: PartId,
     section: Option<&Vec<u8>>,
 ) {
@@ -337,11 +337,11 @@ pub(crate) fn collect_target_feature_sets<'data>(
     layout_inputs: &[WasmObjectLayoutInput<'data>],
 ) -> Result<(
     HashSet<&'data str>,
-    HashMap<&'data str, wild_platform::FileId>,
+    HashMap<&'data str, elyld_platform::FileId>,
 )> {
     let mut used: HashSet<&'data str> = HashSet::new();
     // First file that disallowed each feature.
-    let mut disallowed: HashMap<&'data str, wild_platform::FileId> = HashMap::new();
+    let mut disallowed: HashMap<&'data str, elyld_platform::FileId> = HashMap::new();
 
     for input in layout_inputs {
         for feature in input.target_features {
@@ -556,7 +556,7 @@ impl<'data> WasmLayout<'data> {
 
     pub(crate) fn add_code_section_size(
         &self,
-        sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
         if self.code_section_size > 0 {
             sizes.increment(part_id::WASM_CODE, self.code_section_size);
@@ -565,7 +565,7 @@ impl<'data> WasmLayout<'data> {
 
     pub(crate) fn add_data_section_size(
         &self,
-        sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
         if self.data_section_size > 0 {
             sizes.increment(part_id::WASM_DATA, self.data_section_size);
@@ -575,7 +575,7 @@ impl<'data> WasmLayout<'data> {
 
 pub(crate) fn const_expr_encoded_size(expr: &ConstExpr<'_>) -> Result<u32> {
     let body = crate::wasm_writer::const_expr_body(expr)
-        .ok_or_else(|| wild_error::error!("Wasm const expression is missing end opcode"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm const expression is missing end opcode"))?;
     // instruction bytes plus the trailing `end` (0x0B) opcode
     u32::try_from(body.len() + 1).context("Wasm const expression too large")
 }
@@ -600,7 +600,7 @@ pub(crate) fn wasm_data_segment_encoded_size(kind: &DataKind<'_>, data_len: usiz
             Ok(header
                 .checked_add(init_len)
                 .and_then(|n| n.checked_add(payload_len))
-                .ok_or_else(|| wild_error::error!("Wasm data segment size overflow"))?)
+                .ok_or_else(|| elyld_error::error!("Wasm data segment size overflow"))?)
         }
     }
 }
@@ -630,7 +630,7 @@ pub(crate) fn output_data_segment_encoded_size(
             Ok(header
                 .checked_add(init_len)
                 .and_then(|n| n.checked_add(payload_len))
-                .ok_or_else(|| wild_error::error!("Wasm data segment size overflow"))?)
+                .ok_or_else(|| elyld_error::error!("Wasm data segment size overflow"))?)
         }
     }
 }
@@ -677,17 +677,17 @@ pub(crate) fn classify_data_reloc_ranges(
 /// Align `data_end` to [`STACK_ALIGNMENT`], then add the stack size.
 pub(crate) fn stack_high_after_data(data_end: u32, stack_size: u32) -> Result<u32> {
     let stack_base =
-        u32::try_from(wild_util::alignment::STACK_ALIGNMENT.align_up(u64::from(data_end)))
-            .map_err(|_| wild_error::error!("Wasm stack base overflow"))?;
+        u32::try_from(elyld_util::alignment::STACK_ALIGNMENT.align_up(u64::from(data_end)))
+            .map_err(|_| elyld_error::error!("Wasm stack base overflow"))?;
     stack_base
         .checked_add(stack_size)
-        .ok_or_else(|| wild_error::error!("Wasm stack pointer overflow"))
+        .ok_or_else(|| elyld_error::error!("Wasm stack pointer overflow"))
 }
 
 /// Align the end of static data for `__heap_base`.
 pub(crate) fn heap_base_after_data(data_end: u32) -> Result<u32> {
-    u32::try_from(wild_util::alignment::STACK_ALIGNMENT.align_up(u64::from(data_end)))
-        .map_err(|_| wild_error::error!("Wasm heap base overflow"))
+    u32::try_from(elyld_util::alignment::STACK_ALIGNMENT.align_up(u64::from(data_end)))
+        .map_err(|_| elyld_error::error!("Wasm heap base overflow"))
 }
 
 /// Initial `__stack_pointer` value for the chosen stack layout.
@@ -709,7 +709,7 @@ pub(crate) fn heap_base_address(data_end: u32, stack_size: u32, stack_first: boo
 }
 
 pub(crate) fn ensure_stack_size_aligned(stack_size: u32) -> Result {
-    let align = wild_util::alignment::STACK_ALIGNMENT.value();
+    let align = elyld_util::alignment::STACK_ALIGNMENT.value();
     ensure!(
         u64::from(stack_size).is_multiple_of(align),
         "stack size must be {align}-byte aligned"
@@ -729,7 +729,7 @@ fn data_segment_alignment(input: &WasmObjectLayoutInput<'_>, original_index: u32
     input
         .segment_infos
         .get(original_index as usize)
-        .map_or(wild_util::alignment::MIN, |info| info.alignment)
+        .map_or(elyld_util::alignment::MIN, |info| info.alignment)
 }
 
 fn data_segment_is_tls(input: &WasmObjectLayoutInput<'_>, original_index: u32) -> bool {
@@ -760,7 +760,7 @@ pub(crate) fn max_tls_alignment(inputs: &[WasmObjectLayoutInput<'_>]) -> Alignme
             })
         })
         .max()
-        .unwrap_or(wild_util::alignment::MIN)
+        .unwrap_or(elyld_util::alignment::MIN)
 }
 
 /// `R_WASM_MEMORY_ADDR_TLS_*` is an offset from `__tls_base`. `abs_addr == 0` means the symbol is
@@ -771,15 +771,15 @@ fn tls_reloc_value(abs_addr: Option<u32>, tls_base: u32, addend: i64) -> Result<
         return Ok(0);
     };
     let offset = abs_addr.checked_sub(tls_base).ok_or_else(|| {
-        wild_error::error!(
+        elyld_error::error!(
             "TLS relocation address 0x{abs_addr:x} is before TLS base 0x{tls_base:x}"
         )
     })?;
     let value = i64::from(offset)
         .checked_add(addend)
-        .ok_or_else(|| wild_error::error!("Wasm TLS relocation value overflow"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm TLS relocation value overflow"))?;
     let value = i32::try_from(value)
-        .map_err(|_| wild_error::error!("Wasm TLS relocation value out of range"))?;
+        .map_err(|_| elyld_error::error!("Wasm TLS relocation value out of range"))?;
     Ok(value as u32)
 }
 
@@ -805,7 +805,7 @@ pub(crate) fn layout_object_data<'data>(
         // Linking `SegmentInfo.alignment` is a power-of-two exponent.
         let align = data_segment_alignment(input, original_index);
         *memory_cursor = u32::try_from(align.align_up(u64::from(*memory_cursor)))
-            .map_err(|_| wild_error::error!("Wasm data segment alignment overflow"))?;
+            .map_err(|_| elyld_error::error!("Wasm data segment alignment overflow"))?;
         let output_memory_offset = *memory_cursor;
         let encoded_output_size = output_data_segment_encoded_size(
             &segment.kind,
@@ -815,7 +815,7 @@ pub(crate) fn layout_object_data<'data>(
         )?;
         *memory_cursor = memory_cursor
             .checked_add(u32::try_from(segment.data.len()).context("Wasm data segment too large")?)
-            .ok_or_else(|| wild_error::error!("Wasm output memory offset overflow"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm output memory offset overflow"))?;
         let (reloc_range, payload_start) = segment_reloc_ranges
             .get(filtered_idx)
             .cloned()
@@ -906,7 +906,7 @@ impl WasmObjectIndexMap {
         }
 
         let sym = symbols.get(reloc.index as usize).ok_or_else(|| {
-            wild_error::error!("relocation symbol index {} out of range", reloc.index)
+            elyld_error::error!("relocation symbol index {} out of range", reloc.index)
         })?;
 
         match reloc.ty {
@@ -927,7 +927,7 @@ impl WasmObjectIndexMap {
                     .copied()
                     .flatten()
                     .ok_or_else(|| {
-                        wild_error::error!(
+                        elyld_error::error!(
                             "missing GOT.mem global for data symbol index {}",
                             reloc.index
                         )
@@ -938,7 +938,7 @@ impl WasmObjectIndexMap {
                     .copied()
                     .flatten()
                     .ok_or_else(|| {
-                        wild_error::error!(
+                        elyld_error::error!(
                             "missing GOT.func global for function symbol index {}",
                             reloc.index
                         )
@@ -968,7 +968,7 @@ impl WasmObjectIndexMap {
                     .get(reloc.index as usize)
                     .copied()
                     .ok_or_else(|| {
-                        wild_error::error!(
+                        elyld_error::error!(
                             "data address for symbol index {} out of range",
                             reloc.index
                         )
@@ -977,7 +977,7 @@ impl WasmObjectIndexMap {
                     let relative =
                         i64::from(addr.unwrap_or(0)) - i64::from(memory_base) + reloc.addend;
                     let relative = i32::try_from(relative)
-                        .map_err(|_| wild_error::error!("Wasm REL_SLEB relocation out of range"))?;
+                        .map_err(|_| elyld_error::error!("Wasm REL_SLEB relocation out of range"))?;
                     Ok(relative as u32)
                 } else if reloc.ty == RelocationType::MemoryAddrTlsSleb {
                     tls_reloc_value(addr, tls_base, reloc.addend)
@@ -1006,7 +1006,7 @@ impl WasmObjectIndexMap {
                         return Ok(0);
                     }
                     let relative = slot.checked_sub(DEFAULT_TABLE_BASE).ok_or_else(|| {
-                        wild_error::error!("Wasm TABLE_INDEX_REL_SLEB relocation out of range")
+                        elyld_error::error!("Wasm TABLE_INDEX_REL_SLEB relocation out of range")
                     })?;
                     Ok(relative)
                 } else {

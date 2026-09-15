@@ -4,7 +4,7 @@ use crate::bail;
 use crate::error::{Context as _, Result};
 use std::fs::read_dir;
 use std::path::Path;
-use wild_error::env;
+use elyld_error::env;
 
 fn repo_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -18,7 +18,7 @@ fn repo_root() -> &'static Path {
 fn check_sources_format() -> Result {
     use std::process::{Command, Stdio};
 
-    if env::var("WILD_TEST_IGNORE_FORMAT").is_ok() {
+    if env::var("ELYLD_TEST_IGNORE_FORMAT").is_ok() {
         return Ok(());
     }
 
@@ -47,7 +47,7 @@ fn check_sources_format() -> Result {
     let extensions = ["c", "cc", "h"];
     let sources_path = repo_root()
         .join("crates")
-        .join("wild")
+        .join("elyld")
         .join("tests")
         .join("sources");
 
@@ -101,7 +101,7 @@ fn check_sources_format() -> Result {
 fn check_toml_format() -> Result {
     use std::process::{Command, Stdio};
 
-    if env::var("WILD_TEST_IGNORE_FORMAT").is_ok() {
+    if env::var("ELYLD_TEST_IGNORE_FORMAT").is_ok() {
         return Ok(());
     }
 
@@ -218,8 +218,8 @@ fn check_text_files() -> Result {
 fn check_elf_specific_code() -> Result {
     let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
 
-    // Format-agnostic modules that remain in libwild after the layout extract. Layout itself is
-    // checked by `wild-layout::tidy_tests`.
+    // Format-agnostic modules that remain in libelyld after the layout extract. Layout itself is
+    // checked by `elyld-layout::tidy_tests`.
     const DISALLOWED: &[&str] = &["input_data"];
 
     // Patterns that we still allow. These should probably be dealt with, either by renaming these

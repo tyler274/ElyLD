@@ -1,16 +1,16 @@
 use crate::{MachO, output_section_id};
 use object::{Endianness, from_bytes_mut};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use wild_error::error;
-use wild_error::error::{Context, Result};
-use wild_fs::fs::OutputFileData;
-use wild_layout::file_writer::{
+use elyld_error::error;
+use elyld_error::error::{Context, Result};
+use elyld_fs::fs::OutputFileData;
+use elyld_layout::file_writer::{
     SizedOutput, split_buffers_by_alignment, split_output_by_group, split_output_into_sections,
 };
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::output_trace::TraceOutput;
-use wild_layout::{FileLayout, Layout, timing_phase, verbose_timing_phase};
-use wild_platform::Arch;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::output_trace::TraceOutput;
+use elyld_layout::{FileLayout, Layout, timing_phase, verbose_timing_phase};
+use elyld_platform::Arch;
 
 pub(crate) mod headers;
 pub(crate) mod linkedit;

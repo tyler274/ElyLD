@@ -9,11 +9,11 @@ use linker_utils::elf::{RelocationKind, get_page_mask};
 use linker_utils::loongarch64::highest_relocation_with_bias;
 use linker_utils::relaxation::{RelocationModifier, SectionRelaxDeltas, opt_input_to_output};
 use std::ops::{BitAnd, Sub};
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout::ObjectLayout;
-use wild_layout::output_trace::{HexU64, TraceOutput};
-use wild_platform::{Arch, OutputKind, PreviousRelocationInfo, Relaxation as _, Relocation};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout::ObjectLayout;
+use elyld_layout::output_trace::{HexU64, TraceOutput};
+use elyld_platform::{Arch, OutputKind, PreviousRelocationInfo, Relaxation as _, Relocation};
 
 /// Applies the relocation `rel` at `offset_in_section`, where the section bytes are `out`. See "ELF
 /// Handling For Thread-Local Storage" for details about some of the TLS-related relocations and

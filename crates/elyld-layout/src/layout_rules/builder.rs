@@ -8,13 +8,13 @@ use crate::parsing::{
 };
 use crate::{EnginePlatform, LayoutRules, OutputSections};
 use hashbrown::HashMap;
-use wild_args::{InputLinkerScript, InputRef};
-use wild_error::error::{Context, Result};
-use wild_platform::Args as _;
-use wild_scripts::linker_script;
-use wild_scripts::linker_script::{ContentsCommand, Expression, SectionCommand};
-use wild_util::alignment;
-use wild_util::arch::Architecture;
+use elyld_args::{InputLinkerScript, InputRef};
+use elyld_error::error::{Context, Result};
+use elyld_platform::Args as _;
+use elyld_scripts::linker_script;
+use elyld_scripts::linker_script::{ContentsCommand, Expression, SectionCommand};
+use elyld_util::alignment;
+use elyld_util::arch::Architecture;
 
 #[derive(Default)]
 pub struct LayoutRulesBuilder<'data> {
@@ -182,7 +182,7 @@ impl<'data> LayoutRulesBuilder<'data> {
                                                 self.add_section_rule(rule);
                                             }
                                         }
-                                        _ => wild_error::bail!("Illegal use of /DISCARD/ section"),
+                                        _ => elyld_error::bail!("Illegal use of /DISCARD/ section"),
                                     }
                                 }
                                 continue;
@@ -212,7 +212,7 @@ impl<'data> LayoutRulesBuilder<'data> {
                                 .map(|fill| -> Result<[u8; 4]> {
                                     let value = evaluate_const(&fill.value)?;
                                     if value > u64::from(u32::MAX) {
-                                        wild_error::bail!(
+                                        elyld_error::bail!(
                                             "Filler expression result does not fit 32-bit: 0x{:x}",
                                             value
                                         );
@@ -621,7 +621,7 @@ impl<'data> LayoutRulesBuilder<'data> {
                             }
                         }
                         SectionCommand::Include(_) => {
-                            wild_error::bail!(
+                            elyld_error::bail!(
                                 "INCLUDE inside SECTIONS was not expanded before layout"
                             );
                         }
@@ -639,7 +639,7 @@ impl<'data> LayoutRulesBuilder<'data> {
             } else if let linker_script::Command::Phdrs(phdrs) = cmd {
                 program_headers = phdrs.clone();
             } else if let linker_script::Command::Include(_) = cmd {
-                wild_error::bail!("INCLUDE was not expanded before layout");
+                elyld_error::bail!("INCLUDE was not expanded before layout");
             } else if let linker_script::Command::OutputFormat(output_format) = cmd {
                 let target_format = match args.output_format_endian() {
                     Some(object::Endianness::Little) => {
@@ -652,23 +652,23 @@ impl<'data> LayoutRulesBuilder<'data> {
                 };
                 let target_arch = Architecture::parse_output_format(target_format);
                 if target_arch == Architecture::Unsupported {
-                    wild_error::bail!(
+                    elyld_error::bail!(
                         "{} is not yet supported",
                         String::from_utf8_lossy(target_format)
                     );
                 }
                 if args.architecture() != target_arch {
-                    wild_error::bail!(
+                    elyld_error::bail!(
                         "Setting the output format using OUTPUT_FORMAT is currently unsupported"
                     );
                 }
             } else if let linker_script::Command::OutputArch(arch) = cmd {
                 let target_arch = Architecture::parse_output_arch(arch);
                 if target_arch == Architecture::Unsupported {
-                    wild_error::bail!("{} is not yet supported", String::from_utf8_lossy(arch));
+                    elyld_error::bail!("{} is not yet supported", String::from_utf8_lossy(arch));
                 }
                 if args.architecture() != target_arch {
-                    wild_error::bail!(
+                    elyld_error::bail!(
                         "Setting the output architecture using OUTPUT_ARCH is currently unsupported"
                     );
                 }
@@ -684,10 +684,10 @@ impl<'data> LayoutRulesBuilder<'data> {
             } else if let linker_script::Command::Target(bfdname) = cmd {
                 let target_arch = Architecture::parse_output_format(bfdname);
                 if target_arch == Architecture::Unsupported {
-                    wild_error::bail!("{} is not yet supported", String::from_utf8_lossy(bfdname));
+                    elyld_error::bail!("{} is not yet supported", String::from_utf8_lossy(bfdname));
                 }
                 if args.architecture() != target_arch {
-                    wild_error::bail!(
+                    elyld_error::bail!(
                         "Setting the input format using TARGET is currently unsupported"
                     );
                 }

@@ -25,7 +25,7 @@
 }:
 let
   # Read-only upstream source from the same nixpkgs as the rest of the shell.
-  # Out-of-tree GNU configure writes into WILD_GLIBC_BUILD, not here.
+  # Out-of-tree GNU configure writes into ELYLD_GLIBC_BUILD, not here.
   glibcSrc = stdenvNoCC.mkDerivation {
     name = "glibc-${glibc.version}-src";
     src = glibc.src;
@@ -51,7 +51,7 @@ let
   # does not search. Glibc tests link `-lgcc_s`.
   libgccLib = "${gcc.cc.lib}/lib";
 
-  # Glibc configure only accepts GNU ld / gold / LLD version strings. Wild's
+  # Glibc configure only accepts GNU ld / gold / LLD version strings. ElyLD's
   # --version first line is GNU ld compatible, but the oracle objects are still
   # linked with GNU ld so the relink tests have something to diff against.
   wild-build-glibc = writeShellApplication {
@@ -79,8 +79,8 @@ let
     text = ''
       usage() {
         echo "usage: wild-build-glibc [--force]" >&2
-        echo "  GNU-configure and build libc.so / ld.so for Wild's opt-in glibc tests." >&2
-        echo "  WILD_GLIBC_TREE, WILD_GLIBC_BUILD, WILD_GLIBC_HEADERS must be set." >&2
+        echo "  GNU-configure and build libc.so / ld.so for ElyLD's opt-in glibc tests." >&2
+        echo "  ELYLD_GLIBC_TREE, ELYLD_GLIBC_BUILD, ELYLD_GLIBC_HEADERS must be set." >&2
       }
 
       force=0
@@ -99,12 +99,12 @@ let
         shift
       done
 
-      tree=''${WILD_GLIBC_TREE:?WILD_GLIBC_TREE is not set}
-      build=''${WILD_GLIBC_BUILD:?WILD_GLIBC_BUILD is not set}
-      hdrs=''${WILD_GLIBC_HEADERS:?WILD_GLIBC_HEADERS is not set}
+      tree=''${ELYLD_GLIBC_TREE:?ELYLD_GLIBC_TREE is not set}
+      build=''${ELYLD_GLIBC_BUILD:?ELYLD_GLIBC_BUILD is not set}
+      hdrs=''${ELYLD_GLIBC_HEADERS:?ELYLD_GLIBC_HEADERS is not set}
 
       if [ ! -f "$tree/configure" ] || [ ! -f "$tree/Makerules" ]; then
-        echo "WILD_GLIBC_TREE=$tree is not a glibc source tree" >&2
+        echo "ELYLD_GLIBC_TREE=$tree is not a glibc source tree" >&2
         exit 1
       fi
 
@@ -148,8 +148,8 @@ let
         exit 1
       fi
 
-      echo "glibc ready. Relink with Wild:"
-      echo "  cargo test -p wild-linker --test integration_tests -- glibc"
+      echo "glibc ready. Relink with ElyLD:"
+      echo "  cargo test -p elyld --test integration_tests -- glibc"
       echo "Then: wild-glibc-check"
     '';
   };
@@ -167,15 +167,15 @@ let
     ];
     text = ''
       set -euo pipefail
-      build=''${WILD_GLIBC_BUILD:?WILD_GLIBC_BUILD is not set}
-      repo=''${WILD_REPO:-$PWD}
-      artifacts=$repo/crates/wild/tests/build/elf/x86_64
+      build=''${ELYLD_GLIBC_BUILD:?ELYLD_GLIBC_BUILD is not set}
+      repo=''${ELYLD_REPO:-$PWD}
+      artifacts=$repo/crates/elyld/tests/build/elf/x86_64
       libc_wild=$artifacts/glibc-libc/libc.so.wild
       ldso_wild=$artifacts/glibc-ldso/ld.so.wild
 
       if [ ! -f "$libc_wild" ] || [ ! -f "$ldso_wild" ]; then
         echo "missing Wild relink artifacts. Run:" >&2
-        echo "  cargo test -p wild-linker --test integration_tests -- glibc" >&2
+        echo "  cargo test -p elyld --test integration_tests -- glibc" >&2
         exit 1
       fi
 
@@ -383,8 +383,8 @@ let
       export CC="${gccUnwrapped}"
       export CXX="${gxxUnwrapped}"
 
-      if [ "''${WILD_GLIBC_FULL_CHECK:-}" = 1 ]; then
-        echo "WILD_GLIBC_FULL_CHECK=1: running make check"
+      if [ "''${ELYLD_GLIBC_FULL_CHECK:-}" = 1 ]; then
+        echo "ELYLD_GLIBC_FULL_CHECK=1: running make check"
         make -C "$build" check
         exit $?
       fi
@@ -428,13 +428,13 @@ in
   ];
 
   shellHook = ''
-    if [ -z "''${WILD_GLIBC_TREE:-}" ]; then
-      export WILD_GLIBC_TREE="${glibcSrc}"
+    if [ -z "''${ELYLD_GLIBC_TREE:-}" ]; then
+      export ELYLD_GLIBC_TREE="${glibcSrc}"
     fi
-    if [ -z "''${WILD_GLIBC_BUILD:-}" ]; then
-      export WILD_GLIBC_BUILD="$PWD/target/glibc-gnu"
+    if [ -z "''${ELYLD_GLIBC_BUILD:-}" ]; then
+      export ELYLD_GLIBC_BUILD="$PWD/target/glibc-gnu"
     fi
-    export WILD_GLIBC_HEADERS="''${WILD_GLIBC_HEADERS:-${headers}}"
+    export ELYLD_GLIBC_HEADERS="''${ELYLD_GLIBC_HEADERS:-${headers}}"
     # Unwrapped GCC cannot find libgcc_s; glibc tests need it to link.
     export LIBRARY_PATH="${libgccLib}''${LIBRARY_PATH:+:$LIBRARY_PATH}"
   '';

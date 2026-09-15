@@ -67,7 +67,7 @@ allow_unsafe = true
 [pkg.rayon]
 allow_unsafe = true
 
-[pkg.wild]
+[pkg.elyld]
 allow_unsafe = true
 allow_apis = ["fs", "process"]
 
@@ -113,36 +113,36 @@ allow_unsafe = true
 [pkg.tracing-subscriber]
 allow_unsafe = true
 
-[pkg.wild-scripts]
+[pkg.elyld-scripts]
 allow_unsafe = true
 
-[pkg.wild-fs]
-allow_unsafe = true
-allow_apis = ["fs"]
-
-[pkg.wild-util]
-allow_unsafe = true
-
-[pkg.wild-layout]
+[pkg.elyld-fs]
 allow_unsafe = true
 allow_apis = ["fs"]
 
-[pkg.wild-wasm]
+[pkg.elyld-util]
+allow_unsafe = true
+
+[pkg.elyld-layout]
 allow_unsafe = true
 allow_apis = ["fs"]
 
-[pkg.wild-macho]
+[pkg.elyld-wasm]
 allow_unsafe = true
 allow_apis = ["fs"]
 
-[pkg.wild-elf]
+[pkg.elyld-macho]
+allow_unsafe = true
+allow_apis = ["fs"]
+
+[pkg.elyld-elf]
 allow_unsafe = true
 allow_apis = ["fs", "process"]
 
-[pkg.wild-error]
+[pkg.elyld-error]
 allow_apis = ["process"]
 
-[pkg.libwild]
+[pkg.libelyld]
 allow_unsafe = true
 test.allow_unsafe = true
 allow_apis = ["fs", "process"]
@@ -355,5 +355,5 @@ allow_apis = ["fs", "process"]
 from.test.allow_apis = ["fs"]
 
 [api.fs]
-no_auto_detect = ["wild"]
-include = ["rustix::fs", "libwild::fs", "wild_fs::fs"]
+no_auto_detect = ["elyld"]
+include = ["rustix::fs", "libelyld::fs", "elyld_fs::fs"]

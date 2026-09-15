@@ -12,8 +12,8 @@ use object::Wrap;
 #[allow(unused_imports)]
 pub use sections::*;
 use std::path::Path;
-use wild_error::error;
-use wild_error::error::{Context as _, Result};
+use elyld_error::error;
+use elyld_error::error::{Context as _, Result};
 use winnow::ascii::multispace0;
 use winnow::combinator::{alt, eof, opt, repeat_till};
 use winnow::error::{ContextError, FromExternalError};
@@ -141,7 +141,7 @@ fn validate_ld_feature(commands: &[Command<'_>]) -> Result {
         match cmd {
             Command::LdFeature(feature) => {
                 if !feature.eq_ignore_ascii_case(b"SANE_EXPR") {
-                    wild_error::bail!("unknown feature `{}`", String::from_utf8_lossy(feature));
+                    elyld_error::bail!("unknown feature `{}`", String::from_utf8_lossy(feature));
                 }
             }
             Command::Group(subs) | Command::AsNeeded(subs) => validate_ld_feature(subs)?,
@@ -712,13 +712,13 @@ pub fn section_commands_from_top_level<'data>(
             }
             Command::Include(path) => out.push(SectionCommand::Include(path)),
             Command::Arg(name) => {
-                wild_error::bail!(
+                elyld_error::bail!(
                     "INCLUDE inside SECTIONS cannot contain `{}`",
                     String::from_utf8_lossy(name)
                 );
             }
             _ => {
-                wild_error::bail!("INCLUDE inside SECTIONS cannot contain that top-level command");
+                elyld_error::bail!("INCLUDE inside SECTIONS cannot contain that top-level command");
             }
         }
     }
@@ -727,7 +727,7 @@ pub fn section_commands_from_top_level<'data>(
 
 pub fn push_include_path(path: &[u8], stack: &mut Vec<Vec<u8>>) -> Result {
     if stack.iter().any(|p| p == path) {
-        wild_error::bail!("cyclic INCLUDE of `{}`", String::from_utf8_lossy(path));
+        elyld_error::bail!("cyclic INCLUDE of `{}`", String::from_utf8_lossy(path));
     }
     stack.push(path.to_vec());
     Ok(())

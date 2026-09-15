@@ -11,27 +11,27 @@ use object::macho::SEG_LINKEDIT;
 pub use object::macho::SectionFlags;
 use object::{SymbolIndex, macho};
 use std::num::{NonZeroU8, NonZeroU64};
-use wild_args::macho::MachOArgs;
-use wild_error::error::Result;
-use wild_layout as layout;
-use wild_layout::grouping::SequencedInput;
-use wild_layout::layout_rules::{SectionKind, SectionRule, SectionRuleOutcome};
-use wild_layout::output_section_id::{
+use elyld_args::macho::MachOArgs;
+use elyld_error::error::Result;
+use elyld_layout as layout;
+use elyld_layout::grouping::SequencedInput;
+use elyld_layout::layout_rules::{SectionKind, SectionRule, SectionRuleOutcome};
+use elyld_layout::output_section_id::{
     OrderEvent, OutputOrderBuilder, OutputSectionId, SectionIdentity, SectionName,
 };
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{Layout, OutputRecordLayout};
-use wild_platform as platform;
-use wild_platform::program_segments::ProgramSegmentId;
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{FileId, ObjectFile, Relaxation};
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{Layout, OutputRecordLayout};
+use elyld_platform as platform;
+use elyld_platform::program_segments::ProgramSegmentId;
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{FileId, ObjectFile, Relaxation};
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 pub(crate) fn install_name<'data>(
     file_id: FileId,
-    symbol_db: &wild_layout::symbol_db::SymbolDb<'data, MachO>,
+    symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, MachO>,
 ) -> &'data [u8] {
     match symbol_db.file(file_id) {
         SequencedInput::StubLibrary(stub) => stub.defined_symbols.install_name.as_bytes(),
@@ -62,12 +62,12 @@ pub(super) fn create_dynamic_layout_ext<'data>(
 }
 
 pub(super) const NUM_BUILT_IN_SECTIONS: usize =
-    wild_layout::output_section_id::num_built_in_sections::<MachO>();
+    elyld_layout::output_section_id::num_built_in_sections::<MachO>();
 
 pub(super) const SECTION_DEFINITIONS: [BuiltInSectionDetails; NUM_BUILT_IN_SECTIONS] = {
     let mut defs = [DEFAULT_DEFS; NUM_BUILT_IN_SECTIONS];
 
-    defs[wild_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
+    defs[elyld_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
         kind: SectionKind::Primary(SectionIdentity::new(SectionName(b"FILE_HEADER"), None)),
         ..DEFAULT_DEFS
     };
@@ -182,7 +182,7 @@ pub(super) const DEFAULT_SECTION_RULES: &[SectionRule<'static>] = &[
 ];
 
 pub(super) fn section_header_name_for_segment<'data>(
-    output_sections: &wild_layout::output_section_id::OutputSections<'data, MachO>,
+    output_sections: &elyld_layout::output_section_id::OutputSections<'data, MachO>,
     section_id: OutputSectionId,
     segment_def: ProgramSegmentDef,
 ) -> Option<SectionName<'data>> {
@@ -198,7 +198,7 @@ pub(super) fn section_header_name_for_segment<'data>(
 }
 
 pub(super) fn count_sections_for_segment(
-    output_sections: &wild_layout::output_section_id::OutputSections<MachO>,
+    output_sections: &elyld_layout::output_section_id::OutputSections<MachO>,
     segment_def: ProgramSegmentDef,
 ) -> usize {
     output_sections
@@ -249,7 +249,7 @@ pub(crate) fn get_segment_sections<'data>(
 
 pub(super) fn add_sections_in_segment<'data>(
     builder: &mut OutputOrderBuilder<'_, 'data, MachO>,
-    output_sections: &wild_layout::output_section_id::OutputSections<'data, MachO>,
+    output_sections: &elyld_layout::output_section_id::OutputSections<'data, MachO>,
     sections: &[OutputSectionId],
     segment: SegmentName,
 ) {

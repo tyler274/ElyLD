@@ -1,6 +1,6 @@
 [package]
-name = "wild-args"
-description = "Command-line argument parsing for the Wild linker"
+name = "elyld-args"
+description = "Command-line argument parsing for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -20,11 +20,11 @@ rayon.workspace = true
 strum.workspace = true
 tracing.workspace = true
 colored.workspace = true
-wild-error = { path = "../wild-error", version = "0.10.0" }
-wild-fs = { path = "../wild-fs", version = "0.10.0" }
-wild-platform = { path = "../wild-platform", version = "0.10.0" }
-wild-scripts = { path = "../wild-scripts", version = "0.10.0" }
-wild-util = { path = "../wild-util", version = "0.10.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
+elyld-fs = { path = "../elyld-fs", version = "1.0.0" }
+elyld-platform = { path = "../elyld-platform", version = "1.0.0" }
+elyld-scripts = { path = "../elyld-scripts", version = "1.0.0" }
+elyld-util = { path = "../elyld-util", version = "1.0.0" }
 
 [dev-dependencies]
 tempfile.workspace = true

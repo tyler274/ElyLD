@@ -10,16 +10,16 @@ use linker_utils::utils::slice_from_all_bytes_mut;
 use object::LittleEndian;
 use object::read::elf::SectionHeader as _;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use wild_error::error::{Context as _, Result};
-use wild_error::{ensure, error};
-use wild_layout::file_writer::insufficient_allocation;
-use wild_layout::output_section_id::{OutputSections, SectionName};
-use wild_layout::{
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{ensure, error};
+use elyld_layout::file_writer::insufficient_allocation;
+use elyld_layout::output_section_id::{OutputSections, SectionName};
+use elyld_layout::{
     FileLayout, HeaderInfo, ObjectLayout, PartialLinkSingleton, verbose_timing_phase,
 };
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::{Arch, Args as _, EntryPoint, ObjectFile, OutputKind};
-use wild_util::alignment;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::{Arch, Args as _, EntryPoint, ObjectFile, OutputKind};
+use elyld_util::alignment;
 
 pub(crate) fn write_program_headers<C: ElfClass>(
     program_headers_out: &mut ProgramHeaderWriter<'_, C>,
@@ -176,7 +176,7 @@ pub(crate) fn write_section_headers<C: ElfClass>(
     let shstrtab = elf::shstrtab_from_sections(output_sections);
     let info_values = compute_info_values(layout);
 
-    for section_id in wild_layout::output_section_id::section_header_order(
+    for section_id in elyld_layout::output_section_id::section_header_order(
         &layout.output_order,
         &layout.output_sections,
     ) {
@@ -539,7 +539,7 @@ fn partial_link_output_index_for_input_section<C: ElfClass>(
     }
 
     let part_id = object.section_part_id(section_index, &layout.symbol_db.section_part_ids);
-    if part_id == wild_layout::part_id::UNMAPPED {
+    if part_id == elyld_layout::part_id::UNMAPPED {
         return None;
     }
 

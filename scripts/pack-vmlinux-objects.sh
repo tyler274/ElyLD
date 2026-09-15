@@ -1,8 +1,8 @@
 #!/bin/sh
-# Pack the x86_64 vmlinux link inputs + GNU oracle for WILD_LINUX_TREE tests.
+# Pack the x86_64 vmlinux link inputs + GNU oracle for ELYLD_LINUX_TREE tests.
 # Usage: pack-vmlinux-objects.sh [kernel-tree] [out.tar.zst]
 set -eu
-TREE=${1:-${WILD_LINUX_TREE:?set WILD_LINUX_TREE or pass the kernel tree}}
+TREE=${1:-${ELYLD_LINUX_TREE:?set ELYLD_LINUX_TREE or pass the kernel tree}}
 OUT=${2:-$PWD/vmlinux-objects-x86_64.tar.zst}
 case $OUT in
     /*) ;;

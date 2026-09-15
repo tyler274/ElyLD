@@ -36,39 +36,39 @@ use std::marker::PhantomData;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::atomic;
 use std::sync::atomic::AtomicBool;
-use wild_args::elf::{BuildIdOption, ElfArgs};
-use wild_args::{BSymbolicKind, RelocationModel};
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_fs::fs::FileSystem;
-use wild_layout as layout;
-use wild_layout::layout_rules::{SectionRule, SectionRuleOutcome};
-use wild_layout::output_section_id::{
+use elyld_args::elf::{BuildIdOption, ElfArgs};
+use elyld_args::{BSymbolicKind, RelocationModel};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_fs::fs::FileSystem;
+use elyld_layout as layout;
+use elyld_layout::layout_rules::{SectionRule, SectionRuleOutcome};
+use elyld_layout::output_section_id::{
     CustomSectionIds, OrderEvent, OutputOrder, OutputOrderBuilder, OutputSectionId, OutputSections,
     SectionIdentity, SectionName, SectionOutputInfo,
 };
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::parsing::{InternalSymDefInfo, SymbolPlacement};
-use wild_layout::resolution::{LoadedMetrics, SectionSlot};
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_layout::symbol_db::{SymbolDb, SymbolId};
-use wild_layout::{
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::parsing::{InternalSymDefInfo, SymbolPlacement};
+use elyld_layout::resolution::{LoadedMetrics, SectionSlot};
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_layout::symbol_db::{SymbolDb, SymbolId};
+use elyld_layout::{
     CommonGroupState, DynamicSymbolDefinition, ObjectLayoutState, OutputRecordLayout, Resolution,
     SectionGcUnit, SymbolCopyInfo, expression_eval,
 };
-use wild_platform as platform;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::{ProgramSegmentId, ProgramSegments, SegmentEntry};
-use wild_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
-use wild_platform::{
+use elyld_platform as platform;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::{ProgramSegmentId, ProgramSegments, SegmentEntry};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
+use elyld_platform::{
     Arch, Args as _, FileKind, ObjectFile, OutputKind, Platform, ProgramSegmentDef as _,
     RawSymbolName as _, RelocationSequence, SectionAttributes as _, SectionFlags as _,
     SectionHeader as _, SectionType as _, Symbol as _, ThunkConfig, VerneedTable as _,
 };
-use wild_scripts::linker_script;
-use wild_scripts::version_script::VersionScript;
-use wild_util::alignment::Alignment;
-use wild_util::arch::Architecture;
+use elyld_scripts::linker_script;
+use elyld_scripts::version_script::VersionScript;
+use elyld_util::alignment::Alignment;
+use elyld_util::arch::Architecture;
 
 impl<C: ElfClass> platform::Platform for Elf<C> {
     const NUM_SINGLE_PART_SECTIONS: u32 = ELF_NUM_SINGLE_PART_SECTIONS;
@@ -140,7 +140,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         output_section_id::GNU_VERSION,
         output_section_id::GNU_HASH,
         output_section_id::DYNAMIC,
-        wild_layout::output_section_id::FILE_HEADER,
+        elyld_layout::output_section_id::FILE_HEADER,
         output_section_id::PROGRAM_HEADERS,
         output_section_id::SECTION_HEADERS,
         output_section_id::SHSTRTAB,
@@ -192,66 +192,66 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     type ResolvedObjectExt<'data> = ResolvedObjectExt<'data>;
     type SectionIdentityExt = ();
     type GcUnit = SectionGcUnit;
-    type Layout<'data> = wild_layout::Layout<'data, Self>;
-    type GroupLayout<'data> = wild_layout::GroupLayout<'data, Self>;
-    type SymbolDb<'data> = wild_layout::symbol_db::SymbolDb<'data, Self>;
-    type Resolver<'data> = wild_layout::resolution::Resolver<'data, Self>;
+    type Layout<'data> = elyld_layout::Layout<'data, Self>;
+    type GroupLayout<'data> = elyld_layout::GroupLayout<'data, Self>;
+    type SymbolDb<'data> = elyld_layout::symbol_db::SymbolDb<'data, Self>;
+    type Resolver<'data> = elyld_layout::resolution::Resolver<'data, Self>;
     type ResolutionResources<'data, 'scope>
-        = wild_layout::resolution::ResolutionResources<'data, 'scope, Self>
+        = elyld_layout::resolution::ResolutionResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type ObjectLayoutState<'data> = wild_layout::ObjectLayoutState<'data, Self>;
-    type CommonGroupState<'data> = wild_layout::CommonGroupState<'data, Self>;
-    type GroupState<'data> = wild_layout::GroupState<'data, Self>;
-    type DynamicLayoutState<'data> = wild_layout::DynamicLayoutState<'data, Self>;
-    type PreludeLayoutState<'data> = wild_layout::PreludeLayoutState<'data, Self>;
-    type StubLibraryLayoutState<'data> = wild_layout::StubLibraryLayoutState<'data, Self>;
+    type ObjectLayoutState<'data> = elyld_layout::ObjectLayoutState<'data, Self>;
+    type CommonGroupState<'data> = elyld_layout::CommonGroupState<'data, Self>;
+    type GroupState<'data> = elyld_layout::GroupState<'data, Self>;
+    type DynamicLayoutState<'data> = elyld_layout::DynamicLayoutState<'data, Self>;
+    type PreludeLayoutState<'data> = elyld_layout::PreludeLayoutState<'data, Self>;
+    type StubLibraryLayoutState<'data> = elyld_layout::StubLibraryLayoutState<'data, Self>;
     type GraphResources<'data, 'scope>
-        = wild_layout::GraphResources<'data, 'scope, Self>
+        = elyld_layout::GraphResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type LocalWorkQueue = wild_layout::LocalWorkQueue<Self>;
+    type LocalWorkQueue = elyld_layout::LocalWorkQueue<Self>;
     type FinaliseLayoutResources<'scope, 'data>
-        = wild_layout::FinaliseLayoutResources<'scope, 'data, Self>
+        = elyld_layout::FinaliseLayoutResources<'scope, 'data, Self>
     where
         'data: 'scope;
     type FinaliseSizesResources<'data, 'scope>
-        = wild_layout::FinaliseSizesResources<'data, 'scope, Self>
+        = elyld_layout::FinaliseSizesResources<'data, 'scope, Self>
     where
         'data: 'scope;
     type ResolutionWriter<'writer, 'out>
-        = wild_layout::ResolutionWriter<'writer, 'out, Self>
+        = elyld_layout::ResolutionWriter<'writer, 'out, Self>
     where
         'out: 'writer;
-    type DynamicSymbolDefinition<'data> = wild_layout::DynamicSymbolDefinition<'data, Self>;
-    type OutputRecordLayout = wild_layout::OutputRecordLayout;
-    type SymbolResolutions = wild_layout::SymbolResolutions<Self>;
-    type LayoutSection = wild_layout::Section;
-    type HeaderInfo = wild_layout::HeaderInfo;
-    type Resolution = wild_layout::Resolution<Self>;
-    type UnloadedSection = wild_layout::resolution::UnloadedSection;
-    type LoadedMetrics = wild_layout::resolution::LoadedMetrics;
-    type ResolvedObject<'data> = wild_layout::resolution::ResolvedObject<'data, Self>;
-    type ResolvedDynamic<'data> = wild_layout::resolution::ResolvedDynamic<'data, Self>;
-    type ResolvedStubLibrary<'data> = wild_layout::resolution::ResolvedStubLibrary<'data>;
+    type DynamicSymbolDefinition<'data> = elyld_layout::DynamicSymbolDefinition<'data, Self>;
+    type OutputRecordLayout = elyld_layout::OutputRecordLayout;
+    type SymbolResolutions = elyld_layout::SymbolResolutions<Self>;
+    type LayoutSection = elyld_layout::Section;
+    type HeaderInfo = elyld_layout::HeaderInfo;
+    type Resolution = elyld_layout::Resolution<Self>;
+    type UnloadedSection = elyld_layout::resolution::UnloadedSection;
+    type LoadedMetrics = elyld_layout::resolution::LoadedMetrics;
+    type ResolvedObject<'data> = elyld_layout::resolution::ResolvedObject<'data, Self>;
+    type ResolvedDynamic<'data> = elyld_layout::resolution::ResolvedDynamic<'data, Self>;
+    type ResolvedStubLibrary<'data> = elyld_layout::resolution::ResolvedStubLibrary<'data>;
     type LinkerPlugin<'data> = crate::linker_plugins::LinkerPlugin<'data>;
-    type LtoInput<'data> = wild_layout::grouping::LtoInput<'data>;
-    type Group<'data> = wild_layout::grouping::Group<'data, Self>;
-    type SequencedLinkerScript<'data> = wild_layout::grouping::SequencedLinkerScript<'data, Self>;
-    type FileLoader<'data, F: wild_fs::fs::FileSystem> =
-        wild_layout::input_data::FileLoader<'data, F>;
-    type LayoutRulesBuilder<'data> = wild_layout::layout_rules::LayoutRulesBuilder<'data>;
-    type InternalSymbolsBuilder<'data> = wild_layout::parsing::InternalSymbolsBuilder<'data, Self>;
-    type InternalSymDefInfo<'data> = wild_layout::parsing::InternalSymDefInfo<'data, Self>;
-    type OutputSections<'data> = wild_layout::output_section_id::OutputSections<'data, Self>;
-    type OutputOrder<'data> = wild_layout::output_section_id::OutputOrder<'data>;
-    type CustomSectionIds = wild_layout::output_section_id::CustomSectionIds;
-    type FileWriterOutput<F: wild_fs::fs::FileSystem> = wild_layout::file_writer::Output<F>;
-    type LocationCounter<'data> = wild_layout::layout_rules::LocationCounter<'data>;
-    type SectionOutputInfo<'data> = wild_layout::output_section_id::SectionOutputInfo<'data, Self>;
+    type LtoInput<'data> = elyld_layout::grouping::LtoInput<'data>;
+    type Group<'data> = elyld_layout::grouping::Group<'data, Self>;
+    type SequencedLinkerScript<'data> = elyld_layout::grouping::SequencedLinkerScript<'data, Self>;
+    type FileLoader<'data, F: elyld_fs::fs::FileSystem> =
+        elyld_layout::input_data::FileLoader<'data, F>;
+    type LayoutRulesBuilder<'data> = elyld_layout::layout_rules::LayoutRulesBuilder<'data>;
+    type InternalSymbolsBuilder<'data> = elyld_layout::parsing::InternalSymbolsBuilder<'data, Self>;
+    type InternalSymDefInfo<'data> = elyld_layout::parsing::InternalSymDefInfo<'data, Self>;
+    type OutputSections<'data> = elyld_layout::output_section_id::OutputSections<'data, Self>;
+    type OutputOrder<'data> = elyld_layout::output_section_id::OutputOrder<'data>;
+    type CustomSectionIds = elyld_layout::output_section_id::CustomSectionIds;
+    type FileWriterOutput<F: elyld_fs::fs::FileSystem> = elyld_layout::file_writer::Output<F>;
+    type LocationCounter<'data> = elyld_layout::layout_rules::LocationCounter<'data>;
+    type SectionOutputInfo<'data> = elyld_layout::output_section_id::SectionOutputInfo<'data, Self>;
 
     fn write_output_file<'data, A: Arch<Platform = Self>, F: FileSystem>(
-        output: &wild_layout::file_writer::Output<F>,
+        output: &elyld_layout::file_writer::Output<F>,
         layout: &layout::Layout<'data, Self>,
     ) -> Result {
         output.write(layout, elf_writer::write::<C, A>)
@@ -265,7 +265,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
     fn maybe_init_linker_plugin<'data>(
         args: &'data Self::Args,
-        herd: &'data wild_util::arena::Herd,
+        herd: &'data elyld_util::arena::Herd,
     ) -> Result<Option<crate::linker_plugins::LinkerPlugin<'data>>> {
         crate::linker_plugins::LinkerPlugin::from_args::<C>(args, herd)
     }
@@ -275,8 +275,8 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn resolve_lto_symbols<'data, 'scope>(
-        obj: &wild_layout::grouping::LtoInput<'data>,
-        resources: &'scope wild_layout::resolution::ResolutionResources<'data, 'scope, Self>,
+        obj: &elyld_layout::grouping::LtoInput<'data>,
+        resources: &'scope elyld_layout::resolution::ResolutionResources<'data, 'scope, Self>,
         definitions_out: &mut [SymbolId],
         scope: &Scope<'scope>,
     ) -> Result {
@@ -288,7 +288,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         // yet. e.g. we don't allocate space for section headers until we know which sections we're
         // keeping, which by inherently needs to be after this method is called.
         const FORCE_KEEP_SECTIONS: &[OutputSectionId] = &[
-            wild_layout::output_section_id::FILE_HEADER,
+            elyld_layout::output_section_id::FILE_HEADER,
             output_section_id::PROGRAM_HEADERS,
             output_section_id::SECTION_HEADERS,
             output_section_id::SHSTRTAB,
@@ -756,7 +756,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         // RISCV_ATTRIBUTES segment.
         if [sht::NOTE, sht::RISCV_ATTRIBUTES].contains(&section_info.section_attributes.ty) {
         } else if section_layout.mem_offset == 0
-            && merge_target != wild_layout::output_section_id::FILE_HEADER
+            && merge_target != elyld_layout::output_section_id::FILE_HEADER
         {
             // Sections with an explicit VMA of 0 (e.g. `.comment 0 :`) and empty
             // unused script sections can appear in PHDRS without a non-zero address.
@@ -765,7 +765,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             // address.
             ensure!(
                 section_layout.mem_offset != 0
-                    || merge_target == wild_layout::output_section_id::FILE_HEADER,
+                    || merge_target == elyld_layout::output_section_id::FILE_HEADER,
                 "Missing memory offset for section {} present in a program segment.",
                 output_sections.section_debug(section_id),
             );
@@ -885,7 +885,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn create_linker_defined_symbols(
-        symbols: &mut wild_layout::parsing::InternalSymbolsBuilder<Elf<C>>,
+        symbols: &mut elyld_layout::parsing::InternalSymbolsBuilder<Elf<C>>,
         output_kind: OutputKind,
         args: &ElfArgs,
     ) {
@@ -898,7 +898,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         symbols
             .add_symbol(
                 InternalSymDefInfo::new(
-                    SymbolPlacement::SectionStart(wild_layout::output_section_id::FILE_HEADER),
+                    SymbolPlacement::SectionStart(elyld_layout::output_section_id::FILE_HEADER),
                     b"__ehdr_start",
                 )
                 .with_provide(),
@@ -906,7 +906,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             .hide();
 
         symbols
-            .section_start(wild_layout::output_section_id::FILE_HEADER, "__dso_handle")
+            .section_start(elyld_layout::output_section_id::FILE_HEADER, "__dso_handle")
             .hide();
 
         symbols
@@ -1020,7 +1020,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn built_in_section_infos<'data>()
-    -> Vec<wild_layout::output_section_id::SectionOutputInfo<'data, Elf<C>>> {
+    -> Vec<elyld_layout::output_section_id::SectionOutputInfo<'data, Elf<C>>> {
         Self::SECTION_DEFINITIONS
             .iter()
             .map(|d| SectionOutputInfo {
@@ -1048,7 +1048,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     fn create_finalise_sizes_ext<'data, 'states, 'files, A: Arch<Platform = Self>>(
         args: &ElfArgs,
         groups: &'files mut [layout::GroupState<'data, Self>],
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) -> Result<LayoutExt>
     where
         'data: 'files,
@@ -1066,11 +1066,11 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn load_exception_frame_data<'data, 'scope, A: Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Elf<C>>,
-        common: &mut wild_layout::CommonGroupState<'data, Elf<C>>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Elf<C>>,
+        common: &mut elyld_layout::CommonGroupState<'data, Elf<C>>,
         eh_frame_section_index: object::SectionIndex,
-        resources: &'scope wild_layout::GraphResources<'data, '_, Elf<C>>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, '_, Elf<C>>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
         object.format_specific.has_eh_frame_input = true;
@@ -1128,7 +1128,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         object: &mut layout::ObjectLayoutState<'data, Elf<C>>,
         common: &mut layout::CommonGroupState<'data, Elf<C>>,
         queue: &mut layout::LocalWorkQueue<Self>,
-        unloaded: wild_layout::resolution::UnloadedSection,
+        unloaded: elyld_layout::resolution::UnloadedSection,
         resources: &'scope layout::GraphResources<'data, 'scope, Elf<C>>,
         scope: &Scope<'scope>,
     ) -> Result {
@@ -1453,7 +1453,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         args: &Self::Args,
         sym: &Self::SymtabEntry,
         output_kind: OutputKind,
-        export_list: Option<&wild_scripts::export_list::ExportList>,
+        export_list: Option<&elyld_scripts::export_list::ExportList>,
         lib_name: &[u8],
         archive_semantics: bool,
         is_undefined: bool,
@@ -1759,7 +1759,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         total_sizes: &mut OutputSectionPartMap<u64>,
         format_specific: &mut LayoutExt,
     ) {
-        wild_layout::timing_phase!("Share .strtab suffixes");
+        elyld_layout::timing_phase!("Share .strtab suffixes");
         let mut names = Vec::new();
         let mut unmerged = 0;
         for group in group_states.iter_mut() {
@@ -1912,7 +1912,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
     fn validate_resolution(
         name: &[u8],
-        resolution: &wild_layout::Resolution<Elf<C>>,
+        resolution: &elyld_layout::Resolution<Elf<C>>,
         got: &SectionHeader<C>,
         got_data: &[u8],
     ) -> Result {
@@ -1967,7 +1967,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         let sframe_outcome = if args.discard_sframe {
             SectionRuleOutcome::Discard
         } else {
-            SectionRuleOutcome::Section(wild_layout::layout_rules::SectionOutputInfo::keep(
+            SectionRuleOutcome::Section(elyld_layout::layout_rules::SectionOutputInfo::keep(
                 output_section_id::SFRAME,
             ))
         };
@@ -1999,7 +1999,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn linker_script_rules_pre_build(
-        rule_builder: &mut wild_layout::layout_rules::LayoutRulesBuilder,
+        rule_builder: &mut elyld_layout::layout_rules::LayoutRulesBuilder,
     ) {
         // Even when we have a linker script, we still need to map .comment to .comment. It's a
         // special section because both input objects and the linker write to it. At least for
@@ -2025,7 +2025,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             if cfg!(all(feature = "plugins", unix)) {
                 bail!("Found GCC LTO input that we didn't supply to linker plugin");
             }
-            return Err(wild_layout::symbol_db::linker_plugin_disabled_error());
+            return Err(elyld_layout::symbol_db::linker_plugin_disabled_error());
         }
 
         Ok(())
@@ -2041,7 +2041,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         _args: &Self::Args,
     ) {
         sizes.increment(
-            wild_layout::part_id::FILE_HEADER,
+            elyld_layout::part_id::FILE_HEADER,
             u64::from(C::FILE_HEADER_SIZE),
         );
         sizes.increment(
@@ -2129,7 +2129,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
         builder.set_script_followers(custom.script_followers.clone());
 
-        builder.add_section(wild_layout::output_section_id::FILE_HEADER);
+        builder.add_section(elyld_layout::output_section_id::FILE_HEADER);
         builder.add_section(output_section_id::PROGRAM_HEADERS);
         builder.add_section(output_section_id::NOTE_GNU_PROPERTY);
         builder.add_section(output_section_id::NOTE_GNU_BUILD_ID);
@@ -2407,7 +2407,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                     builder.push_event(OrderEvent::SegmentStart(seg_id));
                 }
                 builder.push_event(OrderEvent::Section(
-                    wild_layout::output_section_id::FILE_HEADER,
+                    elyld_layout::output_section_id::FILE_HEADER,
                 ));
                 while let Some((_, seg_id)) = it.next_if(|&(cat, _)| cat == 1) {
                     builder.push_event(OrderEvent::SegmentEnd(seg_id));
@@ -2443,7 +2443,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                     &output_sections.section_infos.get(*next).section_attributes,
                 )
             });
-            if this_class != wild_layout::output_section_id::OrphanClass::NonAlloc
+            if this_class != elyld_layout::output_section_id::OrphanClass::NonAlloc
                 && next_class != Some(this_class)
             {
                 let orphans = pending.take_class(this_class);
@@ -2533,7 +2533,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
         if matches!(
             section_id,
-            wild_layout::output_section_id::FILE_HEADER
+            elyld_layout::output_section_id::FILE_HEADER
                 | output_section_id::PROGRAM_HEADERS
                 | output_section_id::SECTION_HEADERS
         ) {
@@ -2567,7 +2567,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         }
 
         if section_name.is_empty() {
-            return wild_layout::layout_rules::unnamed_section_output::<Elf<C>>(section);
+            return elyld_layout::layout_rules::unnamed_section_output::<Elf<C>>(section);
         }
 
         match section_name {
@@ -2582,7 +2582,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             secnames::NOTE_GNU_PROPERTY_SECTION_NAME => return SectionRuleOutcome::NoteGnuProperty,
             secnames::NOTE_ABI_TAG_SECTION_NAME => {
                 return SectionRuleOutcome::Section(
-                    wild_layout::layout_rules::SectionOutputInfo::keep(
+                    elyld_layout::layout_rules::SectionOutputInfo::keep(
                         output_section_id::NOTE_ABI_TAG,
                     ),
                 );
@@ -2647,10 +2647,10 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     }
 
     fn handle_debug_index_section<'data>(
-        obj: &mut wild_layout::resolution::ResolvedObject<'data, Self>,
+        obj: &mut elyld_layout::resolution::ResolvedObject<'data, Self>,
         section_index: object::SectionIndex,
         input_section: &'data Self::SectionHeader,
-        member: &wild_util::arena::Member<'data>,
+        member: &elyld_util::arena::Member<'data>,
         loaded_metrics: &LoadedMetrics,
     ) -> Result {
         let data = obj
@@ -2677,7 +2677,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         }
     }
 
-    fn is_allowed_in_archive(kind: wild_platform::FileKind) -> bool {
+    fn is_allowed_in_archive(kind: elyld_platform::FileKind) -> bool {
         kind == FileKind::ElfObject
     }
 

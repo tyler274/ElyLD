@@ -8,8 +8,8 @@ use hashbrown::{HashMap, HashSet};
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
-use wild_error::error::Result;
-use wild_util::incremental::next_generation;
+use elyld_error::error::Result;
+use elyld_util::incremental::next_generation;
 
 /// `{index, generation}` handle. Generation 0 is never issued.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

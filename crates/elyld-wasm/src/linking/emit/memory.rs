@@ -7,15 +7,15 @@ use crate::{
 use hashbrown::HashMap;
 use std::borrow::Cow;
 use wasmparser::MemoryType;
-use wild_args::wasm::WasmArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_layout::symbol_db::SymbolDb;
-use wild_platform::Args as _;
+use elyld_args::wasm::WasmArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_layout::symbol_db::SymbolDb;
+use elyld_platform::Args as _;
 
 pub(crate) const fn wasm_page_size() -> u64 {
-    wild_args::wasm::WASM_PAGE_SIZE
+    elyld_args::wasm::WASM_PAGE_SIZE
 }
 
 /// Size of the wasm32 linear-memory address space.
@@ -102,7 +102,7 @@ pub(crate) fn ensure_memory_covers(
 /// `__heap_end` = end of initial linear memory (`memory.initial * page_size`).
 pub(crate) fn heap_end_from_initial_pages(initial_pages: u64) -> Result<u32> {
     u32::try_from(initial_pages.saturating_mul(wasm_page_size()))
-        .map_err(|_| wild_error::error!("Wasm initial memory size overflow"))
+        .map_err(|_| elyld_error::error!("Wasm initial memory size overflow"))
 }
 
 /// Write stack-pointer init after static data layout.
@@ -119,7 +119,7 @@ pub(crate) fn fill_stack_pointer_init(
     let global = layout
         .globals
         .get_mut(defined_slot as usize)
-        .ok_or_else(|| wild_error::error!("Wasm stack pointer global missing"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm stack pointer global missing"))?;
     ensure!(
         global.ty.mutable && global.ty.content_type == wasmparser::ValType::I32,
         "Wasm stack pointer global has unexpected type"
@@ -139,7 +139,7 @@ pub(crate) fn fill_tls_base_init(
     let global = layout
         .globals
         .get_mut(defined_slot as usize)
-        .ok_or_else(|| wild_error::error!("Wasm TLS base global missing"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm TLS base global missing"))?;
     ensure!(
         !global.ty.mutable && global.ty.content_type == wasmparser::ValType::I32,
         "Wasm TLS base global has unexpected type"
@@ -209,14 +209,14 @@ pub(crate) fn resolve_entry_function<'data>(
     layout_inputs: &[WasmObjectLayoutInput<'data>],
     object_index_maps: &[WasmObjectIndexMap],
     symbol_db: &SymbolDb<'data, Wasm>,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
 ) -> Result<Option<ResolvedEntry<'data>>> {
     let Some(entry_name_bytes) = symbol_db.entry_symbol_name() else {
         return Ok(None);
     };
     let entry_display = String::from_utf8_lossy(entry_name_bytes);
     let not_defined = || {
-        wild_error::error!(
+        elyld_error::error!(
             "entry symbol not defined (pass --no-entry to suppress): {entry_display}"
         )
     };
@@ -312,7 +312,7 @@ pub(crate) fn ensure_force_exports<'data>(
     object_index_maps: &[WasmObjectIndexMap],
     symbol_db: &SymbolDb<'data, Wasm>,
     indices: &LinkerDefinedIndices,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
 ) -> Result<()> {
     for &known in &indices.requested_exports {
         if try_export_linker_defined(exports, known, indices) {

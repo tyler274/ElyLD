@@ -19,16 +19,16 @@ use object::read::elf::{
 use rayon::Scope;
 use std::borrow::Cow;
 use std::sync::atomic::Ordering;
-use wild_args::elf::ElfArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, error};
-use wild_layout as layout;
-use wild_layout::DynamicSymbolDefinition;
-use wild_layout::file_writer::copy_section_data;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::resolution::LoadedMetrics;
-use wild_platform as platform;
-use wild_platform::{
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, error};
+use elyld_layout as layout;
+use elyld_layout::DynamicSymbolDefinition;
+use elyld_layout::file_writer::copy_section_data;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::resolution::LoadedMetrics;
+use elyld_platform as platform;
+use elyld_platform::{
     Arch, FrameIndex, ObjectFile, Platform, Relocation, RelocationSequence, Symbol as _,
 };
 use zerocopy::FromBytes;
@@ -139,7 +139,7 @@ impl<'data, C: ElfClass> platform::ObjectFile<'data> for File<'data, C> {
     fn section_data(
         &self,
         section: &SectionHeader<C>,
-        member: &wild_util::arena::Member<'data>,
+        member: &elyld_util::arena::Member<'data>,
         loaded_metrics: &LoadedMetrics,
     ) -> Result<&'data [u8]> {
         let data = section.data(LittleEndian, self.data)?;

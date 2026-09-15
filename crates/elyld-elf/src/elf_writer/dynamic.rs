@@ -10,18 +10,18 @@ use linker_utils::elf::DynamicRelocationKind;
 use linker_utils::utils::slice_from_all_bytes_mut;
 use object::LittleEndian;
 use object::read::elf::Sym as _;
-use wild_args::elf::ElfArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure, error};
-use wild_layout::file_writer::insufficient_allocation;
-use wild_layout::output_section_id::OutputSectionId;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{DynamicLayout, EpilogueLayout, OutputRecordLayout, verbose_timing_phase};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{Arch, ObjectFile, OutputKind};
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure, error};
+use elyld_layout::file_writer::insufficient_allocation;
+use elyld_layout::output_section_id::OutputSectionId;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{DynamicLayout, EpilogueLayout, OutputRecordLayout, verbose_timing_phase};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{Arch, ObjectFile, OutputKind};
 use zerocopy::FromBytes;
 
 pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
@@ -496,7 +496,7 @@ pub(crate) const EPILOGUE_DYNAMIC_ENTRY_WRITERS: &[DynamicEntryWriter] = &[
         object::elf::DT_AARCH64_VARIANT_PCS,
         |inputs| {
             inputs.has_variant_pcs
-                && inputs.args.architecture() == wild_util::arch::Architecture::AArch64
+                && inputs.args.architecture() == elyld_util::arch::Architecture::AArch64
         },
         |_inputs| 0,
     ),
@@ -504,7 +504,7 @@ pub(crate) const EPILOGUE_DYNAMIC_ENTRY_WRITERS: &[DynamicEntryWriter] = &[
         object::elf::DT_RISCV_VARIANT_CC,
         |inputs| {
             inputs.has_variant_pcs
-                && inputs.args.architecture() == wild_util::arch::Architecture::RiscV64
+                && inputs.args.architecture() == elyld_util::arch::Architecture::RiscV64
         },
         |_inputs| 0,
     ),

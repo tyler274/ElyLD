@@ -18,14 +18,14 @@ use rayon::iter::{
 };
 use std::borrow::Cow;
 use std::mem::size_of;
-use wild_error::error::{Context as _, Result};
-use wild_layout::resolution::SectionSlot;
-use wild_layout::{
+use elyld_error::error::{Context as _, Result};
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::{
     FileLayout, FileLayoutState, GroupState, Layout, ObjectLayoutState, timing_phase,
     verbose_timing_phase,
 };
-use wild_platform::{ObjectFile as _, SectionHeader as _};
-use wild_util::hash::{PassThroughHashMap, PreHashed};
+use elyld_platform::{ObjectFile as _, SectionHeader as _};
+use elyld_util::hash::{PassThroughHashMap, PreHashed};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 const GDB_INDEX_VERSION: u32 = 9;
@@ -132,7 +132,7 @@ fn parse_cu_boundaries(data: &[u8]) -> Result<Vec<CuBoundary>> {
     while offset + 4 <= data.len() {
         let init_len = u32_from_slice(&data[offset..]);
         let total = if init_len == 0xFFFF_FFFF {
-            wild_error::ensure!(
+            elyld_error::ensure!(
                 offset + 12 <= data.len(),
                 "Truncated DWARF64 initial length in .debug_info at offset {offset}"
             );
@@ -141,7 +141,7 @@ fn parse_cu_boundaries(data: &[u8]) -> Result<Vec<CuBoundary>> {
         } else {
             4 + init_len as usize
         };
-        wild_error::ensure!(
+        elyld_error::ensure!(
             total > 0 && offset + total <= data.len(),
             "Invalid CU length {total} in .debug_info at offset {offset}"
         );
@@ -501,7 +501,7 @@ fn bucket_names<'data>(
 
             for scan in scans {
                 for (name, local_cu_idx, attrs) in &scan.symbol_entries {
-                    let hash = wild_util::hash::hash_bytes(name);
+                    let hash = elyld_util::hash::hash_bytes(name);
                     let entry = encode_cu_vector_entry(scan.cu_base + local_cu_idx, *attrs);
                     state.buckets[hash as usize % num_buckets].push(NamedCuEntry {
                         name: PreHashed::new(name, hash),
@@ -783,7 +783,7 @@ fn write_hash_table(
                     break;
                 }
                 slot = (slot + step) & mask;
-                wild_error::ensure!(slot != initial_slot, "gdb_index hash table is full");
+                elyld_error::ensure!(slot != initial_slot, "gdb_index hash table is full");
             }
         }
     }

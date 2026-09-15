@@ -32,20 +32,20 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 #[allow(unused_imports)]
 pub use units::*;
-use wild_args::InputRef;
-use wild_error::bail;
-use wild_error::error::{Context, Error, Result};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::{ProgramSegmentId, ProgramSegments};
-use wild_platform::value_flags::{
+use elyld_args::InputRef;
+use elyld_error::bail;
+use elyld_error::error::{Context, Error, Result};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::{ProgramSegmentId, ProgramSegments};
+use elyld_platform::value_flags::{
     AtomicPerSymbolFlags, FlagsForSymbol as _, PerSymbolFlags, ValueFlags,
 };
-use wild_platform::{
+use elyld_platform::{
     Args as _, FileId, ObjectFile, Platform, RelaxSymbolInfo, SectionAttributes as _,
     SectionFlags as _, Symbol as _,
 };
-use wild_util::alignment::Alignment;
-use wild_util::input_section_id::SectionIdRange;
+use elyld_util::alignment::Alignment;
+use elyld_util::input_section_id::SectionIdRange;
 
 pub struct FinaliseSizesResources<'data, 'scope, P: Platform> {
     pub dynamic_symbol_definitions: &'scope [DynamicSymbolDefinition<'data, P>],
@@ -747,7 +747,7 @@ pub struct MemoryRegion {
     pub length: u64,
     pub used: u64,
     pub used_lma: u64,
-    pub flags: Option<wild_scripts::linker_script::MemoryFlags>,
+    pub flags: Option<elyld_scripts::linker_script::MemoryFlags>,
     /// Start VMA of the last SHF_ALLOC section placed in this region (GNU default LMA heuristic).
     pub last_section_vma: Option<u64>,
     /// Start LMA of that section.
@@ -778,7 +778,7 @@ impl<'data, P: EnginePlatform> Layout<'data, P> {
                 match file {
                     FileLayout::Prelude(prelude) => {
                         records.push(crate::incremental::IncrementalFileRecord {
-                            file_id: wild_platform::PRELUDE_FILE_ID,
+                            file_id: elyld_platform::PRELUDE_FILE_ID,
                             key: "<prelude>".into(),
                             source_path: PathBuf::new(),
                             sizes: Vec::new(),

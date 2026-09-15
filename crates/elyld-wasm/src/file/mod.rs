@@ -19,9 +19,9 @@ use wasmparser::{
     BinaryReader, CodeSectionReader, DataSectionReader, ExportSectionReader, FunctionSectionReader,
     GlobalSectionReader, ImportSectionReader, MemorySectionReader, MemoryType, TypeSectionReader,
 };
-use wild_error::ensure;
-use wild_error::error::{Context as _, Result};
-use wild_platform as platform;
+use elyld_error::ensure;
+use elyld_error::error::{Context as _, Result};
+use elyld_platform as platform;
 
 impl<'data> File<'data> {
     pub(crate) fn section_is_debug(&self, index: u32) -> bool {
@@ -185,7 +185,7 @@ impl<'data> File<'data> {
             });
             section_offset = section_offset
                 .checked_add(encoded_size)
-                .ok_or_else(|| wild_error::error!("Wasm data section offset overflow"))?;
+                .ok_or_else(|| elyld_error::error!("Wasm data section offset overflow"))?;
         }
         Ok(segments)
     }
@@ -225,7 +225,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
     ) -> Result<&<Self::Platform as platform::Platform>::SymtabEntry> {
         self.symbols
             .get(index.0)
-            .ok_or_else(|| wild_error::error!("wasm symbol index {} out of range", index.0))
+            .ok_or_else(|| elyld_error::error!("wasm symbol index {} out of range", index.0))
     }
 
     fn section_size(
@@ -244,7 +244,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
         }
         self.data
             .get(symbol.name_range())
-            .ok_or_else(|| wild_error::error!("wasm symbol name range out of bounds"))
+            .ok_or_else(|| elyld_error::error!("wasm symbol name range out of bounds"))
     }
 
     fn symbol_offset_in_section(
@@ -286,7 +286,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
     ) -> Result<&<Self::Platform as platform::Platform>::SectionHeader> {
         self.sections
             .get(index.0)
-            .ok_or_else(|| wild_error::error!("wasm section index {} out of range", index.0))
+            .ok_or_else(|| elyld_error::error!("wasm section index {} out of range", index.0))
     }
 
     fn section_by_name(
@@ -329,7 +329,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
         &self,
         _lib_name: &[u8],
         _state: &mut <Self::Platform as platform::Platform>::DynamicLayoutStateExt<'data>,
-        _mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> Result {
         Ok(())
     }
@@ -347,12 +347,12 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
         let header = self
             .sections
             .get(index.0)
-            .ok_or_else(|| wild_error::error!("wasm section index {} out of range", index.0))?;
+            .ok_or_else(|| elyld_error::error!("wasm section index {} out of range", index.0))?;
         if let Some(name_range) = &header.name_range {
             Ok(&self.data[name_range.start as usize..name_range.end as usize])
         } else {
             standard_section_name(header.id)
-                .ok_or_else(|| wild_error::error!("unknown wasm section id {}", header.id))
+                .ok_or_else(|| elyld_error::error!("unknown wasm section id {}", header.id))
         }
     }
 
@@ -366,8 +366,8 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
     fn section_data(
         &self,
         section: &<Self::Platform as platform::Platform>::SectionHeader,
-        _member: &wild_util::arena::Member<'data>,
-        _loaded_metrics: &wild_layout::resolution::LoadedMetrics,
+        _member: &elyld_util::arena::Member<'data>,
+        _loaded_metrics: &elyld_layout::resolution::LoadedMetrics,
     ) -> Result<&'data [u8]> {
         // Wasm sections are never compressed.
         self.raw_section_data(section)
@@ -460,7 +460,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
 
     fn should_enforce_undefined(
         &self,
-        _resources: &wild_layout::GraphResources<'data, '_, Self::Platform>,
+        _resources: &elyld_layout::GraphResources<'data, '_, Self::Platform>,
     ) -> bool {
         // Wasm has no dynamic objects yet, so this is never reached in practice.
         false

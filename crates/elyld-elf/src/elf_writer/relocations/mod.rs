@@ -21,17 +21,17 @@ pub(crate) use rela::*;
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::BitAnd;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout::part_id::PartId;
-use wild_layout::resolution::SectionSlot;
-use wild_layout::string_merging::get_merged_string_output_address;
-use wild_layout::symbol_db::{SymbolDb, SymbolId};
-use wild_layout::thunks::ThunkBlockId;
-use wild_layout::{FileLayout, Layout, ObjectLayout, Resolution};
-use wild_platform as platform;
-use wild_platform::value_flags::{PerSymbolFlags, ValueFlags};
-use wild_platform::{Arch, ObjectFile, Platform, Relocation, SectionFlags as _};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout::part_id::PartId;
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::string_merging::get_merged_string_output_address;
+use elyld_layout::symbol_db::{SymbolDb, SymbolId};
+use elyld_layout::thunks::ThunkBlockId;
+use elyld_layout::{FileLayout, Layout, ObjectLayout, Resolution};
+use elyld_platform as platform;
+use elyld_platform::value_flags::{PerSymbolFlags, ValueFlags};
+use elyld_platform::{Arch, ObjectFile, Platform, Relocation, SectionFlags as _};
 
 pub(crate) fn display_relocation<
     'a,
@@ -128,7 +128,7 @@ pub(crate) fn get_resolution<'data, C: ElfClass, R: Relocation>(
                     object_layout.section_resolutions[section_index.0].address()?;
                 let output_offset = opt_input_to_output(
                     object_layout.section_relax_deltas.get(section_index.0),
-                    wild_platform::Symbol::value(sym),
+                    elyld_platform::Symbol::value(sym),
                 );
 
                 Some(Resolution {
@@ -316,7 +316,7 @@ pub(crate) fn apply_debug_relocation<
                 // encoded in the relocation addend.
                 let output_offset = opt_input_to_output(
                     object_layout.section_relax_deltas.get(section_index.0),
-                    wild_platform::Symbol::value(sym),
+                    elyld_platform::Symbol::value(sym),
                 );
 
                 Some(Resolution {

@@ -18,13 +18,13 @@ use object::macho::{
     S_THREAD_LOCAL_VARIABLES, SegmentFlags,
 };
 use object::{BigEndian, macho, slice_from_bytes_mut};
-use wild_error::error::{Context, Result};
-use wild_error::{bail, ensure, error};
-use wild_layout::output_section_id::SectionName;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::{EpilogueLayout, OutputRecordLayout, PreludeLayout, verbose_timing_phase};
-use wild_platform::EntryPoint;
-use wild_platform::SectionAttributes as _;
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, ensure, error};
+use elyld_layout::output_section_id::SectionName;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::{EpilogueLayout, OutputRecordLayout, PreludeLayout, verbose_timing_phase};
+use elyld_platform::EntryPoint;
+use elyld_platform::SectionAttributes as _;
 use zerocopy::FromZeros;
 
 pub(crate) fn write_prelude<'data>(
@@ -39,7 +39,7 @@ pub(crate) fn write_prelude<'data>(
         prelude.format_specific.load_dylib_command_sizes.len()
     );
 
-    let header_buffer = buffers.get_mut(wild_layout::part_id::FILE_HEADER);
+    let header_buffer = buffers.get_mut(elyld_layout::part_id::FILE_HEADER);
     populate_file_header(layout, prelude, take_mut(header_buffer)?);
     ensure!(header_buffer.is_empty(), "Excess FILE_HEADER allocation");
 
@@ -312,7 +312,7 @@ pub(crate) fn write_entry_point_command(
 
     let image_base = layout
         .section_layouts
-        .get(wild_layout::output_section_id::FILE_HEADER)
+        .get(elyld_layout::output_section_id::FILE_HEADER)
         .mem_offset;
 
     let entry_offset = entry_address
@@ -348,7 +348,7 @@ pub(crate) fn write_build_version_command(
         .set(LE, platform_version.minimum_version.get());
     command.sdk.set(LE, platform_version.sdk_version.get());
     command.ntools.set(LE, 0);
-    // TODO: We could record Wild's version here, but Mach-O only defines tool IDs
+    // TODO: We could record ElyLD's version here, but Mach-O only defines tool IDs
     // for Apple toolchain components, so leave the tools list empty for now.
     Ok(())
 }

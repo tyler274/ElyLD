@@ -74,7 +74,7 @@ pub struct Config {
     #[arg(long, value_delimiter = ',', value_parser = parse_string_equality)]
     pub equiv: Vec<(String, String)>,
 
-    /// Apply defaults for things that should be ignored currently for Wild. These defaults are
+    /// Apply defaults for things that should be ignored currently for ElyLD. These defaults are
     /// subject to change as Wild changes.
     #[arg(long)]
     pub wild_defaults: bool,
@@ -203,7 +203,7 @@ impl Config {
                 "rel.extra-opt.R_X86_64_GOTPCRELX.CallIndirectToRelative.static-*",
                 // Wild applies MovIndirectToLea relaxation to _DYNAMIC symbol in static builds
                 // because it's marked as NON_INTERPOSABLE. GNU ld keeps the GOT-relative access.
-                // Both are correct, but Wild's approach is more optimized.
+                // Both are correct, but ElyLD's approach is more optimized.
                 "rel.extra-opt.R_X86_64_REX_GOTPCRELX.MovIndirectToLea.static-*",
                 // We don't yet support emitting warnings.
                 "section.gnu.warning",
@@ -348,7 +348,7 @@ impl Config {
     pub fn to_arg_string(&self) -> String {
         let mut out = String::new();
         if self.wild_defaults {
-            out.push_str("--wild-defaults ");
+            out.push_str("--elyld-defaults ");
         }
         if !self.ignore.is_empty() {
             out.push_str("--ignore '");

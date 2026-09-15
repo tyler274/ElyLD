@@ -1,4 +1,4 @@
-# Wild linker
+# ElyLD
 
-This crate provides the binary for the wild linker. The binary is named "wild". For more details,
-see the [Wild linker repository](https://github.com/wild-linker/wild).
+This crate provides the binary for ElyLD. The binary is named `elyld`. For more details,
+see the [ElyLD repository](https://github.com/tyler274/wild).

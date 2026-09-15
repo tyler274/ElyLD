@@ -10,16 +10,16 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tracing::field::Visit;
-use wild_error::env;
+use elyld_error::env;
 
-const PERFETTO_ENV_VAR: &str = "WILD_PERFETTO_OUT";
+const PERFETTO_ENV_VAR: &str = "ELYLD_PERFETTO_OUT";
 
 pub fn setup() -> Result {
     if perfetto_output_file().is_some() {
         perfetto_recorder::start().map_err(
             |_: perfetto_recorder::TracingDisabledAtBuildTime| {
                 anyhow!(
-                    "{PERFETTO_ENV_VAR} was set, but wild was built without --features perfetto"
+                    "{PERFETTO_ENV_VAR} was set, but ElyLD was built without --features perfetto"
                 )
             },
         )?;

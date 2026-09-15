@@ -6,10 +6,10 @@ use crate::symbol::PreHashedSymbolName;
 use crate::symbol_db::{SymbolId, SymbolIdRange, SymbolStrength};
 use crossbeam_queue::{ArrayQueue, SegQueue};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use wild_args::InputRef;
-use wild_error::error::Error;
-use wild_platform::{DynamicTagValues as _, FileId, FrameIndex, ObjectFile, Platform};
-use wild_util::input_section_id::SectionIdRange;
+use elyld_args::InputRef;
+use elyld_error::error::Error;
+use elyld_platform::{DynamicTagValues as _, FileId, FrameIndex, ObjectFile, Platform};
+use elyld_util::input_section_id::SectionIdRange;
 
 pub(super) const MAX_SYMBOLS_PER_WORK_ITEM: usize = 5000;
 
@@ -223,7 +223,7 @@ pub struct ResolvedSyntheticSymbols<'data, P: Platform> {
     pub start_symbol_id: SymbolId,
     pub symbol_definitions: Vec<InternalSymDefInfo<'data, P>>,
     pub start_stop_sections:
-        Option<wild_platform::output_section_map::OutputSectionMap<Vec<StartStopCandidate<P>>>>,
+        Option<elyld_platform::output_section_map::OutputSectionMap<Vec<StartStopCandidate<P>>>>,
 }
 
 #[derive(Debug, Clone, Copy)]

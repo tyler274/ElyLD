@@ -32,8 +32,8 @@ use crossbeam_queue::SegQueue;
 use itertools::Itertools as _;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator as _};
 use std::collections::HashSet;
-use wild_platform::value_flags::{FlagsForSymbol, ValueFlags};
-use wild_platform::{Arch, FileId, Platform, SectionAttributes as _};
+use elyld_platform::value_flags::{FlagsForSymbol, ValueFlags};
+use elyld_platform::{Arch, FileId, Platform, SectionAttributes as _};
 
 /// Identifies a ThunkBlock within a Vec.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -131,7 +131,7 @@ impl ThunkLayoutBuilder {
         mut self,
         group_states: &mut [layout::GroupState<'data, P>],
         symbol_db: &crate::symbol_db::SymbolDb<'data, P>,
-        per_symbol_flags: &wild_platform::value_flags::PerSymbolFlags,
+        per_symbol_flags: &elyld_platform::value_flags::PerSymbolFlags,
         output_sections: &OutputSections<P>,
         section_part_sizes: &OutputSectionPartMap<u64>,
     ) -> Vec<ThunkBlock> {
@@ -199,7 +199,7 @@ impl ThunkLayoutBuilder {
         &self,
         primary_ranges: &[Vec<Option<(u64, u64)>>],
         symbol_db: &crate::symbol_db::SymbolDb<'data, P>,
-        per_symbol_flags: &wild_platform::value_flags::PerSymbolFlags,
+        per_symbol_flags: &elyld_platform::value_flags::PerSymbolFlags,
         block_builders: &mut [ThunkBlockBuilder<'data, '_, P>],
     ) {
         verbose_timing_phase!("Process primary part refs");

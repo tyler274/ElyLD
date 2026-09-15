@@ -6,12 +6,12 @@ use linker_utils::elf::secnames::NOTE_GNU_BUILD_ID_SECTION_NAME_STR;
 use object::elf::NT_GNU_BUILD_ID;
 use object::from_bytes_mut;
 use uuid::Uuid;
-use wild_args::elf::BuildIdOption;
-use wild_error::error::{Context as _, Result};
-use wild_fs::fs::OutputFileData;
-use wild_layout::file_writer::{SizedOutput, insufficient_allocation, split_output_into_sections};
-use wild_layout::timing_phase;
-use wild_platform::{Arch, Args as _};
+use elyld_args::elf::BuildIdOption;
+use elyld_error::error::{Context as _, Result};
+use elyld_fs::fs::OutputFileData;
+use elyld_layout::file_writer::{SizedOutput, insufficient_allocation, split_output_into_sections};
+use elyld_layout::timing_phase;
+use elyld_platform::{Arch, Args as _};
 
 pub(crate) mod dynamic;
 pub(crate) mod headers;
@@ -76,7 +76,7 @@ pub(crate) fn apply_incremental_reloc_patches<C: ElfClass, A: Arch<Platform = el
     }
 
     let new_res: Vec<u64> = layout.symbol_resolutions.raw_values().collect();
-    let atom_to_file: hashbrown::HashMap<wild_layout::incremental::AtomId, wild_platform::FileId> =
+    let atom_to_file: hashbrown::HashMap<elyld_layout::incremental::AtomId, elyld_platform::FileId> =
         layout
             .incremental_atoms
             .iter()
@@ -124,7 +124,7 @@ pub(crate) fn apply_incremental_reloc_patches<C: ElfClass, A: Arch<Platform = el
 
 pub(crate) fn patch_skipped_reloc_site<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
     out: &mut [u8],
-    node: &wild_layout::incremental::ReverseRelocNode,
+    node: &elyld_layout::incremental::ReverseRelocNode,
     new_s: u64,
 ) -> Result {
     let r_type = object::elf::RelocationType(node.r_type);

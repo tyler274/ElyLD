@@ -5,8 +5,8 @@ use crate::symbol_db::{SymbolDb, SymbolId};
 use colored::Colorize as _;
 use hashbrown::HashSet;
 use std::fmt::Write as _;
-use wild_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _};
-use wild_platform::{Args as _, FileId, ObjectFile, PRELUDE_FILE_ID, Symbol as _};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _};
+use elyld_platform::{Args as _, FileId, ObjectFile, PRELUDE_FILE_ID, Symbol as _};
 
 /// Prints information about a symbol when dropped. We do this when dropped so that we can print
 /// either after resolution flags have been computed, or, if layout gets an error, then before we

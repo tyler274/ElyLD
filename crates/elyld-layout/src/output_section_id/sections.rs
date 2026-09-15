@@ -13,14 +13,14 @@ use crate::part_id::PartId;
 use crate::{EnginePlatform, Result, timing_phase};
 use hashbrown::{HashMap, HashSet};
 use std::fmt::Display;
-use wild_args::RelocationModel;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::ProgramSegments;
-use wild_platform::{Args, OutputKind, Platform, SectionAttributes as _};
-use wild_scripts::linker_script;
-use wild_scripts::linker_script::{Expression, OnlyIf};
-use wild_util::alignment;
-use wild_util::alignment::{Alignment, NUM_ALIGNMENTS};
+use elyld_args::RelocationModel;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_platform::{Args, OutputKind, Platform, SectionAttributes as _};
+use elyld_scripts::linker_script;
+use elyld_scripts::linker_script::{Expression, OnlyIf};
+use elyld_util::alignment;
+use elyld_util::alignment::{Alignment, NUM_ALIGNMENTS};
 
 #[derive(Debug)]
 pub struct OutputSections<'data, P: Platform> {
@@ -855,7 +855,7 @@ fn splice_named_sections<P: Platform>(
             .name(id)
             .is_some_and(|name| name.0 == anchor_name)
     }) else {
-        wild_error::bail!(
+        elyld_error::bail!(
             "unable to find insert point `{}`",
             String::from_utf8_lossy(anchor_name)
         );

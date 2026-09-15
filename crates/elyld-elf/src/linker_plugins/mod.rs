@@ -16,19 +16,19 @@ use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::os::fd::{AsRawFd as _, RawFd};
 use std::path::{Path, PathBuf};
-use wild_args::elf::ElfArgs;
-use wild_args::{Input, InputRef};
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, env, error};
-use wild_layout::grouping::{PluginSymbol, UnsequencedLtoInput};
-use wild_layout::layout_rules::LayoutRulesBuilder;
-use wild_layout::output_section_id::OutputSections;
-use wild_layout::resolution::Resolver;
-use wild_layout::symbol_db::{LoadedInputs, SymbolDb};
-use wild_layout::{timing_phase, verbose_timing_phase};
-use wild_platform::value_flags::PerSymbolFlags;
-use wild_platform::{FileId, FileKind};
-use wild_util::arena::Herd;
+use elyld_args::elf::ElfArgs;
+use elyld_args::{Input, InputRef};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, env, error};
+use elyld_layout::grouping::{PluginSymbol, UnsequencedLtoInput};
+use elyld_layout::layout_rules::LayoutRulesBuilder;
+use elyld_layout::output_section_id::OutputSections;
+use elyld_layout::resolution::Resolver;
+use elyld_layout::symbol_db::{LoadedInputs, SymbolDb};
+use elyld_layout::{timing_phase, verbose_timing_phase};
+use elyld_platform::value_flags::PerSymbolFlags;
+use elyld_platform::{FileId, FileKind};
+use elyld_util::arena::Herd;
 
 mod discover;
 mod ffi;
@@ -41,7 +41,7 @@ pub(crate) use lto::*;
 
 /// Set this environment variable to a directory and we'll write output files produced by the linker
 /// plugin to it. Old outputs will be deleted, but only if the directory looks like one we produced.
-const SAVE_VAR_NAME: &str = "WILD_SAVE_PLUGIN_OUTPUTS";
+const SAVE_VAR_NAME: &str = "ELYLD_SAVE_PLUGIN_OUTPUTS";
 
 pub struct LinkerPlugin<'data> {
     store: Store<'data>,
@@ -135,7 +135,7 @@ impl<'data> LinkerPlugin<'data> {
         match kind {
             FileKind::LlvmIr => discover::discover_llvm_gold_plugin(),
             FileKind::GccIr => discover::discover_gcc_lto_plugin(),
-            _ => wild_error::bail!("No linker plugin is applicable for {kind}"),
+            _ => elyld_error::bail!("No linker plugin is applicable for {kind}"),
         }
     }
 
@@ -243,7 +243,7 @@ impl<'data> LinkerPlugin<'data> {
 
         symbol_db.disable_lto_inputs();
 
-        wild_layout::symbol_db::resolve_alternative_symbol_definitions(
+        elyld_layout::symbol_db::resolve_alternative_symbol_definitions(
             symbol_db,
             per_symbol_flags,
             &resolver.resolved_groups,
@@ -357,7 +357,7 @@ impl LoadedPlugin {
 
         if cfg!(target_feature = "crt-static") {
             bail!(
-                "Linker plugins cannot be used when Wild was built as a statically linked binary"
+                "Linker plugins cannot be used when ElyLD was built as a statically linked binary"
             );
         }
 
@@ -382,8 +382,8 @@ impl LoadedPlugin {
 
         let output_kind = if args.should_output_executable {
             match args.common.relocation_model {
-                wild_args::RelocationModel::Fixed => OutputFileType::Exec,
-                wild_args::RelocationModel::PositionIndependent => OutputFileType::Pie,
+                elyld_args::RelocationModel::Fixed => OutputFileType::Exec,
+                elyld_args::RelocationModel::PositionIndependent => OutputFileType::Pie,
             }
         } else {
             OutputFileType::Dyn
@@ -529,7 +529,7 @@ impl PluginOutputs {
 
         for input in &self.generated_inputs {
             match &input.spec {
-                wild_args::InputSpec::File(path) => {
+                elyld_args::InputSpec::File(path) => {
                     let dest = dir_path.join(path.file_name().context("Missing filename")?);
 
                     std::fs::copy(path, &dest).with_context(|| {
@@ -540,12 +540,12 @@ impl PluginOutputs {
                         )
                     })?;
                 }
-                wild_args::InputSpec::Lib(lib_name) => {
+                elyld_args::InputSpec::Lib(lib_name) => {
                     args.push_str("-l");
                     args.push_str(lib_name);
                     args.push('\n');
                 }
-                wild_args::InputSpec::Search(search) => {
+                elyld_args::InputSpec::Search(search) => {
                     args.push_str("-L");
                     args.push_str(search);
                     args.push('\n');
@@ -581,7 +581,7 @@ impl<'data> Store<'data> {
         match self {
             Store::Unloaded(load_info) => {
                 if plugin_path.as_os_str().is_empty() {
-                    wild_error::bail!("No linker plugin path");
+                    elyld_error::bail!("No linker plugin path");
                 }
 
                 *self = Store::Loaded(Box::new(

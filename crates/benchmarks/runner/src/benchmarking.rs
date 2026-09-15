@@ -269,7 +269,7 @@ fn find_benchmarks(args: &BenchArgs, config: &Config) -> Result<Vec<Benchmark>> 
 fn filter_benchmarks_by_wild_version(benchmarks: Vec<Benchmark>, bins: &[Bin]) -> Vec<Benchmark> {
     let Some(maximum_wild_version) = bins
         .iter()
-        .filter(|&bin| bin.identifier.kind == LinkerKind::Wild)
+        .filter(|&bin| bin.identifier.kind == LinkerKind::Elyld)
         .map(|bin| &bin.identifier.effective_version)
         .max()
     else {

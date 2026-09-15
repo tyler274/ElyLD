@@ -5,7 +5,7 @@
 use crate::fs::path_from_bytes;
 use std::ops::Range;
 use std::path::PathBuf;
-use wild_error::error::Result;
+use elyld_error::error::Result;
 
 pub enum ArchiveEntry<'data> {
     Regular(ArchiveContent<'data>),
@@ -108,8 +108,8 @@ mod tests {
     use super::*;
     use std::io::Read;
     use std::path::Path;
-    use wild_error::bail;
-    use wild_error::error::{Context as _, Result};
+    use elyld_error::bail;
+    use elyld_error::error::{Context as _, Result};
 
     #[derive(Default)]
     struct Summary {

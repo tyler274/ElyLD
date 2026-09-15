@@ -9,10 +9,10 @@ use crate::symbol_db::{SymbolDb, SymbolId, SymbolStrength};
 use crate::{EnginePlatform, LayoutRules, timing_phase, verbose_timing_phase};
 use atomic_take::AtomicTake;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform::value_flags::PerSymbolFlags;
-use wild_platform::{Args as _, PRELUDE_FILE_ID, Platform};
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform::value_flags::PerSymbolFlags;
+use elyld_platform::{Args as _, PRELUDE_FILE_ID, Platform};
 
 pub mod sections;
 pub mod symbols;

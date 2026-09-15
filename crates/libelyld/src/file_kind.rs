@@ -1,6 +1,6 @@
 //! Sniffs file bytes to identify what sort of file we're dealing with.
 //!
-//! The `FileKind` enum lives in `wild-platform` so format crates can name it without depending on
+//! The `FileKind` enum lives in `elyld-platform` so format crates can name it without depending on
 //! this crate. Identification stays here because it parses ELF headers.
 
 use crate::error::Result;
@@ -9,7 +9,7 @@ use object::elf::FileHeader64;
 use object::read::elf::{FileHeader, SectionHeader};
 use object::read::macho::MachHeader;
 use object::{Endian, Endianness, LittleEndian, macho};
-pub(crate) use wild_platform::FileKind;
+pub(crate) use elyld_platform::FileKind;
 use zerocopy::IntoBytes;
 
 pub(crate) fn identify_bytes(bytes: &[u8]) -> Result<FileKind> {

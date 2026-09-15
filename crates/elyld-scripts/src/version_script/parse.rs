@@ -6,9 +6,9 @@ use crate::linker_script::skip_comments_and_whitespace;
 use crate::script_data::ScriptData;
 use glob::Pattern;
 use hashbrown::HashMap;
-use wild_error::error;
-use wild_error::error::Result;
-use wild_util::glob_match::{GlobPatternType, analyze_glob_pattern, compile_glob_pattern};
+use elyld_error::error;
+use elyld_error::error::Result;
+use elyld_util::glob_match::{GlobPatternType, analyze_glob_pattern, compile_glob_pattern};
 use winnow::error::{ContextError, FromExternalError};
 use winnow::token::{take_until, take_while};
 use winnow::{BStr, Parser};
@@ -140,7 +140,7 @@ impl<'data> RegularVersionScript<'data> {
         match VersionScript::parse(data)? {
             VersionScript::Regular(script) => Ok(script),
             VersionScript::Rust(_) => {
-                wild_error::bail!(
+                elyld_error::bail!(
                     "Rust-style version script cannot be used as a regular version script"
                 )
             }
@@ -418,7 +418,7 @@ mod tests {
     use super::*;
     use hashbrown::HashSet;
     use itertools::{Itertools, assert_equal};
-    use wild_util::symbol_name::UnversionedSymbolName;
+    use elyld_util::symbol_name::UnversionedSymbolName;
 
     fn is_matching_global<'data>(script: &RegularVersionScript<'data>, name: &str) -> bool {
         let Some(m) = script.find_match(&UnversionedSymbolName::prehashed(name.as_bytes())) else {

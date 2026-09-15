@@ -6,8 +6,8 @@ use super::value_flags::ValueFlags;
 use linker_utils::elf::{DynamicRelocationKind, RelocationKindInfo};
 use linker_utils::relaxation::{RelocationModifier, SectionRelaxDeltas};
 use std::borrow::Cow;
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 /// Configuration for range-extension thunks on architectures that need them.
 /// Returned by `Arch::thunk_config()`; `None` means the architecture never needs thunks.

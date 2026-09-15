@@ -5,14 +5,14 @@ use crate::{CopyRelocationInfo, output_section_id, part_id};
 use hashbrown::HashMap;
 use itertools::Itertools as _;
 use rayon::prelude::*;
-use wild_error::error::{Context as _, Result};
-use wild_layout as layout;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::symbol_db::{SymbolDb, SymbolId};
-use wild_layout::{CommonGroupState, EnginePlatform, timing_phase, verbose_timing_phase};
-use wild_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
-use wild_platform::{ObjectFile, Symbol as _};
-use wild_util::alignment::Alignment;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout as layout;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::symbol_db::{SymbolDb, SymbolId};
+use elyld_layout::{CommonGroupState, EnginePlatform, timing_phase, verbose_timing_phase};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
+use elyld_platform::{ObjectFile, Symbol as _};
+use elyld_util::alignment::Alignment;
 
 /// Where we've decided that we need copy relocations, look for symbols with the same address as the
 /// symbols with copy relocations. If the other symbol is non-weak, then we do the copy relocation

@@ -1,13 +1,13 @@
-pub use wild_args as args;
-pub use wild_args::Args;
+pub use elyld_args as args;
+pub use elyld_args::Args;
 pub(crate) mod debug_trace;
 pub(crate) mod diff;
 pub(crate) mod elf;
-pub use wild_error::error;
+pub use elyld_error::error;
 pub(crate) mod file_kind;
 pub(crate) mod input_data;
 pub(crate) mod macho;
-pub use wild_error::{bail, debug_assert_bail, ensure, malfunction, malfunction_point_ret};
+pub use elyld_error::{bail, debug_assert_bail, ensure, malfunction, malfunction_point_ret};
 #[cfg(test)]
 mod layout_stack_elf_tests;
 pub(crate) mod output_kind;
@@ -53,16 +53,16 @@ pub use subprocess::run_in_subprocess;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt};
-pub use wild_fs::fs::{
+pub use elyld_fs::fs::{
     FileReplacementMode, FileSystem, FileType, FileWriteMode, InputFileData, OsFileSystem,
     OutputFileData, OutputOptions, make_executable,
 };
-use wild_layout::layout_rules::LayoutRulesBuilder;
-use wild_layout::output_section_id::OutputSections;
-use wild_layout::{EnginePlatform, file_writer};
-use wild_platform::value_flags::PerSymbolFlags;
-use wild_platform::{Arch, Args as _, Platform};
-use wild_scripts::version_script::VersionScript;
+use elyld_layout::layout_rules::LayoutRulesBuilder;
+use elyld_layout::output_section_id::OutputSections;
+use elyld_layout::{EnginePlatform, file_writer};
+use elyld_platform::value_flags::PerSymbolFlags;
+use elyld_platform::{Arch, Args as _, Platform};
+use elyld_scripts::version_script::VersionScript;
 
 /// Runs the linker in a Rayon thread pool configured from the supplied arguments or the available
 /// jobserver tokens, then cleans up associated resources. Only use this function if you've OK with
@@ -91,7 +91,7 @@ pub fn setup_tracing(args: &Args) -> Result<(), AlreadyInitialised> {
     } else {
         tracing_subscriber::registry()
             .with(fmt::layer().with_ansi(std::io::stdout().is_terminal()))
-            .with(EnvFilter::from_env("WILD_LOG"))
+            .with(EnvFilter::from_env("ELYLD_LOG"))
             .try_init()
             .map_err(|_| AlreadyInitialised)
     }
@@ -109,7 +109,7 @@ pub struct Linker<F: FileSystem = OsFileSystem> {
 
     /// Anything that doesn't need a custom Drop implementation can go in here. In practice, it's
     /// mostly just the decompressed copy of compressed string-merge sections.
-    herd: wild_util::arena::Herd,
+    herd: elyld_util::arena::Herd,
 
     /// We'll fill this in when we're done linking and start shutting down. Once this is dropped,
     /// that signals the end of shutdown for the purposes of timing measurement.
@@ -221,7 +221,7 @@ impl<F: FileSystem> Linker<F> {
     ) -> error::Result<LinkerOutput<'data>>
     where
         P: EnginePlatform
-            + Platform<FileLoader<'data, F> = wild_layout::input_data::FileLoader<'data, F>>
+            + Platform<FileLoader<'data, F> = elyld_layout::input_data::FileLoader<'data, F>>
             + Platform<FileWriterOutput<F> = file_writer::Output<F>>,
         A: Arch<Platform = P>,
         P::Args: crate::args::HasCommonArgs,
@@ -261,7 +261,7 @@ impl<F: FileSystem> Linker<F> {
             }
             if args.print_stats() {
                 eprintln!(
-                    "wild: stats: {} input files, output `{}`",
+                    "elyld: stats: {} input files, output `{}`",
                     file_loader.loaded_files.len(),
                     args.output().display()
                 );
@@ -282,7 +282,7 @@ impl<F: FileSystem> Linker<F> {
     ) -> error::Result<LinkerOutput<'data>>
     where
         P: EnginePlatform
-            + Platform<FileLoader<'data, F> = wild_layout::input_data::FileLoader<'data, F>>
+            + Platform<FileLoader<'data, F> = elyld_layout::input_data::FileLoader<'data, F>>
             + Platform<FileWriterOutput<F> = file_writer::Output<F>>,
         A: Arch<Platform = P>,
         P::Args: crate::args::HasCommonArgs,
@@ -339,7 +339,7 @@ impl<F: FileSystem> Linker<F> {
         let auxiliary =
             input_data::load_auxiliary_files(args, &self.inputs_arena, self.file_system.as_ref())?;
 
-        let mut symbol_db = wild_layout::symbol_db::SymbolDb::new(
+        let mut symbol_db = elyld_layout::symbol_db::SymbolDb::new(
             args,
             output_kind,
             auxiliary.version_script_data,
@@ -357,14 +357,14 @@ impl<F: FileSystem> Linker<F> {
 
         symbol_db.apply_wrapped_symbol_overrides();
 
-        let mut resolver = wild_layout::resolution::Resolver::default();
+        let mut resolver = elyld_layout::resolution::Resolver::default();
 
         resolver
             .resolve_symbols_and_select_archive_entries(&mut symbol_db, &mut per_symbol_flags)?;
 
         // Now that we know which archive entries are being loaded, we can resolve alternative
         // symbol definitions.
-        wild_layout::symbol_db::resolve_alternative_symbol_definitions(
+        elyld_layout::symbol_db::resolve_alternative_symbol_definitions(
             &mut symbol_db,
             &mut per_symbol_flags,
             &resolver.resolved_groups,
@@ -405,23 +405,23 @@ impl<F: FileSystem> Linker<F> {
         )?;
 
         let mut layout =
-            wild_layout::compute::<P, A>(symbol_db, per_symbol_flags, resolved, output_sections)?;
+            elyld_layout::compute::<P, A>(symbol_db, per_symbol_flags, resolved, output_sections)?;
 
-        output.set_size(wild_layout::compute_total_file_size(
+        output.set_size(elyld_layout::compute_total_file_size(
             &layout.section_layouts,
         ));
-        wild_layout::gc_stats::maybe_write_gc_stats(&layout.group_layouts, &layout.symbol_db)?;
-        wild_layout::map::maybe_write_map(&layout)?;
+        elyld_layout::gc_stats::maybe_write_gc_stats(&layout.group_layouts, &layout.symbol_db)?;
+        elyld_layout::map::maybe_write_map(&layout)?;
 
         let plugin_active = plugin.as_ref().is_some_and(P::plugin_is_initialised);
         let mut incremental_session = if args.incremental() {
-            wild_layout::incremental::IncrementalSession::from_args(args)
+            elyld_layout::incremental::IncrementalSession::from_args(args)
         } else {
             None
         };
         if let Some(session) = incremental_session.as_mut() {
             if let Some(reason) =
-                wild_layout::incremental::fallback_for_plugin_or_gc::<P>(args, plugin_active)
+                elyld_layout::incremental::fallback_for_plugin_or_gc::<P>(args, plugin_active)
             {
                 session.record_fallback(reason);
             }
@@ -444,7 +444,7 @@ impl<F: FileSystem> Linker<F> {
                     session.previous_reverse_relocs.take(),
                 ) {
                     layout.incremental_patch =
-                        Some(wild_layout::incremental::IncrementalPatchJob {
+                        Some(elyld_layout::incremental::IncrementalPatchJob {
                             old_resolutions,
                             reverse_relocs,
                         });
@@ -507,8 +507,8 @@ impl Drop for LinkerOutput<'_> {
 }
 
 fn incremental_section_snapshot<P: EnginePlatform>(
-    layout: &wild_layout::Layout<P>,
-) -> (Vec<wild_layout::incremental::PersistedSection>, bool) {
+    layout: &elyld_layout::Layout<P>,
+) -> (Vec<elyld_layout::incremental::PersistedSection>, bool) {
     let mut sections = Vec::new();
     let mut has_strict_order_sections = false;
     layout.section_layouts.for_each(|id, rec| {
@@ -520,7 +520,7 @@ fn incremental_section_snapshot<P: EnginePlatform>(
         if rec.mem_size > 0 && (name == ".init" || name == ".fini") {
             has_strict_order_sections = true;
         }
-        sections.push(wild_layout::incremental::PersistedSection {
+        sections.push(elyld_layout::incremental::PersistedSection {
             name,
             file_offset: rec.file_offset,
             file_size: rec.file_size,

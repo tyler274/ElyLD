@@ -1,6 +1,6 @@
-use wild_platform as platform;
+use elyld_platform as platform;
 #[allow(unused_imports)]
-pub use wild_platform::part_id::*;
+pub use elyld_platform::part_id::*;
 
 /// Returns whether the supplied section meets our criteria for section merging. Section merging is
 /// optional. `SHF_MERGE|SHF_STRINGS` is merged at any alignment; strings are padded to that

@@ -17,11 +17,11 @@ use super::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
 use super::{OutputKind, part_id};
 use rayon::Scope;
 use std::num::NonZeroU32;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_fs::fs::{FileReplacementMode, FileSystem};
-use wild_scripts::linker_script;
-use wild_util::alignment::Alignment;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_fs::fs::{FileReplacementMode, FileSystem};
+use elyld_scripts::linker_script;
+use elyld_util::alignment::Alignment;
 
 /// A platform for which we support writing producing linked outputs.
 pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'static {
@@ -181,14 +181,14 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
     type LtoInput<'data>;
     type Group<'data>;
     type SequencedLinkerScript<'data>;
-    type FileLoader<'data, F: wild_fs::fs::FileSystem>;
+    type FileLoader<'data, F: elyld_fs::fs::FileSystem>;
     type LayoutRulesBuilder<'data>;
     type InternalSymbolsBuilder<'data>;
     type InternalSymDefInfo<'data>;
     type OutputSections<'data>;
     type OutputOrder<'data>;
     type CustomSectionIds;
-    type FileWriterOutput<F: wild_fs::fs::FileSystem>;
+    type FileWriterOutput<F: elyld_fs::fs::FileSystem>;
     type LocationCounter<'data>;
     type SectionOutputInfo<'data>;
 
@@ -207,7 +207,7 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
     /// that one should be used.
     fn maybe_init_linker_plugin<'data>(
         _args: &'data Self::Args,
-        _herd: &'data wild_util::arena::Herd,
+        _herd: &'data elyld_util::arena::Herd,
     ) -> Result<Option<Self::LinkerPlugin<'data>>> {
         Ok(None)
     }
@@ -606,7 +606,7 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
         args: &Self::Args,
         sym: &Self::SymtabEntry,
         output_kind: OutputKind,
-        export_list: Option<&wild_scripts::export_list::ExportList>,
+        export_list: Option<&elyld_scripts::export_list::ExportList>,
         lib_name: &[u8],
         archive_semantics: bool,
         is_undefined: bool,
@@ -852,7 +852,7 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
         _obj: &mut Self::ResolvedObject<'data>,
         _section_index: object::SectionIndex,
         _input_section: &'data Self::SectionHeader,
-        _member: &wild_util::arena::Member<'data>,
+        _member: &elyld_util::arena::Member<'data>,
         _loaded_metrics: &Self::LoadedMetrics,
     ) -> Result {
         Ok(())

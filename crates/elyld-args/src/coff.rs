@@ -1,10 +1,10 @@
 use crate::{ArgumentParser, CommonArgs, Modifiers, OptionSyntax};
 use std::path::Path;
 use std::sync::Arc;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform as platform;
-use wild_platform::Args as _;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform as platform;
+use elyld_platform::Args as _;
 
 /// The only machine type we currently support.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,7 +110,7 @@ impl platform::Args for CoffArgs {
         todo!()
     }
 
-    fn loadable_segment_alignment(&self) -> wild_util::alignment::Alignment {
+    fn loadable_segment_alignment(&self) -> elyld_util::alignment::Alignment {
         todo!()
     }
 

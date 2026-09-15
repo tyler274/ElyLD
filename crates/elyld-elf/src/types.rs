@@ -7,12 +7,12 @@ use object::LittleEndian;
 use object::read::elf::{Crel, CrelIterator};
 use std::marker::PhantomData;
 use std::ops::Range;
-use wild_error::error;
-use wild_error::error::Result;
-use wild_platform as platform;
-use wild_platform::{Relocation, RelocationSequence};
-use wild_util::alignment::Alignment;
-use wild_util::arch::Architecture;
+use elyld_error::error;
+use elyld_error::error::Result;
+use elyld_platform as platform;
+use elyld_platform::{Relocation, RelocationSequence};
+use elyld_util::alignment::Alignment;
+use elyld_util::arch::Architecture;
 use zerocopy::{FromBytes, IntoBytes};
 
 pub trait ElfWord: Copy + FromBytes + IntoBytes + Into<u64> + Send + Sync {
@@ -133,13 +133,13 @@ pub(super) type SymbolTable<'data, C> = object::read::elf::SymbolTable<'data, Fi
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Elf<C: ElfClass>(PhantomData<C>);
 
-impl<C: ElfClass> wild_layout::EnginePlatform for Elf<C> {
+impl<C: ElfClass> elyld_layout::EnginePlatform for Elf<C> {
     fn process_plugin_input<'data>(
         plugin: &mut Self::LinkerPlugin<'data>,
-        input_ref: wild_args::InputRef<'data>,
+        input_ref: elyld_args::InputRef<'data>,
         file: &std::fs::File,
-        kind: wild_platform::FileKind,
-    ) -> wild_error::error::Result<Option<wild_layout::grouping::UnsequencedLtoInput<'data>>> {
+        kind: elyld_platform::FileKind,
+    ) -> elyld_error::error::Result<Option<elyld_layout::grouping::UnsequencedLtoInput<'data>>> {
         Ok(plugin
             .process_input(input_ref, file, kind)?
             .map(|info| info.into_unsequenced()))
@@ -147,22 +147,22 @@ impl<C: ElfClass> wild_layout::EnginePlatform for Elf<C> {
 
     fn plugin_lto_codegen<'data>(
         plugin: &mut Self::LinkerPlugin<'data>,
-        symbol_db: &mut wild_layout::symbol_db::SymbolDb<'data, Self>,
-        resolver: &mut wild_layout::resolution::Resolver<'data, Self>,
-        per_symbol_flags: &mut wild_platform::value_flags::PerSymbolFlags,
-    ) -> wild_error::error::Result<Option<Vec<wild_args::Input>>> {
+        symbol_db: &mut elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        resolver: &mut elyld_layout::resolution::Resolver<'data, Self>,
+        per_symbol_flags: &mut elyld_platform::value_flags::PerSymbolFlags,
+    ) -> elyld_error::error::Result<Option<Vec<elyld_args::Input>>> {
         plugin.lto_codegen(symbol_db, resolver, per_symbol_flags)
     }
 
     fn plugin_integrate_lto_objects<'data>(
         plugin: &mut Self::LinkerPlugin<'data>,
-        symbol_db: &mut wild_layout::symbol_db::SymbolDb<'data, Self>,
-        resolver: &mut wild_layout::resolution::Resolver<'data, Self>,
-        per_symbol_flags: &mut wild_platform::value_flags::PerSymbolFlags,
-        output_sections: &mut wild_layout::output_section_id::OutputSections<'data, Self>,
-        layout_rules_builder: &mut wild_layout::layout_rules::LayoutRulesBuilder<'data>,
-        loaded: wild_layout::symbol_db::LoadedInputs<'data, Self>,
-    ) -> wild_error::error::Result {
+        symbol_db: &mut elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        resolver: &mut elyld_layout::resolution::Resolver<'data, Self>,
+        per_symbol_flags: &mut elyld_platform::value_flags::PerSymbolFlags,
+        output_sections: &mut elyld_layout::output_section_id::OutputSections<'data, Self>,
+        layout_rules_builder: &mut elyld_layout::layout_rules::LayoutRulesBuilder<'data>,
+        loaded: elyld_layout::symbol_db::LoadedInputs<'data, Self>,
+    ) -> elyld_error::error::Result {
         plugin.integrate_lto_objects(
             symbol_db,
             resolver,
@@ -173,11 +173,11 @@ impl<C: ElfClass> wild_layout::EnginePlatform for Elf<C> {
         )
     }
 }
-impl<'data, 'scope, C: ElfClass> wild_layout::EngineScope<'data, 'scope> for Elf<C> where
+impl<'data, 'scope, C: ElfClass> elyld_layout::EngineScope<'data, 'scope> for Elf<C> where
     'data: 'scope
 {
 }
-impl<'writer, 'out, C: ElfClass> wild_layout::EngineWriter<'writer, 'out> for Elf<C> where
+impl<'writer, 'out, C: ElfClass> elyld_layout::EngineWriter<'writer, 'out> for Elf<C> where
     'out: 'writer
 {
 }

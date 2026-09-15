@@ -25,7 +25,7 @@
 //#DiffIgnore:rel.missing-got-dynamic.shared-object
 //#DiffIgnore:rel.R_AARCH64_ADR_GOT_PAGE.R_AARCH64_ADR_GOT_PAGE
 // GNU ld behaves strangely when a symbol referenced in a linker script is empty. See this:
-// https://github.com/wild-linker/wild/pull/1525#discussion_r2785478582
+// https://github.com/tyler274/wild/pull/1525#discussion_r2785478582
 //#DiffIgnore:dynsym.__data_start.section
 //#DiffIgnore:dynsym.__data_end.section
 //#DiffIgnore:dynsym.__sections_end.section

@@ -7,9 +7,9 @@ use linker_utils::elf::{
 use linker_utils::loongarch64::RelaxationKind;
 use linker_utils::relaxation::RelocationModifier;
 use linker_utils::utils::or_from_slice;
-use wild_error::error;
-use wild_error::error::Result;
-use wild_platform::{Platform, PreviousRelocationInfo};
+use elyld_error::error;
+use elyld_error::error::Result;
+use elyld_platform::{Platform, PreviousRelocationInfo};
 
 pub struct ElfLoongArch64;
 
@@ -24,7 +24,7 @@ const _ASSERTS: () = {
     assert!(PLT_ENTRY_TEMPLATE.len() as u64 == PLT_ENTRY_SIZE);
 };
 
-impl wild_platform::Arch for ElfLoongArch64 {
+impl elyld_platform::Arch for ElfLoongArch64 {
     type Relaxation = Relaxation;
     type Platform = Elf64;
 
@@ -62,7 +62,7 @@ impl wild_platform::Arch for ElfLoongArch64 {
         plt_entry: &mut [u8],
         got_address: u64,
         plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         // TODO: For simplicity, we assume now the PLT entry precedes the GOT entry, so we can
         // make the offset calculation in the unsigned type.
         debug_assert!(plt_address < got_address);
@@ -81,7 +81,7 @@ impl wild_platform::Arch for ElfLoongArch64 {
         0
     }
 
-    fn tp_offset_start(layout: &wild_layout::Layout<Elf64>) -> u64 {
+    fn tp_offset_start(layout: &elyld_layout::Layout<Elf64>) -> u64 {
         layout.tls_start_address_aligned()
     }
 
@@ -110,8 +110,8 @@ impl wild_platform::Arch for ElfLoongArch64 {
         relocation_kind: object::elf::RelocationType,
         section_bytes: &[u8],
         offset_in_section: u64,
-        flags: wild_platform::value_flags::ValueFlags,
-        output_kind: wild_platform::OutputKind,
+        flags: elyld_platform::value_flags::ValueFlags,
+        output_kind: elyld_platform::OutputKind,
         section_flags: linker_utils::elf::SectionFlags,
         _relax_deltas: Option<&linker_utils::relaxation::SectionRelaxDeltas>,
         _sym_addr: u64,
@@ -163,7 +163,7 @@ impl wild_platform::Arch for ElfLoongArch64 {
         relocations: &<Self::Platform as Platform>::RelocationSections,
         section: &<Self::Platform as Platform>::SectionHeader,
         offset_in_section: u64,
-    ) -> Result<wild_platform::SourceInfo> {
+    ) -> Result<elyld_platform::SourceInfo> {
         crate::dwarf_address_info::get_source_info::<crate::Class64, Self>(
             object,
             relocations,
@@ -180,7 +180,7 @@ pub struct Relaxation {
     mandatory: bool,
 }
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, section_bytes: &mut [u8], offset_in_section: &mut u64, addend: &mut i64) {
         self.kind.apply(section_bytes, offset_in_section, addend);
     }

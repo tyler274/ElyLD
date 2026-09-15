@@ -5,15 +5,15 @@ use crate::args::{Input, InputSpec, Modifiers};
 use crate::error::{Context as _, Error, Result};
 use crate::file_kind::FileKind;
 use crate::{FileSystem, InputFileData, bail, timing_phase, verbose_timing_phase};
-use wild_fs::archive::{ArchiveEntry, ArchiveIterator, EntryMeta};
-use wild_layout::EnginePlatform;
-use wild_layout::grouping::{DefinedStubLibrary, LoadedStubLibrary};
-use wild_layout::parsing::ParsedInputObject;
-use wild_layout::symbol_db::LoadedInputs;
-use wild_macho::parse_defined_library;
-use wild_platform as platform;
-use wild_platform::{Args, Platform};
-use wild_scripts::linker_script::LinkerScript;
+use elyld_fs::archive::{ArchiveEntry, ArchiveIterator, EntryMeta};
+use elyld_layout::EnginePlatform;
+use elyld_layout::grouping::{DefinedStubLibrary, LoadedStubLibrary};
+use elyld_layout::parsing::ParsedInputObject;
+use elyld_layout::symbol_db::LoadedInputs;
+use elyld_macho::parse_defined_library;
+use elyld_platform as platform;
+use elyld_platform::{Args, Platform};
+use elyld_scripts::linker_script::LinkerScript;
 
 pub(crate) trait LoadPlatform: EnginePlatform {}
 impl<P: EnginePlatform> LoadPlatform for P {}
@@ -362,7 +362,7 @@ fn process_linker_script<'data, F: FileSystem>(
 
         if let (Some(sysroot), InputSpec::File(file)) = (args.sysroot(), &mut input.spec)
             && let Some(new_file) =
-                wild_scripts::linker_script::maybe_apply_sysroot(&script_path, file, sysroot)
+                elyld_scripts::linker_script::maybe_apply_sysroot(&script_path, file, sysroot)
         {
             *file = new_file;
         }
@@ -392,7 +392,7 @@ fn resolve_search_dir(path: &[u8], sysroot: Option<&Path>) -> Result<PathBuf> {
         .with_context(|| format!("Expected UTF-8, found `{}`", String::from_utf8_lossy(path)))?;
     let path = Path::new(path_str);
     if let Some(sysroot) = sysroot
-        && let Some(new_path) = wild_scripts::linker_script::maybe_forced_sysroot(path, sysroot)
+        && let Some(new_path) = elyld_scripts::linker_script::maybe_forced_sysroot(path, sysroot)
     {
         return Ok(new_path.into_path_buf());
     }

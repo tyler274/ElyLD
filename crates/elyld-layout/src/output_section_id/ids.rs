@@ -1,2 +1,2 @@
 #[allow(unused_imports)]
-pub use wild_platform::output_section_id::*;
+pub use elyld_platform::output_section_id::*;

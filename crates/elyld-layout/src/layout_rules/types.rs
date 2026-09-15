@@ -3,8 +3,8 @@ use crate::EnginePlatform;
 use crate::output_section_id::{OutputSectionId, SectionIdentity};
 use crate::parsing::SymbolLoc;
 use hashbrown::HashTable;
-use wild_platform::{Platform, SectionOutputInfo, SectionRuleOutcome};
-use wild_scripts::linker_script;
+use elyld_platform::{Platform, SectionOutputInfo, SectionRuleOutcome};
+use elyld_scripts::linker_script;
 
 pub struct LayoutRules<'data> {
     pub section_rules: SectionRules<'data>,

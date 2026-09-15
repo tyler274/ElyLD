@@ -5,7 +5,7 @@
 //#Object:incremental_reloc_user.s
 //#Object:runtime.c
 //#LinkArgs:-nostdlib -znow
-//#WildExtraLinkArgs:--incremental
+//#ElyldExtraLinkArgs:--incremental
 //#TestIncremental:true
 //#IncrementalExpect:42
 //#DiffEnabled:false
@@ -14,7 +14,7 @@
 //#Config:clang:default
 //#Compiler:clang
 
-#ifdef WILD_INC
+#ifdef ELYLD_INC
 static int pad __attribute__((used, section(".data"))) = 1;
 int target __attribute__((section(".data"))) = 42;
 #else

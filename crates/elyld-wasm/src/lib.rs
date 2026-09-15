@@ -1,5 +1,5 @@
-use wild_layout::output_section_id::OutputSectionId;
-use wild_layout::part_id::PartId;
+use elyld_layout::output_section_id::OutputSectionId;
+use elyld_layout::part_id::PartId;
 
 pub(crate) mod abi;
 pub(crate) mod file;
@@ -25,16 +25,16 @@ pub(crate) use symbols::*;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Wasm;
 
-impl wild_layout::EnginePlatform for Wasm {}
-impl<'data, 'scope> wild_layout::EngineScope<'data, 'scope> for Wasm where 'data: 'scope {}
-impl<'writer, 'out> wild_layout::EngineWriter<'writer, 'out> for Wasm where 'out: 'writer {}
+impl elyld_layout::EnginePlatform for Wasm {}
+impl<'data, 'scope> elyld_layout::EngineScope<'data, 'scope> for Wasm where 'data: 'scope {}
+impl<'writer, 'out> elyld_layout::EngineWriter<'writer, 'out> for Wasm where 'out: 'writer {}
 
 pub use wasm_wasm32::WasmWasm32;
 
 #[repr(u32)]
 #[derive(Clone, Copy)]
 pub(crate) enum SinglePartSectionId {
-    WasmType = wild_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
+    WasmType = elyld_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
     WasmImport,
     WasmFunction,
     WasmTable,
@@ -55,7 +55,7 @@ pub(crate) enum SinglePartSectionId {
 
 pub(crate) mod part_id {
     use super::SinglePartSectionId;
-    use wild_layout::part_id::PartId;
+    use elyld_layout::part_id::PartId;
 
     pub(crate) const WASM_TYPE: PartId = SinglePartSectionId::WasmType.part_id();
     pub(crate) const WASM_IMPORT: PartId = SinglePartSectionId::WasmImport.part_id();
@@ -80,7 +80,7 @@ pub(crate) mod part_id {
 
 pub(crate) mod output_section_id {
     use super::SinglePartSectionId;
-    use wild_layout::output_section_id::OutputSectionId;
+    use elyld_layout::output_section_id::OutputSectionId;
 
     pub(crate) const WASM_TYPE: OutputSectionId = SinglePartSectionId::WasmType.output_section_id();
     pub(crate) const WASM_IMPORT: OutputSectionId =
@@ -185,7 +185,7 @@ impl SinglePartSectionId {
 mod tests {
     use super::*;
     use wasmparser::MemoryType;
-    use wild_args::wasm::DEFAULT_STACK_SIZE;
+    use elyld_args::wasm::DEFAULT_STACK_SIZE;
 
     fn layout_input_with_features<'data>(
         file: u32,
@@ -214,8 +214,8 @@ mod tests {
             symbols: &[],
             init_funcs: &[],
             target_features: features,
-            symbol_id_range: wild_layout::symbol_db::SymbolIdRange::empty(),
-            file_id: wild_platform::FileId::new(0, file),
+            symbol_id_range: elyld_layout::symbol_db::SymbolIdRange::empty(),
+            file_id: elyld_platform::FileId::new(0, file),
             defined_function_live_ordinal: Vec::new(),
             defined_global_live_ordinal: Vec::new(),
         }

@@ -10,14 +10,14 @@ pub use builder::*;
 use hashbrown::{HashSet, HashTable};
 #[allow(unused_imports)]
 pub use types::*;
-use wild_platform::SectionHeader;
+use elyld_platform::SectionHeader;
 #[allow(unused_imports)]
-pub use wild_platform::SectionRule;
+pub use elyld_platform::SectionRule;
 #[allow(unused_imports)]
-pub use wild_platform::SectionRuleOutcome;
+pub use elyld_platform::SectionRuleOutcome;
 #[allow(unused_imports)]
-pub use wild_platform::section_rules::SectionOutputInfo;
-use wild_util::hash::hash_bytes;
+pub use elyld_platform::section_rules::SectionOutputInfo;
+use elyld_util::hash::hash_bytes;
 
 /// Multiplier for the rule-hashtable's capacity, relative to the number of entries. We want a
 /// relatively sparse hashtable, since we may have a small number of entries with the same prefix

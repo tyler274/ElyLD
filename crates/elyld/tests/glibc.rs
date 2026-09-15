@@ -4,29 +4,29 @@
 //! `libBrokenLocale`, `libmemusage`, `libpcprofile`, and the
 //! `libpthread` / `libdl` / `librt` / `libutil` / `libanl` stubs).
 //!
-//! Glibc's `configure` accepts GNU ld, gold, or LLD version strings. Wild's
+//! Glibc's `configure` accepts GNU ld, gold, or LLD version strings. ElyLD's
 //! `--version` first line is GNU ld compatible, but the GNU oracle is still
 //! compiled with GNU ld so the relink tests have a BFD binary to diff against.
-//! `nix develop` sets `WILD_GLIBC_TREE` / `WILD_GLIBC_BUILD` and provides
-//! `wild-build-glibc`. Otherwise set `WILD_GLIBC_TREE` to a source checkout and
-//! `WILD_GLIBC_BUILD` to the out-of-tree build (default: `<tree>/../glibc-build`).
+//! `nix develop` sets `ELYLD_GLIBC_TREE` / `ELYLD_GLIBC_BUILD` and provides
+//! `wild-build-glibc`. Otherwise set `ELYLD_GLIBC_TREE` to a source checkout and
+//! `ELYLD_GLIBC_BUILD` to the out-of-tree build (default: `<tree>/../glibc-build`).
 //!
-//! Skipped when `WILD_GLIBC_TREE` is unset, or when the build does not yet
+//! Skipped when `ELYLD_GLIBC_TREE` is unset, or when the build does not yet
 //! contain the expected objects (a from-scratch glibc build will not fit the
 //! 10-minute CI timeout). GNU ld is the only oracle.
 
-use crate::{Filter, build_dir, incremental_check, wild_path};
+use crate::{Filter, build_dir, incremental_check, elyld_path};
 use libtest_mimic::Trial;
-use libwild::bail;
-use libwild::error::{Context as _, Result};
+use libelyld::bail;
+use libelyld::error::{Context as _, Result};
 use object::{Object as _, ObjectSymbol as _};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const TREE_VAR: &str = "WILD_GLIBC_TREE";
-const BUILD_VAR: &str = "WILD_GLIBC_BUILD";
+const TREE_VAR: &str = "ELYLD_GLIBC_TREE";
+const BUILD_VAR: &str = "ELYLD_GLIBC_BUILD";
 const LDSO_TEST: &str = "elf/x86_64/glibc-ldso";
 const LDSO_INCR_TEST: &str = "elf/x86_64/glibc-ldso-incremental";
 const LIBC_TEST: &str = "elf/x86_64/glibc-libc";
@@ -345,7 +345,7 @@ fn glibc_paths() -> Result<Option<(PathBuf, PathBuf)>> {
 }
 
 fn ldso_command(out: &Path, librtld: &Path, map: Option<&Path>) -> Command {
-    let mut cmd = Command::new(wild_path());
+    let mut cmd = Command::new(elyld_path());
     cmd.args([
         "-shared",
         "-z",
@@ -381,7 +381,7 @@ fn libc_command(
     map: Option<&Path>,
     libgcc: &Path,
 ) -> Command {
-    let mut cmd = Command::new(wild_path());
+    let mut cmd = Command::new(elyld_path());
     cmd.args([
         "-shared",
         "-z",
@@ -440,7 +440,7 @@ fn run_ldso_test() -> Result<libtest_mimic::Completion> {
     let mut cmd = ldso_command(&out, &librtld, map.as_deref());
     let status = cmd
         .status()
-        .with_context(|| format!("Failed to spawn {}", wild_path().display()))?;
+        .with_context(|| format!("Failed to spawn {}", elyld_path().display()))?;
     if !status.success() {
         bail!("Wild failed to link ld.so ({status})");
     }
@@ -499,7 +499,7 @@ fn run_libc_test() -> Result<libtest_mimic::Completion> {
     );
     let status = cmd
         .status()
-        .with_context(|| format!("Failed to spawn {}", wild_path().display()))?;
+        .with_context(|| format!("Failed to spawn {}", elyld_path().display()))?;
     if !status.success() {
         bail!("Wild failed to link libc.so ({status})");
     }
@@ -766,7 +766,7 @@ fn glibc_pic_command(
     let crtbegin = gcc_print_file_name("crtbeginS.o")?;
     let crtend = gcc_print_file_name("crtendS.o")?;
 
-    let mut cmd = Command::new(wild_path());
+    let mut cmd = Command::new(elyld_path());
     cmd.args(["-shared"]);
     if !spec.no_z_defs {
         cmd.args(["-z", "defs"]);
@@ -868,7 +868,7 @@ fn run_pic_shlib_test(spec: &PicShlib) -> Result<libtest_mimic::Completion> {
     let crtbegin = gcc_print_file_name("crtbeginS.o")?;
     let crtend = gcc_print_file_name("crtendS.o")?;
 
-    let mut cmd = Command::new(wild_path());
+    let mut cmd = Command::new(elyld_path());
     cmd.args(["-shared"]);
     if !spec.no_z_defs {
         cmd.args(["-z", "defs"]);
@@ -924,7 +924,7 @@ fn run_pic_shlib_test(spec: &PicShlib) -> Result<libtest_mimic::Completion> {
         .arg(&crtend);
     let status = cmd
         .status()
-        .with_context(|| format!("Failed to spawn {}", wild_path().display()))?;
+        .with_context(|| format!("Failed to spawn {}", elyld_path().display()))?;
     if !status.success() {
         bail!("Wild failed to link {} ({status})", spec.gnu);
     }
@@ -1083,14 +1083,14 @@ fn compare_dynsym_names(gnu: &Path, wild: &Path) -> Result {
     if missing.len() > 20 {
         missing.truncate(20);
         bail!(
-            "Wild {} missing GNU exported dynamic symbols (first 20): {}",
+            "ElyLD {} missing GNU exported dynamic symbols (first 20): {}",
             wild.display(),
             missing.join(", ")
         );
     }
     if !missing.is_empty() {
         bail!(
-            "Wild {} missing GNU exported dynamic symbols: {}",
+            "ElyLD {} missing GNU exported dynamic symbols: {}",
             wild.display(),
             missing.join(", ")
         );

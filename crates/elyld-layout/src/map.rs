@@ -10,9 +10,9 @@ use hashbrown::HashMap;
 use object::SectionIndex;
 use std::io::Write;
 use std::path::Path;
-use wild_args::InputRef;
-use wild_error::error::{Context as _, Result};
-use wild_platform::{Args as _, ObjectFile, Symbol as _};
+use elyld_args::InputRef;
+use elyld_error::error::{Context as _, Result};
+use elyld_platform::{Args as _, ObjectFile, Symbol as _};
 
 pub fn maybe_write_map<'data, P: EnginePlatform>(layout: &Layout<'data, P>) -> Result {
     let print_stdout = layout.args().print_map();

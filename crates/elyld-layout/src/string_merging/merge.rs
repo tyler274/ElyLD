@@ -13,14 +13,14 @@ use crate::{EnginePlatform, timing_phase, verbose_timing_phase};
 use hashbrown::HashMap;
 use itertools::Itertools as _;
 use std::sync::atomic::Ordering;
-use wild_args::Experiment;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform as platform;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::{Args as _, ObjectFile, Symbol as _};
-use wild_util::alignment;
-use wild_util::input_section_id::SectionIdRange;
+use elyld_args::Experiment;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform as platform;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::{Args as _, ObjectFile, Symbol as _};
+use elyld_util::alignment;
+use elyld_util::input_section_id::SectionIdRange;
 
 pub(super) fn build_merge_class_buckets(
     input_sections: &[StringMergeInputSection<'_>],

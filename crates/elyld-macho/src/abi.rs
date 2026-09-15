@@ -29,28 +29,28 @@ pub use object::macho::SectionFlags;
 use object::read::macho::Section;
 use object::{Endianness, macho};
 use std::slice::Iter;
-use wild_args::macho::MachOArgs;
-use wild_error::error::Result;
-use wild_error::{bail, ensure, error};
-use wild_fs::fs::{FileReplacementMode, FileSystem};
-use wild_layout as layout;
-use wild_layout::layout_rules::SectionKind;
-use wild_layout::output_section_id::{
+use elyld_args::macho::MachOArgs;
+use elyld_error::error::Result;
+use elyld_error::{bail, ensure, error};
+use elyld_fs::fs::{FileReplacementMode, FileSystem};
+use elyld_layout as layout;
+use elyld_layout::layout_rules::SectionKind;
+use elyld_layout::output_section_id::{
     FILE_HEADER, OutputOrderBuilder, OutputSectionId, SectionIdentity, SectionName,
     SectionOutputInfo,
 };
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::part_id::PartId;
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::part_id::PartId;
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{
     OutputRecordLayout, Resolution, SectionGcUnit, StubLibraryLayoutState, SymbolCopyInfo,
     resolution, verbose_timing_phase,
 };
-use wild_platform as platform;
-use wild_platform::program_segments::ProgramSegments;
-use wild_platform::{ObjectFile, OutputKind, SectionAttributes as _};
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+use elyld_platform as platform;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_platform::{ObjectFile, OutputKind, SectionAttributes as _};
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 impl platform::Platform for MachO {
     const NUM_SINGLE_PART_SECTIONS: u32 = SinglePartSectionId::Count as u32;
@@ -75,7 +75,7 @@ impl platform::Platform for MachO {
         &[output_section_id::CODE_SIGNATURE, output_section_id::STRTAB];
 
     const VERIFY_IGNORE_SECTION_IDS: &'static [OutputSectionId] = &[
-        wild_layout::output_section_id::FILE_HEADER,
+        elyld_layout::output_section_id::FILE_HEADER,
         output_section_id::LINK_EDIT_SEGMENT,
         output_section_id::LOAD_COMMANDS,
         output_section_id::CHAINED_FIXUP_TABLE,
@@ -126,64 +126,64 @@ impl platform::Platform for MachO {
     type VersionNames<'data> = ();
     type VerneedTable<'data> = VerneedTable<'data>;
     type ResolvedObjectExt<'data> = ();
-    type GcUnit = wild_layout::SectionGcUnit;
-    type Layout<'data> = wild_layout::Layout<'data, Self>;
-    type GroupLayout<'data> = wild_layout::GroupLayout<'data, Self>;
-    type SymbolDb<'data> = wild_layout::symbol_db::SymbolDb<'data, Self>;
-    type Resolver<'data> = wild_layout::resolution::Resolver<'data, Self>;
+    type GcUnit = elyld_layout::SectionGcUnit;
+    type Layout<'data> = elyld_layout::Layout<'data, Self>;
+    type GroupLayout<'data> = elyld_layout::GroupLayout<'data, Self>;
+    type SymbolDb<'data> = elyld_layout::symbol_db::SymbolDb<'data, Self>;
+    type Resolver<'data> = elyld_layout::resolution::Resolver<'data, Self>;
     type ResolutionResources<'data, 'scope>
-        = wild_layout::resolution::ResolutionResources<'data, 'scope, Self>
+        = elyld_layout::resolution::ResolutionResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type ObjectLayoutState<'data> = wild_layout::ObjectLayoutState<'data, Self>;
-    type CommonGroupState<'data> = wild_layout::CommonGroupState<'data, Self>;
-    type GroupState<'data> = wild_layout::GroupState<'data, Self>;
-    type DynamicLayoutState<'data> = wild_layout::DynamicLayoutState<'data, Self>;
-    type PreludeLayoutState<'data> = wild_layout::PreludeLayoutState<'data, Self>;
-    type StubLibraryLayoutState<'data> = wild_layout::StubLibraryLayoutState<'data, Self>;
+    type ObjectLayoutState<'data> = elyld_layout::ObjectLayoutState<'data, Self>;
+    type CommonGroupState<'data> = elyld_layout::CommonGroupState<'data, Self>;
+    type GroupState<'data> = elyld_layout::GroupState<'data, Self>;
+    type DynamicLayoutState<'data> = elyld_layout::DynamicLayoutState<'data, Self>;
+    type PreludeLayoutState<'data> = elyld_layout::PreludeLayoutState<'data, Self>;
+    type StubLibraryLayoutState<'data> = elyld_layout::StubLibraryLayoutState<'data, Self>;
     type GraphResources<'data, 'scope>
-        = wild_layout::GraphResources<'data, 'scope, Self>
+        = elyld_layout::GraphResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type LocalWorkQueue = wild_layout::LocalWorkQueue<Self>;
+    type LocalWorkQueue = elyld_layout::LocalWorkQueue<Self>;
     type FinaliseLayoutResources<'scope, 'data>
-        = wild_layout::FinaliseLayoutResources<'scope, 'data, Self>
+        = elyld_layout::FinaliseLayoutResources<'scope, 'data, Self>
     where
         'data: 'scope;
     type FinaliseSizesResources<'data, 'scope>
-        = wild_layout::FinaliseSizesResources<'data, 'scope, Self>
+        = elyld_layout::FinaliseSizesResources<'data, 'scope, Self>
     where
         'data: 'scope;
     type ResolutionWriter<'writer, 'out>
-        = wild_layout::ResolutionWriter<'writer, 'out, Self>
+        = elyld_layout::ResolutionWriter<'writer, 'out, Self>
     where
         'out: 'writer;
-    type DynamicSymbolDefinition<'data> = wild_layout::DynamicSymbolDefinition<'data, Self>;
-    type OutputRecordLayout = wild_layout::OutputRecordLayout;
-    type SymbolResolutions = wild_layout::SymbolResolutions<Self>;
-    type LayoutSection = wild_layout::Section;
-    type HeaderInfo = wild_layout::HeaderInfo;
-    type Resolution = wild_layout::Resolution<Self>;
-    type UnloadedSection = wild_layout::resolution::UnloadedSection;
-    type LoadedMetrics = wild_layout::resolution::LoadedMetrics;
-    type ResolvedObject<'data> = wild_layout::resolution::ResolvedObject<'data, Self>;
-    type ResolvedDynamic<'data> = wild_layout::resolution::ResolvedDynamic<'data, Self>;
-    type ResolvedStubLibrary<'data> = wild_layout::resolution::ResolvedStubLibrary<'data>;
+    type DynamicSymbolDefinition<'data> = elyld_layout::DynamicSymbolDefinition<'data, Self>;
+    type OutputRecordLayout = elyld_layout::OutputRecordLayout;
+    type SymbolResolutions = elyld_layout::SymbolResolutions<Self>;
+    type LayoutSection = elyld_layout::Section;
+    type HeaderInfo = elyld_layout::HeaderInfo;
+    type Resolution = elyld_layout::Resolution<Self>;
+    type UnloadedSection = elyld_layout::resolution::UnloadedSection;
+    type LoadedMetrics = elyld_layout::resolution::LoadedMetrics;
+    type ResolvedObject<'data> = elyld_layout::resolution::ResolvedObject<'data, Self>;
+    type ResolvedDynamic<'data> = elyld_layout::resolution::ResolvedDynamic<'data, Self>;
+    type ResolvedStubLibrary<'data> = elyld_layout::resolution::ResolvedStubLibrary<'data>;
     type LinkerPlugin<'data> = ();
-    type LtoInput<'data> = wild_layout::grouping::LtoInput<'data>;
-    type Group<'data> = wild_layout::grouping::Group<'data, Self>;
-    type SequencedLinkerScript<'data> = wild_layout::grouping::SequencedLinkerScript<'data, Self>;
-    type FileLoader<'data, F: wild_fs::fs::FileSystem> =
-        wild_layout::input_data::FileLoader<'data, F>;
-    type LayoutRulesBuilder<'data> = wild_layout::layout_rules::LayoutRulesBuilder<'data>;
-    type InternalSymbolsBuilder<'data> = wild_layout::parsing::InternalSymbolsBuilder<'data, Self>;
-    type InternalSymDefInfo<'data> = wild_layout::parsing::InternalSymDefInfo<'data, Self>;
-    type OutputSections<'data> = wild_layout::output_section_id::OutputSections<'data, Self>;
-    type OutputOrder<'data> = wild_layout::output_section_id::OutputOrder<'data>;
-    type CustomSectionIds = wild_layout::output_section_id::CustomSectionIds;
-    type FileWriterOutput<F: wild_fs::fs::FileSystem> = wild_layout::file_writer::Output<F>;
-    type LocationCounter<'data> = wild_layout::layout_rules::LocationCounter<'data>;
-    type SectionOutputInfo<'data> = wild_layout::output_section_id::SectionOutputInfo<'data, Self>;
+    type LtoInput<'data> = elyld_layout::grouping::LtoInput<'data>;
+    type Group<'data> = elyld_layout::grouping::Group<'data, Self>;
+    type SequencedLinkerScript<'data> = elyld_layout::grouping::SequencedLinkerScript<'data, Self>;
+    type FileLoader<'data, F: elyld_fs::fs::FileSystem> =
+        elyld_layout::input_data::FileLoader<'data, F>;
+    type LayoutRulesBuilder<'data> = elyld_layout::layout_rules::LayoutRulesBuilder<'data>;
+    type InternalSymbolsBuilder<'data> = elyld_layout::parsing::InternalSymbolsBuilder<'data, Self>;
+    type InternalSymDefInfo<'data> = elyld_layout::parsing::InternalSymDefInfo<'data, Self>;
+    type OutputSections<'data> = elyld_layout::output_section_id::OutputSections<'data, Self>;
+    type OutputOrder<'data> = elyld_layout::output_section_id::OutputOrder<'data>;
+    type CustomSectionIds = elyld_layout::output_section_id::CustomSectionIds;
+    type FileWriterOutput<F: elyld_fs::fs::FileSystem> = elyld_layout::file_writer::Output<F>;
+    type LocationCounter<'data> = elyld_layout::layout_rules::LocationCounter<'data>;
+    type SectionOutputInfo<'data> = elyld_layout::output_section_id::SectionOutputInfo<'data, Self>;
 
     /// Mach-O sections are associated with a SegmentName, while synthetic regions (FILE_HEADER,
     /// LOAD_COMMANDS, etc.) are not.
@@ -192,8 +192,8 @@ impl platform::Platform for MachO {
     const HAS_NULL_SYMBOL_ENTRY: bool = true;
 
     fn write_output_file<'data, A: platform::Arch<Platform = Self>, F: FileSystem>(
-        output: &wild_layout::file_writer::Output<F>,
-        layout: &wild_layout::Layout<'data, Self>,
+        output: &elyld_layout::file_writer::Output<F>,
+        layout: &elyld_layout::Layout<'data, Self>,
     ) -> Result {
         output.write(layout, macho_writer::write::<A>)
     }
@@ -206,13 +206,13 @@ impl platform::Platform for MachO {
     }
 
     fn apply_force_keep_sections(
-        _keep_sections: &mut wild_platform::output_section_map::OutputSectionMap<bool>,
+        _keep_sections: &mut elyld_platform::output_section_map::OutputSectionMap<bool>,
         _args: &Self::Args,
     ) {
     }
 
     fn is_zero_sized_section_content(
-        _section_id: wild_layout::output_section_id::OutputSectionId,
+        _section_id: elyld_layout::output_section_id::OutputSectionId,
     ) -> bool {
         todo!()
     }
@@ -222,51 +222,51 @@ impl platform::Platform for MachO {
     }
 
     fn finalise_group_layout(
-        _memory_offsets: &wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _memory_offsets: &elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> Self::GroupLayoutExt {
     }
 
     fn frame_data_base_address(
-        _memory_offsets: &wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _memory_offsets: &elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> u64 {
         todo!()
     }
 
     fn activate_dynamic<'data>(
-        _state: &mut wild_layout::DynamicLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _state: &mut elyld_layout::DynamicLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) {
     }
 
     fn pre_finalise_sizes_prelude<'scope, 'data>(
-        _prelude: &mut wild_layout::PreludeLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _resources: &wild_layout::GraphResources<'data, 'scope, Self>,
+        _prelude: &mut elyld_layout::PreludeLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _resources: &elyld_layout::GraphResources<'data, 'scope, Self>,
     ) {
     }
 
     fn finalise_sizes_dynamic<'data>(
-        _object: &mut wild_layout::DynamicLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::DynamicLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) -> Result {
         Ok(())
     }
 
     fn finalise_object_sizes<'data>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) {
     }
 
     fn finalise_object_layout<'data>(
-        _object: &wild_layout::ObjectLayoutState<'data, Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _object: &elyld_layout::ObjectLayoutState<'data, Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
     }
 
     fn finalise_layout_dynamic<'data>(
         state: &mut Self::DynamicLayoutState<'data>,
-        memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
         resources: &Self::FinaliseLayoutResources<'_, 'data>,
         resolutions_out: &mut Self::ResolutionWriter<'_, '_>,
     ) -> Result<Option<Self::DynamicLayoutExt<'data>>> {
@@ -282,9 +282,9 @@ impl platform::Platform for MachO {
 
     fn finalise_layout_stub<'data>(
         state: layout::StubLibraryLayoutState<'data, Self>,
-        memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        resources: &wild_layout::FinaliseLayoutResources<'_, 'data, Self>,
-        resolutions_out: &mut wild_layout::ResolutionWriter<Self>,
+        memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        resources: &elyld_layout::FinaliseLayoutResources<'_, 'data, Self>,
+        resolutions_out: &mut elyld_layout::ResolutionWriter<Self>,
     ) -> Result<Option<Self::StubLibraryLayoutExt>> {
         layout::default_create_resolutions(
             memory_offsets,
@@ -297,17 +297,17 @@ impl platform::Platform for MachO {
     }
 
     fn take_dynsym_index(
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _section_layouts: &wild_platform::output_section_map::OutputSectionMap<
-            wild_layout::OutputRecordLayout,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _section_layouts: &elyld_platform::output_section_map::OutputSectionMap<
+            elyld_layout::OutputRecordLayout,
         >,
     ) -> Result<u32> {
         todo!()
     }
 
     fn compute_object_addresses<'data>(
-        _object: &wild_layout::ObjectLayoutState<'data, Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _object: &elyld_layout::ObjectLayoutState<'data, Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
         todo!()
     }
@@ -328,20 +328,20 @@ impl platform::Platform for MachO {
     }
 
     fn activate_object_gc<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        common: &mut wild_layout::CommonGroupState<'data, Self>,
-        resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
         object.activate_section_gc::<A>(common, resources, queue, scope)
     }
 
     fn load_gc_unit<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        common: &mut wild_layout::CommonGroupState<'data, Self>,
-        resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         unit: Self::GcUnit,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
@@ -355,11 +355,11 @@ impl platform::Platform for MachO {
     }
 
     fn load_object_section_relocations<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        state: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        common: &mut wild_layout::CommonGroupState<'data, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
-        resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
-        _section: wild_layout::Section,
+        state: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, '_, Self>,
+        _section: elyld_layout::Section,
         section_index: object::SectionIndex,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
@@ -372,9 +372,9 @@ impl platform::Platform for MachO {
 
     fn create_dynamic_symbol_definition<'data>(
         symbol_db: &Self::SymbolDb<'data>,
-        symbol_id: wild_layout::symbol_db::SymbolId,
+        symbol_id: elyld_layout::symbol_db::SymbolId,
     ) -> Result<Self::DynamicSymbolDefinition<'data>> {
-        Ok(wild_layout::DynamicSymbolDefinition {
+        Ok(elyld_layout::DynamicSymbolDefinition {
             symbol_id,
             name: symbol_db.symbol_name(symbol_id)?.bytes(),
             format_specific: (),
@@ -382,7 +382,7 @@ impl platform::Platform for MachO {
     }
 
     fn update_segment_keep_list(
-        _program_segments: &wild_platform::program_segments::ProgramSegments<
+        _program_segments: &elyld_platform::program_segments::ProgramSegments<
             Self::ProgramSegmentDef,
         >,
         _keep_segments: &mut [bool],
@@ -400,8 +400,8 @@ impl platform::Platform for MachO {
 
     fn program_segment_should_include_section(
         segment_def: Self::ProgramSegmentDef,
-        section_info: &wild_layout::output_section_id::SectionOutputInfo<Self>,
-        section_id: wild_layout::output_section_id::OutputSectionId,
+        section_info: &elyld_layout::output_section_id::SectionOutputInfo<Self>,
+        section_id: elyld_layout::output_section_id::OutputSectionId,
         _rosegment: bool,
     ) -> bool {
         match (section_id, section_info.kind) {
@@ -417,8 +417,8 @@ impl platform::Platform for MachO {
     }
 
     fn create_linker_defined_symbols(
-        symbols: &mut wild_layout::parsing::InternalSymbolsBuilder<Self>,
-        _output_kind: wild_platform::OutputKind,
+        symbols: &mut elyld_layout::parsing::InternalSymbolsBuilder<Self>,
+        _output_kind: elyld_platform::OutputKind,
         _args: &Self::Args,
     ) {
         // Mach-O object symbol names include the C ABI's leading underscore.
@@ -426,7 +426,7 @@ impl platform::Platform for MachO {
     }
 
     fn built_in_section_infos<'data>()
-    -> Vec<wild_layout::output_section_id::SectionOutputInfo<'data, Self>> {
+    -> Vec<elyld_layout::output_section_id::SectionOutputInfo<'data, Self>> {
         SECTION_DEFINITIONS
             .iter()
             .map(|d| {
@@ -453,7 +453,7 @@ impl platform::Platform for MachO {
     fn create_finalise_sizes_ext<'data, 'states, 'files, A: platform::Arch<Platform = Self>>(
         _args: &Self::Args,
         groups: &'files mut [layout::GroupState<'data, Self>],
-        symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) -> Result<Self::FinaliseSizesExt<'data>>
     where
         'data: 'files,
@@ -586,22 +586,22 @@ impl platform::Platform for MachO {
     }
 
     fn load_exception_frame_data<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
         _eh_frame_section_index: object::SectionIndex,
-        _resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
-        _queue: &mut wild_layout::LocalWorkQueue<Self>,
+        _resources: &'scope elyld_layout::GraphResources<'data, '_, Self>,
+        _queue: &mut elyld_layout::LocalWorkQueue<Self>,
         _scope: &rayon::Scope<'scope>,
     ) -> Result {
         todo!()
     }
 
     fn process_init_func_section<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        common: &mut wild_layout::CommonGroupState<'data, Self>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        common: &mut elyld_layout::CommonGroupState<'data, Self>,
         section_index: object::SectionIndex,
-        resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, '_, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
         let header = object.object.section(section_index)?;
@@ -636,11 +636,11 @@ impl platform::Platform for MachO {
     }
 
     fn non_empty_section_loaded<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _queue: &mut wild_layout::LocalWorkQueue<Self>,
-        _unloaded: wild_layout::resolution::UnloadedSection,
-        _resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _queue: &mut elyld_layout::LocalWorkQueue<Self>,
+        _unloaded: elyld_layout::resolution::UnloadedSection,
+        _resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
         _scope: &rayon::Scope<'scope>,
     ) -> Result {
         Ok(())
@@ -648,8 +648,8 @@ impl platform::Platform for MachO {
 
     fn new_epilogue_layout<'data>(
         _args: &Self::Args,
-        _output_kind: wild_platform::OutputKind,
-        _dynamic_symbol_definitions: &mut [wild_layout::DynamicSymbolDefinition<'data, Self>],
+        _output_kind: elyld_platform::OutputKind,
+        _dynamic_symbol_definitions: &mut [elyld_layout::DynamicSymbolDefinition<'data, Self>],
         group_states: &[layout::GroupState<'data, Self>],
     ) -> Self::EpilogueLayoutExt {
         verbose_timing_phase!("Gather imported symbol IDs");
@@ -680,20 +680,20 @@ impl platform::Platform for MachO {
     }
 
     fn apply_non_addressable_indexes<'data, 'groups>(
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
         _counts: &Self::NonAddressableCounts,
         _mem_sizes_iter: impl Iterator<
-            Item = &'groups mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+            Item = &'groups mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
         >,
     ) {
     }
 
     fn finalise_sizes_epilogue<'data>(
         state: &mut Self::EpilogueLayoutExt,
-        mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        dynamic_symbol_definitions: &[wild_layout::DynamicSymbolDefinition<'data, Self>],
+        mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        dynamic_symbol_definitions: &[elyld_layout::DynamicSymbolDefinition<'data, Self>],
         format_specific: &Self::FinaliseSizesExt<'data>,
-        symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) {
         let mut fixup_table_size = CHAINED_FIXUP_TABLE_BASE_SIZE;
 
@@ -726,7 +726,7 @@ impl platform::Platform for MachO {
         // Figure out a good way to fix this.
         let mut exports = dynamic_symbol_definitions
             .iter()
-            .map(|symbol| wild_util::trie::Symbol {
+            .map(|symbol| elyld_util::trie::Symbol {
                 name: symbol.name,
                 address: u64::MAX,
                 flags: object::macho::ExportSymbolFlags(0),
@@ -735,7 +735,7 @@ impl platform::Platform for MachO {
 
         mem_sizes.increment(
             part_id::EXPORTS_TRIE,
-            wild_util::trie::build(&mut exports).len() as u64,
+            elyld_util::trie::build(&mut exports).len() as u64,
         );
 
         mem_sizes.increment(
@@ -745,18 +745,18 @@ impl platform::Platform for MachO {
     }
 
     fn finalise_sizes_all<'data>(
-        _mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) {
     }
 
     fn finalise_layout_epilogue<'data>(
         _epilogue_state: &mut Self::EpilogueLayoutExt,
-        memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
         format_specific: &Self::FinaliseSizesExt<'data>,
         _dynsym_start_index: u32,
-        _dynamic_symbol_defs: &[wild_layout::DynamicSymbolDefinition<Self>],
+        _dynamic_symbol_defs: &[elyld_layout::DynamicSymbolDefinition<Self>],
     ) -> Result {
         memory_offsets.increment(
             part_id::INIT_OFFSETS,
@@ -769,8 +769,8 @@ impl platform::Platform for MachO {
         _object: &Self::File<'data>,
         _args: &Self::Args,
         _sym: &Self::SymtabEntry,
-        _output_kind: wild_platform::OutputKind,
-        _export_list: Option<&wild_scripts::export_list::ExportList>,
+        _output_kind: elyld_platform::OutputKind,
+        _export_list: Option<&elyld_scripts::export_list::ExportList>,
         _lib_name: &[u8],
         _archive_semantics: bool,
         _is_undefined: bool,
@@ -780,16 +780,16 @@ impl platform::Platform for MachO {
     }
 
     fn allocate_header_sizes<'data>(
-        prelude: &mut wild_layout::PreludeLayoutState<'data, Self>,
-        sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        header_info: &wild_layout::HeaderInfo,
+        prelude: &mut elyld_layout::PreludeLayoutState<'data, Self>,
+        sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        header_info: &elyld_layout::HeaderInfo,
         program_segments: &ProgramSegments<Self::ProgramSegmentDef>,
-        output_sections: &wild_layout::output_section_id::OutputSections<Self>,
+        output_sections: &elyld_layout::output_section_id::OutputSections<Self>,
         resources: &layout::FinaliseSizesResources<'data, '_, Self>,
         args: &Self::Args,
     ) {
         sizes.increment(
-            wild_layout::part_id::FILE_HEADER,
+            elyld_layout::part_id::FILE_HEADER,
             size_of::<FileHeader>() as u64,
         );
 
@@ -869,18 +869,18 @@ impl platform::Platform for MachO {
     }
 
     fn finalise_sizes_for_symbol<'data>(
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
-        _symbol_id: wild_layout::symbol_db::SymbolId,
-        _flags: wild_platform::value_flags::ValueFlags,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_id: elyld_layout::symbol_db::SymbolId,
+        _flags: elyld_platform::value_flags::ValueFlags,
     ) -> Result {
         Ok(())
     }
 
     fn allocate_resolution(
-        flags: wild_platform::value_flags::ValueFlags,
-        mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _output_kind: wild_platform::OutputKind,
+        flags: elyld_platform::value_flags::ValueFlags,
+        mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _output_kind: elyld_platform::OutputKind,
         _args: &Self::Args,
     ) {
         if flags.is_dynamic() && flags.needs_plt() {
@@ -892,10 +892,10 @@ impl platform::Platform for MachO {
     }
 
     fn allocate_object_symtab_space<'data>(
-        state: &wild_layout::ObjectLayoutState<'data, Self>,
-        common: &mut wild_layout::CommonGroupState<'data, Self>,
-        symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
-        per_symbol_flags: &wild_platform::value_flags::AtomicPerSymbolFlags,
+        state: &elyld_layout::ObjectLayoutState<'data, Self>,
+        common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        per_symbol_flags: &elyld_platform::value_flags::AtomicPerSymbolFlags,
     ) -> Result {
         let mut num_globals = 0;
         let mut strings_size = 0;
@@ -926,18 +926,18 @@ impl platform::Platform for MachO {
     }
 
     fn allocate_internal_symbol(
-        _symbol_id: wild_layout::symbol_db::SymbolId,
-        _def_info: &wild_layout::parsing::InternalSymDefInfo<Self>,
-        _sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<Self>,
+        _symbol_id: elyld_layout::symbol_db::SymbolId,
+        _def_info: &elyld_layout::parsing::InternalSymDefInfo<Self>,
+        _sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<Self>,
         _format_specific: &mut Self::CommonGroupStateExt,
     ) -> Result {
         todo!()
     }
 
     fn allocate_prelude(
-        common: &mut wild_layout::CommonGroupState<Self>,
-        symbol_db: &wild_layout::symbol_db::SymbolDb<Self>,
+        common: &mut elyld_layout::CommonGroupState<Self>,
+        symbol_db: &elyld_layout::symbol_db::SymbolDb<Self>,
     ) {
         // Allocate one extra character as n_strx == 0 is treated as unnamed.
         common.allocate(part_id::STRTAB, 1);
@@ -948,21 +948,21 @@ impl platform::Platform for MachO {
     }
 
     fn finalise_prelude_layout<'data>(
-        prelude: &wild_layout::PreludeLayoutState<Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _resources: &wild_layout::FinaliseLayoutResources<'_, 'data, Self>,
+        prelude: &elyld_layout::PreludeLayoutState<Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _resources: &elyld_layout::FinaliseLayoutResources<'_, 'data, Self>,
     ) -> Result<Self::PreludeLayoutExt> {
         Ok(prelude.format_specific.clone())
     }
 
     fn create_resolution(
-        flags: wild_platform::value_flags::ValueFlags,
+        flags: elyld_platform::value_flags::ValueFlags,
         raw_value: u64,
         dynamic_symbol_index: Option<std::num::NonZeroU32>,
-        memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _args: &<Self as wild_platform::Platform>::Args,
-        _output_kind: wild_platform::OutputKind,
-    ) -> wild_layout::Resolution<Self> {
+        memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _args: &<Self as elyld_platform::Platform>::Args,
+        _output_kind: elyld_platform::OutputKind,
+    ) -> elyld_layout::Resolution<Self> {
         let mut resolution: Resolution<MachO> = Resolution {
             raw_value,
             dynamic_symbol_index,
@@ -997,7 +997,7 @@ impl platform::Platform for MachO {
 
     fn default_layout_rules(
         _args: &Self::Args,
-    ) -> Vec<wild_layout::layout_rules::SectionRule<'static>> {
+    ) -> Vec<elyld_layout::layout_rules::SectionRule<'static>> {
         DEFAULT_SECTION_RULES.to_vec()
     }
 
@@ -1005,13 +1005,13 @@ impl platform::Platform for MachO {
         custom: &Self::CustomSectionIds,
         output_kind: OutputKind,
         output_sections: &Self::OutputSections<'data>,
-        secondary: &wild_platform::output_section_map::OutputSectionMap<
-            Vec<wild_layout::output_section_id::OutputSectionId>,
+        secondary: &elyld_platform::output_section_map::OutputSectionMap<
+            Vec<elyld_layout::output_section_id::OutputSectionId>,
         >,
         _location_counters: &[Self::LocationCounter<'data>],
     ) -> (
         Self::OutputOrder<'data>,
-        wild_platform::program_segments::ProgramSegments<Self::ProgramSegmentDef>,
+        elyld_platform::program_segments::ProgramSegments<Self::ProgramSegmentDef>,
     ) {
         // TODO: Order sections within each segment according to Mach-O conventions.
         let arbitrary_segments: Vec<SegmentName> = output_sections
@@ -1054,7 +1054,7 @@ impl platform::Platform for MachO {
         );
 
         // File header and all load commands.
-        builder.add_section(wild_layout::output_section_id::FILE_HEADER);
+        builder.add_section(elyld_layout::output_section_id::FILE_HEADER);
         builder.add_section(output_section_id::LOAD_COMMANDS);
 
         // Content of the sections (e.g. __text, __data).
@@ -1135,8 +1135,8 @@ impl platform::Platform for MachO {
         Ok(record.file_offset.div_ceil(CS_BLOCK_SIZE) * CS_HASH_SIZE as usize)
     }
 
-    fn is_allowed_in_archive(kind: wild_platform::FileKind) -> bool {
-        kind == wild_platform::FileKind::MachOObject
+    fn is_allowed_in_archive(kind: elyld_platform::FileKind) -> bool {
+        kind == elyld_platform::FileKind::MachOObject
     }
 
     fn section_identity<'data>(
@@ -1159,7 +1159,7 @@ impl platform::Platform for MachO {
 
     fn finalise_output_section_alignments(
         sizes: &OutputSectionPartMap<u64>,
-        output_sections: &mut wild_layout::output_section_id::OutputSections<'_, Self>,
+        output_sections: &mut elyld_layout::output_section_id::OutputSections<'_, Self>,
     ) {
         let tlv_sections = output_sections
             .ids_with_info()
@@ -1176,7 +1176,7 @@ impl platform::Platform for MachO {
         let max_align = tlv_sections
             .iter()
             .map(|&section_id| {
-                wild_layout::output_section_part_map::max_alignment(
+                elyld_layout::output_section_part_map::max_alignment(
                     sizes,
                     section_id.part_id_range::<MachO>(),
                     output_sections,

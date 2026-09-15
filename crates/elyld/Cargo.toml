@@ -1,5 +1,5 @@
 [package]
-name = "wild-linker"
+name = "elyld"
 description = "A very fast linker for Linux"
 version.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ edition.workspace = true
 autotests = false
 
 [[bin]]
-name = "wild"
+name = "elyld"
 path = "src/main.rs"
 
 [[test]]
@@ -18,7 +18,7 @@ path = "tests/integration_tests.rs"
 harness = false
 
 [dependencies]
-libwild = { path = "../libwild", version = "0.10.0", default-features = false }
+libelyld = { path = "../libelyld", version = "1.0.0", default-features = false }
 
 dhat = { workspace = true, optional = true }
 
@@ -58,17 +58,17 @@ wait-timeout.workspace = true
 [features]
 default = ["fork", "plugins", "zstd", "mimalloc"]
 
-fork = ["libwild/fork"]
+fork = ["libelyld/fork"]
 
-zstd = ["libwild/zstd"]
+zstd = ["libelyld/zstd"]
 
-plugins = ["libwild/plugins"]
+plugins = ["libelyld/plugins"]
 
-perfetto = ["libwild/perfetto"]
+perfetto = ["libelyld/perfetto"]
 
-wasm = ["libwild/wasm"]
+wasm = ["libelyld/wasm"]
 
-macho = ["libwild/macho"]
+macho = ["libelyld/macho"]
 
 # Statically embed mimalloc-rs (on by default). Mutually exclusive with
 # `mimalloc-dynamic` and `dhat`.

@@ -14,7 +14,7 @@ use crate::{
     ObjectLayoutState, OutputRecordLayout, PreludeLayoutState, Resolution, ResolutionWriter,
     StubLibraryLayoutState, SymbolResolutions,
 };
-use wild_platform::Platform;
+use elyld_platform::Platform;
 
 pub trait EnginePlatform:
     for<'data> Platform<
@@ -57,11 +57,11 @@ pub trait EnginePlatform:
     /// Claim LTO IR for a linker plugin. The default reports that no plugin was supplied.
     fn process_plugin_input<'data>(
         _plugin: &mut Self::LinkerPlugin<'data>,
-        input_ref: wild_args::InputRef<'data>,
+        input_ref: elyld_args::InputRef<'data>,
         _file: &std::fs::File,
-        kind: wild_platform::FileKind,
-    ) -> wild_error::error::Result<Option<crate::grouping::UnsequencedLtoInput<'data>>> {
-        wild_error::bail!(
+        kind: elyld_platform::FileKind,
+    ) -> elyld_error::error::Result<Option<crate::grouping::UnsequencedLtoInput<'data>>> {
+        elyld_error::bail!(
             "Input file {input_ref} contains {kind}, but linker plugin was not supplied"
         )
     }
@@ -72,8 +72,8 @@ pub trait EnginePlatform:
         _plugin: &mut Self::LinkerPlugin<'data>,
         _symbol_db: &mut crate::symbol_db::SymbolDb<'data, Self>,
         _resolver: &mut Resolver<'data, Self>,
-        _per_symbol_flags: &mut wild_platform::value_flags::PerSymbolFlags,
-    ) -> wild_error::error::Result<Option<Vec<wild_args::Input>>> {
+        _per_symbol_flags: &mut elyld_platform::value_flags::PerSymbolFlags,
+    ) -> elyld_error::error::Result<Option<Vec<elyld_args::Input>>> {
         Ok(None)
     }
 
@@ -82,11 +82,11 @@ pub trait EnginePlatform:
         _plugin: &mut Self::LinkerPlugin<'data>,
         _symbol_db: &mut crate::symbol_db::SymbolDb<'data, Self>,
         _resolver: &mut Resolver<'data, Self>,
-        _per_symbol_flags: &mut wild_platform::value_flags::PerSymbolFlags,
+        _per_symbol_flags: &mut elyld_platform::value_flags::PerSymbolFlags,
         _output_sections: &mut crate::output_section_id::OutputSections<'data, Self>,
         _layout_rules_builder: &mut LayoutRulesBuilder<'data>,
         _loaded: crate::symbol_db::LoadedInputs<'data, Self>,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         Ok(())
     }
 }

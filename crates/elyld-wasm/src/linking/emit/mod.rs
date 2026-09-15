@@ -18,16 +18,16 @@ use hashbrown::{HashMap, HashSet};
 #[allow(unused_imports)]
 pub(crate) use memory::*;
 use rayon::prelude::*;
-use wild_error::bail;
-use wild_error::ensure;
-use wild_error::error::{Context as _, Result};
-use wild_layout as layout;
-use wild_layout::symbol_db::SymbolDb;
-use wild_layout::{timing_phase, verbose_timing_phase};
+use elyld_error::bail;
+use elyld_error::ensure;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout as layout;
+use elyld_layout::symbol_db::SymbolDb;
+use elyld_layout::{timing_phase, verbose_timing_phase};
 
 pub(crate) fn build_output_module_layout<'data, 'files>(
     groups: &'files mut [layout::GroupState<'data, Wasm>],
-    symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Wasm>,
+    symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Wasm>,
 ) -> Result<WasmLayout<'data>>
 where
     'data: 'files,
@@ -222,7 +222,7 @@ where
             if layout_inputs.iter().any(input_has_tls_segments) {
                 let tls_align = max_tls_alignment(&layout_inputs);
                 memory_cursor = u32::try_from(tls_align.align_up(u64::from(memory_cursor)))
-                    .map_err(|_| wild_error::error!("Wasm TLS alignment overflow"))?;
+                    .map_err(|_| elyld_error::error!("Wasm TLS alignment overflow"))?;
                 layout.tls_base = memory_cursor;
                 for (obj_idx, input) in layout_inputs.iter().enumerate() {
                     let tls_segments = layout_object_data(
@@ -384,7 +384,7 @@ pub(crate) fn finalize_indirect_function_table(
         let index_map = &layout.object_index_maps[obj_idx];
         for &sym_idx in sym_indices {
             let sym = input.symbols.get(sym_idx).ok_or_else(|| {
-                wild_error::error!("table index relocation symbol {sym_idx} out of range")
+                elyld_error::error!("table index relocation symbol {sym_idx} out of range")
             })?;
             ensure!(
                 sym.kind == WasmSymbolKind::Func,
@@ -458,7 +458,7 @@ pub(crate) fn compute_data_addresses(
     object_data_layouts: &[Vec<WasmDataSegmentLayout<'_>>],
     layout_inputs: &[WasmObjectLayoutInput<'_>],
     symbol_db: &SymbolDb<'_, Wasm>,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
     data_start: u32,
     data_end: u32,
     stack_size: u32,
@@ -510,7 +510,7 @@ pub(crate) fn compute_data_addresses(
             }
 
             if let Some(def_info) = symbol_db.prelude_symbol_def(def_id)
-                && let wild_layout::parsing::SymbolPlacement::PlatformSpecific(known) =
+                && let elyld_layout::parsing::SymbolPlacement::PlatformSpecific(known) =
                     &def_info.placement
                 && let Some(address) =
                     known.data_address(data_start, data_end, stack_size, heap_end, stack_first)?
@@ -544,15 +544,15 @@ pub(crate) fn allocate_wasm_object_index_bases(
         });
         next_type_index = next_type_index
             .checked_add(u32::try_from(input.types.len()).context("too many Wasm types")?)
-            .ok_or_else(|| wild_error::error!("Wasm type index overflow"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm type index overflow"))?;
     }
 
     let mut next_defined_function_index = function_import_count
         .checked_add(indices.num_defined_functions)
-        .ok_or_else(|| wild_error::error!("Wasm function index overflow"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm function index overflow"))?;
     let mut next_defined_global_index = global_import_count
         .checked_add(indices.num_defined_globals)
-        .ok_or_else(|| wild_error::error!("Wasm global index overflow"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm global index overflow"))?;
     for (input, index_base) in layout_inputs.iter().zip(index_bases.iter_mut()) {
         index_base.defined_function_base = next_defined_function_index;
         index_base.defined_global_base = next_defined_global_index;
@@ -560,10 +560,10 @@ pub(crate) fn allocate_wasm_object_index_bases(
             .checked_add(
                 u32::try_from(input.module_functions.len()).context("too many Wasm functions")?,
             )
-            .ok_or_else(|| wild_error::error!("Wasm function index overflow"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm function index overflow"))?;
         next_defined_global_index = next_defined_global_index
             .checked_add(u32::try_from(input.globals.len()).context("too many Wasm globals")?)
-            .ok_or_else(|| wild_error::error!("Wasm global index overflow"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm global index overflow"))?;
     }
 
     Ok(index_bases)
@@ -596,7 +596,7 @@ pub(crate) fn classify_code_relocations(
 
 pub(crate) fn remap_wasm_index(indices: &[u32], index: u32, kind: &str) -> Result<u32> {
     let mapped = indices.get(index as usize).copied().ok_or_else(|| {
-        wild_error::error!(
+        elyld_error::error!(
             "Wasm {kind} index {index} out of range (map len {})",
             indices.len()
         )

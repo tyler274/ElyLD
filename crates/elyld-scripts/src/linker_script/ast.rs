@@ -1,4 +1,4 @@
-use wild_util::alignment::Alignment;
+use elyld_util::alignment::Alignment;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LinkerScript<'a> {
@@ -769,7 +769,7 @@ pub enum SegmentName {
     Rodata,
     Data,
     Bss,
-    /// Any segment name not in the known set. Wild has no `-T` override for
+    /// Any segment name not in the known set. ElyLD has no `-T` override for
     /// these, so they always resolve to the default value.
     Other,
 }

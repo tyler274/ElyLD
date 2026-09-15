@@ -6,14 +6,14 @@
 use crate::{Elf, ElfClass};
 use rayon::Scope;
 use std::marker::PhantomData;
-use wild_args::elf::ElfArgs;
-use wild_error::error::Result;
-use wild_layout::grouping::LtoInput;
-use wild_layout::layout_rules::LayoutRulesBuilder;
-use wild_layout::output_section_id::OutputSections;
-use wild_layout::resolution::Resolver;
-use wild_layout::symbol_db::{LoadedInputs, SymbolDb, SymbolId};
-use wild_platform::value_flags::PerSymbolFlags;
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::Result;
+use elyld_layout::grouping::LtoInput;
+use elyld_layout::layout_rules::LayoutRulesBuilder;
+use elyld_layout::output_section_id::OutputSections;
+use elyld_layout::resolution::Resolver;
+use elyld_layout::symbol_db::{LoadedInputs, SymbolDb, SymbolId};
+use elyld_platform::value_flags::PerSymbolFlags;
 
 pub(crate) struct LoadedPlugin {}
 
@@ -26,7 +26,7 @@ pub(crate) struct LtoInputInfo<'data> {
 }
 
 impl<'data> LtoInputInfo<'data> {
-    pub(crate) fn into_unsequenced(self) -> wild_layout::grouping::UnsequencedLtoInput<'data> {
+    pub(crate) fn into_unsequenced(self) -> elyld_layout::grouping::UnsequencedLtoInput<'data> {
         unreachable!()
     }
 }
@@ -36,16 +36,16 @@ pub(crate) struct PluginOutputs {}
 impl<'data> LinkerPlugin<'data> {
     pub(crate) fn process_input(
         &'_ mut self,
-        _input_ref: wild_args::InputRef<'data>,
+        _input_ref: elyld_args::InputRef<'data>,
         _file: &std::fs::File,
-        _kind: wild_platform::FileKind,
+        _kind: elyld_platform::FileKind,
     ) -> Result<Option<Box<LtoInputInfo<'data>>>> {
         unreachable!();
     }
 
     pub(crate) fn from_args<C: ElfClass>(
         _args: &'data ElfArgs,
-        _herd: &'data wild_util::arena::Herd,
+        _herd: &'data elyld_util::arena::Herd,
     ) -> Result<Option<LinkerPlugin<'data>>> {
         Ok(None)
     }
@@ -59,7 +59,7 @@ impl<'data> LinkerPlugin<'data> {
         _symbol_db: &mut SymbolDb<'data, Elf<C>>,
         _resolver: &mut Resolver<'data, Elf<C>>,
         _per_symbol_flags: &mut PerSymbolFlags,
-    ) -> Result<Option<Vec<wild_args::Input>>> {
+    ) -> Result<Option<Vec<elyld_args::Input>>> {
         Ok(None)
     }
 
@@ -78,7 +78,7 @@ impl<'data> LinkerPlugin<'data> {
 
 pub(crate) fn resolve_lto_symbols<'data, 'scope, C: ElfClass>(
     _obj: &LtoInput<'data>,
-    _resources: &'scope wild_layout::resolution::ResolutionResources<'data, 'scope, Elf<C>>,
+    _resources: &'scope elyld_layout::resolution::ResolutionResources<'data, 'scope, Elf<C>>,
     _definitions_out: &mut [SymbolId],
     _scope: &Scope<'scope>,
 ) -> Result {

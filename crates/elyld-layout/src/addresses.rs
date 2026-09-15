@@ -21,12 +21,12 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 use smallvec::SmallVec;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::ProgramSegments;
-use wild_platform::value_flags::{PerSymbolFlags, ValueFlags};
-use wild_platform::{Arch, ObjectFile, Platform, RelaxSymbolInfo, SectionHeader as _, Symbol as _};
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_platform::value_flags::{PerSymbolFlags, ValueFlags};
+use elyld_platform::{Arch, ObjectFile, Platform, RelaxSymbolInfo, SectionHeader as _, Symbol as _};
 
 pub fn default_create_resolutions<'data, P: EnginePlatform>(
     memory_offsets: &mut OutputSectionPartMap<u64>,

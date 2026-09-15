@@ -3,11 +3,11 @@ use itertools::{Itertools, repeat_n};
 use object::macho::Version;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use wild_error::error::{Context, Result};
-use wild_error::{bail, ensure};
-use wild_platform as platform;
-use wild_platform::Args;
-use wild_util::alignment::MACHO_PAGE_ALIGNMENT;
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, ensure};
+use elyld_platform as platform;
+use elyld_platform::Args;
+use elyld_util::alignment::MACHO_PAGE_ALIGNMENT;
 
 #[derive(Debug)]
 pub struct MachOArgs {
@@ -143,7 +143,7 @@ impl platform::Args for MachOArgs {
         todo!()
     }
 
-    fn loadable_segment_alignment(&self) -> wild_util::alignment::Alignment {
+    fn loadable_segment_alignment(&self) -> elyld_util::alignment::Alignment {
         MACHO_PAGE_ALIGNMENT
     }
 
@@ -340,7 +340,7 @@ mod tests {
     use object::macho::Version;
     use std::path::Path;
     use std::sync::{Arc, Mutex};
-    use wild_platform::Args as _;
+    use elyld_platform::Args as _;
 
     const INPUT1: &[&str] = &[
         "-arch",

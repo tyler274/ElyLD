@@ -7,12 +7,12 @@ use hashbrown::HashMap;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefMutIterator as _, ParallelIterator};
 use std::mem::take;
-use wild_error::bail;
-use wild_error::error::{Error, Result};
-use wild_platform::value_flags::{
+use elyld_error::bail;
+use elyld_error::error::{Error, Result};
+use elyld_platform::value_flags::{
     AtomicPerSymbolFlags, FlagsForSymbol, PerSymbolFlags, ValueFlags,
 };
-use wild_platform::{Args, Symbol};
+use elyld_platform::{Args, Symbol};
 
 /// For each symbol that has multiple definitions, some of which may be weak, some strong, some
 /// "common" symbols and some in archive entries that weren't loaded, resolve which version of the
@@ -71,7 +71,7 @@ pub fn resolve_alternative_symbol_definitions<'data, P: EnginePlatform>(
     Ok(())
 }
 
-pub use wild_platform::Visibility;
+pub use elyld_platform::Visibility;
 
 fn process_alternatives<'data, P: EnginePlatform>(
     alternative_definitions: &mut HashMap<SymbolId, Vec<SymbolId>>,

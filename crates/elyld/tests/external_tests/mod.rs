@@ -35,18 +35,18 @@ pub(super) fn should_skip_by_local_config(path: &Path, config: &TestConfig) -> b
 
 #[derive(Clone, Debug)]
 enum ExternalLinker {
-    Wild,
+    Elyld,
     ThirdParty { name: String, path: PathBuf },
 }
 
 impl ExternalLinker {
-    fn is_wild(&self) -> bool {
-        matches!(self, ExternalLinker::Wild)
+    fn is_elyld(&self) -> bool {
+        matches!(self, ExternalLinker::Elyld)
     }
 
     fn name(&self) -> &str {
         match self {
-            ExternalLinker::Wild => "wild",
+            ExternalLinker::Elyld => "elyld",
             ExternalLinker::ThirdParty { name, .. } => name.as_str(),
         }
     }
@@ -55,12 +55,12 @@ impl ExternalLinker {
 fn get_external_linker() -> &'static ExternalLinker {
     static VALUE: OnceLock<ExternalLinker> = OnceLock::new();
     VALUE.get_or_init(|| {
-        let Ok(val) = env::var("WILD_EXTERNAL_LINKER") else {
-            return ExternalLinker::Wild;
+        let Ok(val) = env::var("ELYLD_EXTERNAL_LINKER") else {
+            return ExternalLinker::Elyld;
         };
         let val = val.trim();
-        if val.is_empty() || val.eq_ignore_ascii_case("wild") {
-            return ExternalLinker::Wild;
+        if val.is_empty() || val.eq_ignore_ascii_case("elyld") {
+            return ExternalLinker::Elyld;
         }
 
         let (name, search_names): (&str, &[&str]) = match val.to_ascii_lowercase().as_str() {
@@ -74,12 +74,12 @@ fn get_external_linker() -> &'static ExternalLinker {
                     return ExternalLinker::ThirdParty {
                         name: val.to_string(),
                         path: std::fs::canonicalize(&p)
-                            .expect("failed to canonicalize WILD_EXTERNAL_LINKER path"),
+                            .expect("failed to canonicalize ELYLD_EXTERNAL_LINKER path"),
                     };
                 }
 
                 let path = which::which(val).unwrap_or_else(|_| {
-                    panic!("WILD_EXTERNAL_LINKER={val}: not found as a file and not on PATH")
+                    panic!("ELYLD_EXTERNAL_LINKER={val}: not found as a file and not on PATH")
                 });
 
                 return ExternalLinker::ThirdParty {
@@ -94,7 +94,7 @@ fn get_external_linker() -> &'static ExternalLinker {
             .find_map(|n| which::which(n).ok())
             .unwrap_or_else(|| {
                 panic!(
-                    "WILD_EXTERNAL_LINKER={val}: could not find any of [{}] on PATH",
+                    "ELYLD_EXTERNAL_LINKER={val}: could not find any of [{}] on PATH",
                     search_names.join(", ")
                 )
             });
@@ -120,7 +120,7 @@ enum FakesDir {
 impl FakesDir {
     fn new(linker: &ExternalLinker) -> Result<Self> {
         match linker {
-            ExternalLinker::Wild => {
+            ExternalLinker::Elyld => {
                 let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
                     .parent()
                     .unwrap()
@@ -146,7 +146,7 @@ impl FakesDir {
                     let script_contents = format!("#!/bin/bash\nexec {} \"$@\"\n", path.display());
                     let mut file = std::fs::File::create(&link)?;
                     file.write_all(script_contents.as_bytes())?;
-                    libwild::make_executable(&file)?;
+                    libelyld::make_executable(&file)?;
                 }
 
                 eprintln!(
@@ -171,7 +171,7 @@ impl FakesDir {
 #[allow(unused)]
 fn should_not_ignore_tests(external_test: &str) -> bool {
     let wild_ignore_skip: Option<Vec<String>> =
-        std::env::var("WILD_IGNORE_SKIP").ok().map(|test_suites| {
+        std::env::var("ELYLD_IGNORE_SKIP").ok().map(|test_suites| {
             test_suites
                 .split(',')
                 .map(|suite| suite.trim().to_string())
@@ -186,7 +186,7 @@ fn should_not_ignore_tests(external_test: &str) -> bool {
 
 #[allow(unused)]
 fn using_third_party_linker() -> bool {
-    !get_external_linker().is_wild()
+    !get_external_linker().is_elyld()
 }
 
 #[allow(unused)]

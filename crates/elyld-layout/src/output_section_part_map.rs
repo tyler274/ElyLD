@@ -3,9 +3,9 @@ use crate::output_section_id::{OrderEvent, OutputOrder, OutputSections};
 use crate::part_id::PartId;
 use std::ops::Range;
 #[allow(unused_imports)]
-pub use wild_platform::output_section_part_map::*;
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+pub use elyld_platform::output_section_part_map::*;
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 /// Iterate through all contained T in output order, producing a new map of U from the values
 /// returned by the callback. Note, the alignment is the alignment of the PartId, but capped at

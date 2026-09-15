@@ -8,7 +8,7 @@
 
 //#Config:single-threaded:default
 //#Object:runtime.c
-//#WildExtraLinkArgs:--threads=1
+//#ElyldExtraLinkArgs:--threads=1
 
 //#Config:dev_null:default
 //#Object:runtime.c
@@ -113,7 +113,7 @@
 //#ReferenceLinkers:
 //#Object:runtime.c
 //#LinkArgs:--stats --color-diagnostics=never --sort-common --nostdlib
-//#ExpectWarningWild:wild: stats:
+//#ExpectWarningWild:elyld: stats:
 
 //#Config:undefined-version-ok:default
 //#ReferenceLinkers:

@@ -4,7 +4,7 @@ use crate::external_tests::{
 };
 use crate::{Architecture, Result, TestConfig, get_host_architecture, get_wild_test_cross};
 use libtest_mimic::{Failed, Trial};
-use libwild::error::Context;
+use libelyld::error::Context;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;

@@ -6,8 +6,8 @@ use crate::output_section_part_map::OutputSectionPartMap;
 use crate::part_id::PartId;
 use crate::{EnginePlatform, FileLayout};
 use itertools::Itertools;
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 pub struct OffsetVerifier {
     expected: OutputSectionPartMap<u64>,

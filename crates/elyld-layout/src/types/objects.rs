@@ -14,10 +14,10 @@ use object::SectionIndex;
 use rayon::Scope;
 use smallvec::SmallVec;
 use std::num::NonZeroU32;
-use wild_error::bail;
-use wild_error::error::{Context, Error, Result};
-use wild_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
-use wild_platform::{Arch, Args as _, ObjectFile, Platform, SectionHeader as _, Symbol as _};
+use elyld_error::bail;
+use elyld_error::error::{Context, Error, Result};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
+use elyld_platform::{Arch, Args as _, ObjectFile, Platform, SectionHeader as _, Symbol as _};
 
 impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
     #[inline(always)]

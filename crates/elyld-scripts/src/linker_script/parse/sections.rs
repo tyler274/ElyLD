@@ -7,7 +7,7 @@ use crate::linker_script::{
     OutputDataWidth, Overlay, Section, SectionAttributes, SectionCommand, SectionPattern, Sections,
     SortKind, SymbolAssignment,
 };
-use wild_util::alignment::Alignment;
+use elyld_util::alignment::Alignment;
 use winnow::ascii::{dec_uint, hex_uint};
 use winnow::combinator::{alt, eof, opt, preceded, repeat_till};
 use winnow::error::{ContextError, FromExternalError};

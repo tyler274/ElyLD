@@ -2,8 +2,8 @@
 
 use std::fs::read_dir;
 use std::path::Path;
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 /// Patterns that we still allow. These should probably be dealt with, either by renaming these
 /// types if we conclude that they're not really ELF-specific, or by removing references to them.

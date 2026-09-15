@@ -14,11 +14,11 @@
 
 use std::io::Write;
 use std::path::Path;
-use wild_error::bail;
-use wild_error::error::{Context, Result};
+use elyld_error::bail;
+use elyld_error::error::{Context, Result};
 #[allow(unused_imports)]
-pub use wild_fs::fs::FileReplacementMode;
-use wild_platform::Args as _;
+pub use elyld_fs::fs::FileReplacementMode;
+use elyld_platform::Args as _;
 
 macro_rules! impl_platform_args_from_common {
     () => {
@@ -26,12 +26,12 @@ macro_rules! impl_platform_args_from_common {
             self.common.effective_output()
         }
 
-        fn relocation_model(&self) -> wild_platform::RelocationModel {
+        fn relocation_model(&self) -> elyld_platform::RelocationModel {
             self.common.relocation_model
         }
 
         fn warning(&self, message: impl Into<String>) {
-            (self.common.warning_callback)(wild_error::error::Warning::new(message.into()));
+            (self.common.warning_callback)(elyld_error::error::Warning::new(message.into()));
             self.common
                 .warning_count
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -77,11 +77,11 @@ macro_rules! impl_platform_args_from_common {
             self.common.files_per_group
         }
 
-        fn file_replacement_mode(&self) -> Option<wild_fs::fs::FileReplacementMode> {
+        fn file_replacement_mode(&self) -> Option<elyld_fs::fs::FileReplacementMode> {
             self.common.file_replacement_mode
         }
 
-        fn file_write_mode(&self) -> Option<wild_fs::fs::FileWriteMode> {
+        fn file_write_mode(&self) -> Option<elyld_fs::fs::FileWriteMode> {
             self.common.file_write_mode
         }
 
@@ -97,7 +97,7 @@ macro_rules! impl_platform_args_from_common {
             self.common.linker_identity()
         }
 
-        fn numeric_experiment(&self, exp: wild_platform::Experiment, default: u64) -> u64 {
+        fn numeric_experiment(&self, exp: elyld_platform::Experiment, default: u64) -> u64 {
             self.common.numeric_experiment(exp, default)
         }
 
@@ -105,7 +105,7 @@ macro_rules! impl_platform_args_from_common {
             self.common.sym_info.as_deref()
         }
 
-        fn should_trace_file(&self, file_id: wild_platform::FileId) -> bool {
+        fn should_trace_file(&self, file_id: elyld_platform::FileId) -> bool {
             self.common.print_allocations == Some(file_id)
         }
     };
@@ -130,24 +130,24 @@ pub use input_ref::*;
 pub use parse::*;
 #[allow(unused_imports)]
 pub use types::*;
-pub use wild_platform::{
+pub use elyld_platform::{
     CopyRelocations, CopyRelocationsDisabledReason, Experiment, RelocationModel, UnresolvedSymbols,
 };
 
-pub const FILES_PER_GROUP_ENV: &str = "WILD_FILES_PER_GROUP";
-pub const REFERENCE_LINKER_ENV: &str = "WILD_REFERENCE_LINKER";
-pub const VALIDATE_ENV: &str = "WILD_VALIDATE_OUTPUT";
-pub const WILD_UNSUPPORTED_ENV: &str = wild_platform::WILD_UNSUPPORTED_ENV;
-pub const WRITE_LAYOUT_ENV: &str = "WILD_WRITE_LAYOUT";
-pub const WRITE_TRACE_ENV: &str = "WILD_WRITE_TRACE";
-pub const EXPERIMENTAL_PLATFORMS: &str = "WILD_EXPERIMENTAL_PLATFORMS";
+pub const FILES_PER_GROUP_ENV: &str = "ELYLD_FILES_PER_GROUP";
+pub const REFERENCE_LINKER_ENV: &str = "ELYLD_REFERENCE_LINKER";
+pub const VALIDATE_ENV: &str = "ELYLD_VALIDATE_OUTPUT";
+pub const ELYLD_UNSUPPORTED_ENV: &str = elyld_platform::ELYLD_UNSUPPORTED_ENV;
+pub const WRITE_LAYOUT_ENV: &str = "ELYLD_WRITE_LAYOUT";
+pub const WRITE_TRACE_ENV: &str = "ELYLD_WRITE_TRACE";
+pub const EXPERIMENTAL_PLATFORMS: &str = "ELYLD_EXPERIMENTAL_PLATFORMS";
 
 /// Set this environment variable if you get a failure during writing due to too much or too little
 /// space being allocated to some section. When set, each time we allocate during layout, we'll
 /// check that what we're doing is consistent with writing and fail in a more easy to debug way. i.e
 /// we'll report the particular combination of value flags, resolution flags etc that triggered the
 /// inconsistency.
-pub const WRITE_VERIFY_ALLOCATIONS_ENV: &str = "WILD_VERIFY_ALLOCATIONS";
+pub const WRITE_VERIFY_ALLOCATIONS_ENV: &str = "ELYLD_VERIFY_ALLOCATIONS";
 
 impl Args {
     /// Construct a new instance, but doesn't yet parse the arguments. The supplied arguments are
@@ -323,32 +323,32 @@ mod tests {
 
     #[test]
     fn test_flavor() {
-        let args = Args::new(|| ["ld.wild"].into_iter()).unwrap();
+        let args = Args::new(|| ["ld.elyld"].into_iter()).unwrap();
         assert_matches!(args, Args::Elf(_));
 
-        let args = Args::new(|| ["ld64.wild"].into_iter()).unwrap();
+        let args = Args::new(|| ["ld64.elyld"].into_iter()).unwrap();
         assert_matches!(args, Args::MachO(_));
 
-        let mut args = Args::new(|| ["wild", "-flavor", "gnu"].into_iter()).unwrap();
+        let mut args = Args::new(|| ["elyld", "-flavor", "gnu"].into_iter()).unwrap();
         assert_matches!(args, Args::Elf(_));
-        args.parse(|| ["wild", "-flavor", "gnu"].into_iter())
+        args.parse(|| ["elyld", "-flavor", "gnu"].into_iter())
             .unwrap();
         assert_eq!(args.common().inputs, []);
 
-        let args = Args::new(|| ["wild", "-flavor", "darwin"].into_iter()).unwrap();
+        let args = Args::new(|| ["elyld", "-flavor", "darwin"].into_iter()).unwrap();
         assert_matches!(args, Args::MachO(_));
 
         // -flavor has priority
-        let args = Args::new(|| ["ld.wild", "-flavor", "darwin"].into_iter()).unwrap();
+        let args = Args::new(|| ["ld.elyld", "-flavor", "darwin"].into_iter()).unwrap();
         assert_matches!(args, Args::MachO(_));
 
-        let args = Args::new(|| ["ld64.wild", "-flavor", "gnu"].into_iter()).unwrap();
+        let args = Args::new(|| ["ld64.elyld", "-flavor", "gnu"].into_iter()).unwrap();
         assert_matches!(args, Args::Elf(_));
 
-        let args = Args::new(|| ["wild", "-flavor", "link"].into_iter()).unwrap();
+        let args = Args::new(|| ["elyld", "-flavor", "link"].into_iter()).unwrap();
         assert_matches!(args, Args::Coff(_));
 
-        assert!(Args::new(|| ["ld.wild", "-flavor", "invalid"].into_iter()).is_err());
-        assert!(Args::new(|| ["ld.wild", "-flavor"].into_iter()).is_err());
+        assert!(Args::new(|| ["ld.elyld", "-flavor", "invalid"].into_iter()).is_err());
+        assert!(Args::new(|| ["ld.elyld", "-flavor"].into_iter()).is_err());
     }
 }

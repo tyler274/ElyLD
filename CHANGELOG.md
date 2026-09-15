@@ -1,3 +1,13 @@
+## 1.0.0
+
+ElyLD 1.0.0 is a fork of Wild 0.10.0. The binary is `elyld` (`ld.elyld` for `-fuse-ld=elyld`).
+Environment variables use the `ELYLD_` prefix. Crate names use the `elyld` / `libelyld` /
+`elyld-*` prefixes.
+
+This release also merges upstream Wild `main` (Mach-O TLV descriptors and bind fixups, Wasm
+single-threaded TLS, ignore unknown GNU property types) and includes ELF/LTO fixes for systemd,
+glibc, `--wrap`, and CRT `main` when a DSO also exports `main`.
+
 ## 0.10.0
 
 This release comes with a lot of bug fixes. Most of the new features are linker-script related. You

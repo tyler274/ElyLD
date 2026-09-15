@@ -16,12 +16,12 @@ use rayon::Scope;
 use std::fmt::Display;
 use std::mem::{size_of, swap, take};
 use std::sync::atomic;
-use wild_error::error::{Context, Error, Result};
-use wild_error::{bail, debug_assert_bail};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
-use wild_platform::{Arch, Args as _, ObjectFile, Platform, SectionAttributes as _, Symbol as _};
-use wild_util::alignment::Alignment;
+use elyld_error::error::{Context, Error, Result};
+use elyld_error::{bail, debug_assert_bail};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
+use elyld_platform::{Arch, Args as _, ObjectFile, Platform, SectionAttributes as _, Symbol as _};
+use elyld_util::alignment::Alignment;
 
 /// Shared `file_id` / `symbol_id_range` accessors for generic handler code.
 ///
@@ -889,7 +889,7 @@ impl<'data, P: Platform> std::fmt::Display for GroupLayout<'data, P> {
                 f,
                 "Group with {} files. Rerun with {}=1",
                 self.files.len(),
-                wild_args::FILES_PER_GROUP_ENV
+                elyld_args::FILES_PER_GROUP_ENV
             )
         }
     }
@@ -904,7 +904,7 @@ impl<'data, P: Platform> std::fmt::Display for GroupState<'data, P> {
                 f,
                 "Group with {} files. Rerun with {}=1",
                 self.files.len(),
-                wild_args::FILES_PER_GROUP_ENV
+                elyld_args::FILES_PER_GROUP_ENV
             )
         }
     }

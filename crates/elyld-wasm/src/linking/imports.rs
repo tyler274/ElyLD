@@ -5,12 +5,12 @@ use crate::{
 };
 use hashbrown::{HashMap, HashSet};
 use rayon::prelude::*;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_layout::symbol_db::SymbolDb;
-use wild_layout::{timing_phase, verbose_timing_phase};
-use wild_platform::{Args as _, PRELUDE_FILE_ID};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_layout::symbol_db::SymbolDb;
+use elyld_layout::{timing_phase, verbose_timing_phase};
+use elyld_platform::{Args as _, PRELUDE_FILE_ID};
 
 pub(crate) fn report_disallowed_unresolved_imports<'data>(
     inputs: &[WasmObjectLayoutInput<'data>],
@@ -220,8 +220,8 @@ pub(crate) fn local_defined_global_index(
 /// (`sym.index`), not symbol-table order.
 pub(crate) fn resolve_cross_object_imports<'data>(
     inputs: &[WasmObjectLayoutInput<'data>],
-    symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Wasm>,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Wasm>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
 ) -> Result<Vec<ObjectImportResolutions>> {
     timing_phase!("Resolve Wasm cross-object imports");
 
@@ -258,8 +258,8 @@ pub(crate) fn resolve_import_symbols<'data>(
     kind: WasmSymbolKind,
     input: &WasmObjectLayoutInput<'data>,
     all_inputs: &[WasmObjectLayoutInput<'data>],
-    symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Wasm>,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Wasm>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
 ) -> Result<Vec<ImportResolution>> {
     ensure!(u32::try_from(import_count).is_ok(), "too many Wasm imports");
     let mut resolutions = vec![ImportResolution::Unresolved; import_count];
@@ -323,8 +323,8 @@ pub(crate) fn resolve_one_import<'data>(
     expected_kind: WasmSymbolKind,
     input: &WasmObjectLayoutInput<'data>,
     all_inputs: &[WasmObjectLayoutInput<'data>],
-    symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Wasm>,
-    file_id_to_index: &HashMap<wild_platform::FileId, usize>,
+    symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Wasm>,
+    file_id_to_index: &HashMap<elyld_platform::FileId, usize>,
 ) -> Result<ImportResolution> {
     let symbol_id = input.symbol_id_range.offset_to_id(sym_offset);
     let def_id = symbol_db.definition(symbol_id);
@@ -376,12 +376,12 @@ pub(crate) fn resolve_one_import<'data>(
 }
 
 pub(crate) fn linker_defined_from_prelude_def(
-    def_id: wild_layout::symbol_db::SymbolId,
+    def_id: elyld_layout::symbol_db::SymbolId,
     expected_kind: WasmSymbolKind,
     symbol_db: &SymbolDb<'_, Wasm>,
 ) -> Option<ImportResolution> {
     let def_info = symbol_db.prelude_symbol_def(def_id)?;
-    let wild_layout::parsing::SymbolPlacement::PlatformSpecific(known) = &def_info.placement else {
+    let elyld_layout::parsing::SymbolPlacement::PlatformSpecific(known) = &def_info.placement else {
         return None;
     };
     known

@@ -1,5 +1,5 @@
-use wild_layout::output_section_id::OutputSectionId;
-use wild_layout::part_id::PartId;
+use elyld_layout::output_section_id::OutputSectionId;
+use elyld_layout::part_id::PartId;
 
 pub(crate) mod abi;
 pub(crate) mod compression;
@@ -43,7 +43,7 @@ pub(crate) use strtab::*;
 #[allow(unused_imports)]
 pub(crate) use types::*;
 pub use types::{Class64, Elf, ElfClass};
-pub(crate) use wild_error::{debug_assert_bail, malfunction};
+pub(crate) use elyld_error::{debug_assert_bail, malfunction};
 
 pub type Elf64 = Elf<Class64>;
 
@@ -57,7 +57,7 @@ pub(crate) const THUNK_SYMBOL_PREFIX: &str = "__thunk_";
 #[repr(u32)]
 #[derive(Clone, Copy)]
 pub(crate) enum SinglePartSectionId {
-    ProgramHeaders = wild_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
+    ProgramHeaders = elyld_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
     SectionHeaders,
     Shstrtab,
     Strtab,
@@ -125,7 +125,7 @@ pub(crate) const ELF_NUM_BUILT_IN_SECTIONS: usize =
 
 pub(crate) mod part_id {
     use super::SinglePartSectionId;
-    use wild_layout::part_id::PartId;
+    use elyld_layout::part_id::PartId;
 
     pub(crate) const PROGRAM_HEADERS: PartId = SinglePartSectionId::ProgramHeaders.part_id();
     pub(crate) const SECTION_HEADERS: PartId = SinglePartSectionId::SectionHeaders.part_id();
@@ -161,7 +161,7 @@ pub(crate) mod part_id {
 
 pub mod output_section_id {
     use super::{RegularSectionId, SinglePartSectionId};
-    use wild_layout::output_section_id::OutputSectionId;
+    use elyld_layout::output_section_id::OutputSectionId;
 
     pub const PROGRAM_HEADERS: OutputSectionId =
         SinglePartSectionId::ProgramHeaders.output_section_id();

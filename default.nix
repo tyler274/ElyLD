@@ -10,5 +10,6 @@ let
   craneLib = import craneSrc { pkgs = final; };
 in
 {
-  wild-unwrapped = final.callPackage ./nix { inherit craneLib; };
+  elyld-unwrapped = final.callPackage ./nix { inherit craneLib; };
+  elyld = final.elyld-unwrapped;
 }

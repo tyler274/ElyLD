@@ -1,5 +1,5 @@
 [package]
-name = "libwild"
+name = "libelyld"
 description = "A library that provides a fast Linux linker"
 version.workspace = true
 license.workspace = true
@@ -8,16 +8,16 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dependencies]
-wild-error = { path = "../wild-error", version = "0.10.0" }
-wild-fs = { path = "../wild-fs", version = "0.10.0" }
-wild-platform = { path = "../wild-platform", version = "0.10.0" }
-wild-args = { path = "../wild-args", version = "0.10.0" }
-wild-layout = { path = "../wild-layout", version = "0.10.0" }
-wild-wasm = { path = "../wild-wasm", version = "0.10.0" }
-wild-macho = { path = "../wild-macho", version = "0.10.0" }
-wild-elf = { path = "../wild-elf", version = "0.10.0" }
-wild-scripts = { path = "../wild-scripts", version = "0.10.0" }
-wild-util = { path = "../wild-util", version = "0.10.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
+elyld-fs = { path = "../elyld-fs", version = "1.0.0" }
+elyld-platform = { path = "../elyld-platform", version = "1.0.0" }
+elyld-args = { path = "../elyld-args", version = "1.0.0" }
+elyld-layout = { path = "../elyld-layout", version = "1.0.0" }
+elyld-wasm = { path = "../elyld-wasm", version = "1.0.0" }
+elyld-macho = { path = "../elyld-macho", version = "1.0.0" }
+elyld-elf = { path = "../elyld-elf", version = "1.0.0" }
+elyld-scripts = { path = "../elyld-scripts", version = "1.0.0" }
+elyld-util = { path = "../elyld-util", version = "1.0.0" }
 anyhow.workspace = true
 colosseum.workspace = true
 crossbeam-queue.workspace = true
@@ -46,7 +46,7 @@ default = ["zstd"]
 fork = []
 
 # Support for linker-plugins.
-plugins = ["wild-layout/plugins", "wild-elf/plugins"]
+plugins = ["elyld-layout/plugins", "elyld-elf/plugins"]
 
 # Enable support for emitting a perfetto trace.
 perfetto = ["perfetto-recorder/enable", "tracing/release_max_level_info"]
@@ -61,7 +61,7 @@ wasm = []
 macho = []
 
 # Support for zstd compression and decompression of sections.
-zstd = ["wild-elf/zstd"]
+zstd = ["elyld-elf/zstd"]
 
 [lints]
 workspace = true

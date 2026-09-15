@@ -1,4 +1,4 @@
-//! Incremental-link predicates that Kani can prove without `hashbrown` or `wild-layout`.
+//! Incremental-link predicates that Kani can prove without `hashbrown` or `elyld-layout`.
 
 /// Generation 0 is never issued. Wrapping from `u32::MAX` resumes at 1.
 pub fn next_generation(generation: u32) -> u32 {

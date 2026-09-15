@@ -1,8 +1,8 @@
 use std::convert::{TryFrom, TryInto};
-use wild_error::bail;
-use wild_error::error::{Context as _, Result};
-use wild_layout::timing_phase;
-use wild_platform as platform;
+use elyld_error::bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout::timing_phase;
+use elyld_platform as platform;
 
 // Magic value identifying an SFrame section.
 const SFRAME_MAGIC: u16 = 0xdee2;
@@ -236,11 +236,11 @@ pub(crate) fn sort_sframe_section(
             // Find the length of the FRE data for this function.
             // It extends from curr_fre_offset to the next offset in our sorted list.
             let idx = fre_offsets.binary_search(&curr_fre_offset).map_err(|_| {
-                wild_error::error::Error::with_message("FRE offset not found in sorted list")
+                elyld_error::error::Error::with_message("FRE offset not found in sorted list")
             })?;
 
             let next_fre_offset = *fre_offsets.get(idx + 1).ok_or_else(|| {
-                wild_error::error::Error::with_message("FRE offset index out of bounds")
+                elyld_error::error::Error::with_message("FRE offset index out of bounds")
             })?;
 
             let curr_fre_len = (next_fre_offset - curr_fre_offset) as usize;

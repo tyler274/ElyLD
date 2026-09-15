@@ -1,4 +1,4 @@
-// rustc + clang driver (WILD_SAVE_DIR). `--cfg wild_inc` changes CGU hashes, so
+// rustc + clang driver (ELYLD_SAVE_DIR). `--cfg wild_inc` changes CGU hashes, so
 // the second link is allowed to fall back to a full padded incremental link.
 
 //#AbstractConfig:base

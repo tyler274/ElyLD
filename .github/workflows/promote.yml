@@ -19,11 +19,11 @@ jobs:
           VERSION=${{ github.event.release.tag_name }}
 
           gh release download $VERSION -R ${{ github.repository }} \
-            -p "wild-linker-$VERSION-x86_64-unknown-linux-gnu.tar.gz" \
-            -p "wild-linker-$VERSION-aarch64-unknown-linux-gnu.tar.gz"
+            -p "elyld-$VERSION-x86_64-unknown-linux-gnu.tar.gz" \
+            -p "elyld-$VERSION-aarch64-unknown-linux-gnu.tar.gz"
 
-          X86_SHA=$(shasum -a 256 "wild-linker-$VERSION-x86_64-unknown-linux-gnu.tar.gz" | awk '{print $1}')
-          ARM_SHA=$(shasum -a 256 "wild-linker-$VERSION-aarch64-unknown-linux-gnu.tar.gz" | awk '{print $1}')
+          X86_SHA=$(shasum -a 256 "elyld-$VERSION-x86_64-unknown-linux-gnu.tar.gz" | awk '{print $1}')
+          ARM_SHA=$(shasum -a 256 "elyld-$VERSION-aarch64-unknown-linux-gnu.tar.gz" | awk '{print $1}')
 
           echo "Updating Homebrew formula for $VERSION"
           echo "x86_64 hash: $X86_SHA"

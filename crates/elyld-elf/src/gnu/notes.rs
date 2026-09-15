@@ -18,12 +18,12 @@ use object::LittleEndian;
 use object::read::elf::SectionHeader as _;
 use smallvec::SmallVec;
 use std::num::NonZeroU32;
-use wild_args::elf::ElfArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_layout as layout;
-use wild_layout::{objects_iter, timing_phase};
-use wild_platform::{Arch, ObjectFile};
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_layout as layout;
+use elyld_layout::{objects_iter, timing_phase};
+use elyld_platform::{Arch, ObjectFile};
 use zerocopy::{FromBytes, IntoBytes, KnownLayout};
 
 pub(crate) const GNU_NOTE_NAME: &[u8] = b"GNU\0";
@@ -48,7 +48,7 @@ pub(crate) struct NoteProperty {
     pub(crate) pr_data: u32,
 }
 
-pub(crate) use wild_platform::PropertyClass;
+pub(crate) use elyld_platform::PropertyClass;
 
 #[derive(Debug)]
 pub(crate) struct GnuProperty {
@@ -473,15 +473,15 @@ pub(crate) fn process_riscv_attributes(
                         let mut it = part.chars().rev();
                         let minor = it
                             .next()
-                            .ok_or_else(|| wild_error::error!("Cannot parse minor"))?
+                            .ok_or_else(|| elyld_error::error!("Cannot parse minor"))?
                             .to_string();
                         let p = it
                             .next()
-                            .ok_or_else(|| wild_error::error!("Cannot parse 'p' separator"))?;
+                            .ok_or_else(|| elyld_error::error!("Cannot parse 'p' separator"))?;
                         ensure!(p == 'p', "Separator expected");
                         let major = it
                             .next()
-                            .ok_or_else(|| wild_error::error!("Cannot parse major"))?
+                            .ok_or_else(|| elyld_error::error!("Cannot parse major"))?
                             .to_string();
                         let name = it.rev().collect();
                         Ok((name, (major.parse()?, minor.parse()?)))

@@ -13,9 +13,9 @@
 use itertools::Itertools;
 use serde::Deserialize;
 use std::collections::HashSet;
-use wild_error::error::Result;
-use wild_error::{ensure, error};
-use wild_layout::grouping::DefinedStubLibrary;
+use elyld_error::error::Result;
+use elyld_error::{ensure, error};
+use elyld_layout::grouping::DefinedStubLibrary;
 
 const ARM64_LIB_ARCH: &str = "arm64e-macos";
 

@@ -17,14 +17,14 @@ use rayon::Scope;
 use std::mem::take;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, atomic};
-use wild_args::{InputRef, UnresolvedSymbols};
-use wild_error::error;
-use wild_error::error::{Context, Error, Result};
-use wild_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
-use wild_platform::{
+use elyld_args::{InputRef, UnresolvedSymbols};
+use elyld_error::error;
+use elyld_error::error::{Context, Error, Result};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
+use elyld_platform::{
     Arch, Args as _, ObjectFile, OutputKind, Platform, ProgramSegmentDef as _, Symbol as _,
 };
-use wild_scripts::linker_script::Expression;
+use elyld_scripts::linker_script::Expression;
 
 pub fn export_dynamic<'data, P: EnginePlatform>(
     common: &mut CommonGroupState<'data, P>,

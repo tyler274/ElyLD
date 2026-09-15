@@ -1,72 +1,35 @@
-# Wild linker
+# ElyLD
 
 ![Wild logo - drawing of rusty chain links with vines](/images/wild.png)
 
-Wild is a linker with the goal of being very fast for iterative development.
+ElyLD is a linker with the goal of being very fast for iterative development.
 
 The plan is to eventually make it incremental, however that isn't yet implemented. It is however
 already pretty fast even without incremental linking.
 
 ## Installation
 
-### From GitHub releases
-
-Download a tarball from the [releases page](https://github.com/wild-linker/wild/releases). Unpack
-it and copy the `wild` binary somewhere on your path.
-
-### Cargo binstall
-
-If you have [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), you can install wild as
-follows:
+### Build from git
 
 ```sh
-cargo binstall wild-linker
-```
-
-### Brew
-
-```sh
-brew install wild-linker/wild/wild
-```
-
-### Build latest release from crates.io
-
-```sh
-cargo install --locked wild-linker
-```
-
-### Build from git head
-
-To build and install the latest, unreleased code:
-
-```sh
-cargo install --locked --bin wild --git https://github.com/wild-linker/wild.git wild-linker
+cargo install --locked --bin elyld --git https://github.com/tyler274/wild.git elyld
 ```
 
 ### Nix
 
-To use a stable Wild from Nixpkgs:
-
-```nix
-let
- wildStdenv = pkgs.useWildLinker pkgs.stdenv;
-in
-pkgs.callPackage ./package { stdenv = wildStdenv; }
-```
-
-to use the latest unstable git revision of wild, see [the nix documentation](./nix/nix.md)
+To use this tree from Nix, see [the nix documentation](./nix/nix.md).
 
 ## Using as your default linker
 
-Being a drop-in replacement, Wild can be used similarly to other linkers by being invoked by GCC or
+Being a drop-in replacement, ElyLD can be used similarly to other linkers by being invoked by GCC or
 Clang. Meaning you have several options:
 
-* Clang's exclusive option `--ld-path=wild`
-* GCC 16.1+ and Clang's option `-fuse-ld=wild` (note that Clang requires `ld.wild` binary/symlink)
+* Clang's exclusive option `--ld-path=elyld`
+* GCC 16.1+ and Clang's option `-fuse-ld=elyld` (note that Clang requires `ld.elyld` binary/symlink)
 * Generally supported `-B <path>`, where `<path>` is the directory containing `ld` that points to
-  `wild`
+  `elyld`
 
-Below are examples of integrating Wild with various build systems.
+Below are examples of integrating ElyLD with various build systems.
 
 ### Rust (Cargo)
 
@@ -75,7 +38,7 @@ You can use one of the options mentioned above in `~/.cargo/config.toml`:
 ```toml
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-Clink-arg=--ld-path=wild"]
+rustflags = ["-Clink-arg=--ld-path=elyld"]
 ```
 
 Or:
@@ -83,7 +46,7 @@ Or:
 ```toml
 [target.x86_64-unknown-linux-gnu]
 # linker = "clang" # Uncomment this line if your GCC is older than version 16.
-rustflags = ["-Clink-arg=-fuse-ld=wild"]
+rustflags = ["-Clink-arg=-fuse-ld=elyld"]
 ```
 
 ### CMake
@@ -98,14 +61,14 @@ For older versions of cmake, see the generic instructions below.
 Usually setting `LDFLAGS` is enough, but there are projects that implement their own solutions:
 
 ```sh
-export LDFLAGS="${LDFLAGS} -fuse-ld=wild"
+export LDFLAGS="${LDFLAGS} -fuse-ld=elyld"
 ```
 
 Or (especially useful for older GCC versions), create a symlink `ld` pointing to `wild` and pass the
 directory to GCC:
 
 ```sh
-ln -s /usr/bin/wild /tmp/ld
+ln -s /usr/bin/elyld /tmp/ld
 
 export CFLAGS="${CFLAGS} -B/tmp"
 export CXXFLAGS="${CXXFLAGS} -B/tmp"
@@ -126,14 +89,14 @@ binary with [readelf](#how-can-i-verify-that-wild-was-used-to-link-a-binary).
 linker = "/usr/bin/clang"
 
 rustflags = [
-    # Will silently delegate to GNU ld or Sun ld unless the absolute path to Wild is provided.
-    "-Clink-arg=-fuse-ld=/absolute/path/to/wild"
+    # Will silently delegate to GNU ld or Sun ld unless the absolute path to ElyLD is provided.
+    "-Clink-arg=-fuse-ld=/absolute/path/to/elyld"
 ]
 ```
 
 ## Using wild in CI
 
-If you'd like to use Wild as your linker for Rust code in CI, see
+If you'd like to use ElyLD as your linker for Rust code in CI, see
 [wild-action](https://github.com/wild-linker/action).
 
 ## Q&A
@@ -160,12 +123,12 @@ The following is working with the caveat that there may be bugs:
 * Output to statically linked, position-independent binaries (static-PIE)
 * Output to dynamically linked binaries
 * Output to shared objects (.so files)
-* Rust proc-macros, when linked with Wild work
-* Most of the top downloaded crates on crates.io have been tested with Wild and pass their tests
+* Rust proc-macros, when linked with ElyLD work
+* Most of the top downloaded crates on crates.io have been tested with ElyLD and pass their tests
 * Debug info
 * GNU jobserver support
 * Partial linker script support. See the [linker script support matrix](LINKER_SCRIPT_SUPPORT.md) for details.
-* Linker plugin LTO - [known issues](https://github.com/wild-linker/wild/issues?q=is%3Aissue%20state%3Aopen%20label%3ALTO)
+* Linker plugin LTO - [known issues](https://github.com/tyler274/wild/issues?q=is%3Aissue%20state%3Aopen%20label%3ALTO)
 
 ### What isn't yet supported?
 
@@ -187,7 +150,7 @@ readelf --string-dump .comment my-executable
 Look for a line like:
 
 ```
-Linker: Wild version 0.1.0
+Linker: ElyLD 1.0.0 (compatible with GNU linkers)
 ```
 
 You can probably also get away with `strings` (also available from binutils package):
@@ -198,13 +161,12 @@ strings my-executable | grep 'Linker:'
 
 ### Where did the name come from?
 
-It's somewhat of a tradition for linkers to end with the letters "ld". e.g. "GNU ld, "gold", "lld",
-"mold". Since the end-goal is for the linker to be incremental, an "I" is added. Let's say the "W"
-stands for "Wild", since recursive acronyms are popular in open-source projects.
+ElyLD is a fork of [Wild](https://github.com/wild-linker/wild). Linkers traditionally end in "ld"
+(GNU ld, gold, lld, mold). ElyLD keeps that suffix.
 
 ## Benchmarks
 
-The goal of Wild is to eventually be very fast via incremental linking. However, we also want to be
+The goal of ElyLD is to eventually be very fast via incremental linking. However, we also want to be
 as fast as we can be for non-incremental linking and for the initial link when incremental linking
 is enabled.
 
@@ -247,35 +209,35 @@ Here's linking rust-analyzer on a Raspberry Pi 5.
 
 ## Linking Rust code
 
-The following is a `cargo test` command-line that can be used to build and test a crate using Wild.
+The following is a `cargo test` command-line that can be used to build and test a crate using ElyLD.
 This has been run successfully on a few popular crates (e.g. ripgrep, serde, tokio, rand, bitflags).
-It assumes that the "wild" binary is on your path. It also depends on the Clang compiler being
+It assumes that the `elyld` binary is on your path. It also depends on the Clang compiler being
 installed, since GCC doesn't allow using an arbitrary linker.
 
 ```sh
-RUSTFLAGS="-Clinker=clang -Clink-args=--ld-path=wild" cargo test
+RUSTFLAGS="-Clinker=clang -Clink-args=--ld-path=elyld" cargo test
 ```
 
-Alternatively, with `ld.wild` symlink pointing at `wild`:
+Alternatively, with `ld.elyld` symlink pointing at `elyld`:
 ```sh
-RUSTFLAGS="-Clinker=clang -Clink-args=-fuse-ld=wild" cargo test
+RUSTFLAGS="-Clinker=clang -Clink-args=-fuse-ld=elyld" cargo test
 ```
 
 ## Contributing
 
-For more information on contributing to `wild` see [CONTRIBUTING.md](CONTRIBUTING.md).
+For more information on contributing to ElyLD see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-For a high-level overview of Wild's design, see [DESIGN.md](DESIGN.md).
+For a high-level overview of ElyLD's design, see [DESIGN.md](DESIGN.md).
 
 ## Chat server
 
-We have a Zulip server for Wild-related chat. You can join
+We have a Zulip server for ElyLD-related chat. You can join
 [here](https://wild.zulipchat.com/join/bbopdeg6howwjpaiyowngyde/).
 
 ## Further reading
 
 Many of the posts on [David's blog](https://davidlattimore.github.io/) are about various aspects of
-the Wild linker.
+ElyLD.
 
 ## Sponsorship
 

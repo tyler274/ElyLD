@@ -1,7 +1,7 @@
 //#AbstractConfig:base
 //#Object:runtime.c
 //#LinkArgs:-nostdlib -znow
-//#WildExtraLinkArgs:--incremental
+//#ElyldExtraLinkArgs:--incremental
 //#TestIncremental:true
 //#DiffEnabled:false
 
@@ -30,7 +30,7 @@
 //#LinkerDriver:gcc
 //#CompArgs:-flto -O1
 //#LinkArgs:-flto -O1 -nostdlib -Wl,-z,now
-//#WildExtraLinkArgs:-Wl,--incremental
+//#ElyldExtraLinkArgs:-Wl,--incremental
 //#IncrementalAllowFallback:true
 //#SkipArch:ppc64le
 
@@ -60,13 +60,13 @@
 //#Compiler:clang
 //#CompArgs:-flto -O1
 //#LinkArgs:-flto -O1 -nostdlib -Wl,-z,now
-//#WildExtraLinkArgs:-Wl,--incremental
+//#ElyldExtraLinkArgs:-Wl,--incremental
 //#IncrementalAllowFallback:true
 //#SkipArch:ppc64le
 
 #include "../common/runtime.h"
 
-#ifdef WILD_INC
+#ifdef ELYLD_INC
 #define MARKER 2
 #else
 #define MARKER 1
@@ -79,7 +79,7 @@ void _start(void) {
   if (wild_inc_marker != MARKER) {
     exit_syscall(101);
   }
-#ifdef WILD_INC
+#ifdef ELYLD_INC
   exit_syscall(43);
 #else
   exit_syscall(42);

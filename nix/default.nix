@@ -13,7 +13,7 @@
   stdenv,
 }:
 assert lib.assertMsg (lib.versionAtLeast rustc.version "1.97.1")
-  "Wild requires at least Rust 1.97.1, this instance of nixpkgs has Rust ${rustc.version}";
+  "ElyLD requires at least Rust 1.97.1, this instance of nixpkgs has Rust ${rustc.version}";
 
 let
   cargoToml = builtins.fromTOML (builtins.readFile ../Cargo.toml);
@@ -41,7 +41,7 @@ let
   );
 
   commonArgs = {
-    pname = "wild";
+    pname = "elyld";
     inherit (cargoToml.workspace.package) version;
 
     strictDeps = true;
@@ -57,7 +57,7 @@ craneLib.buildPackage (
   commonArgs
   // {
     cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-    cargoBuildCommand = "cargo build --profile release -p wild-linker";
+    cargoBuildCommand = "cargo build --profile release -p elyld";
 
     # Do the check in the separate derivation so it can be done
     # in parallel in the dev profile
@@ -87,14 +87,14 @@ craneLib.buildPackage (
     versionCheckProgramArg = "--version";
 
     meta = {
-      changelog = "https://github.com/wild-linker/wild/blob/${commonArgs.version}/CHANGELOG.md";
+      changelog = "https://github.com/tyler274/wild/blob/${commonArgs.version}/CHANGELOG.md";
       description = "A very fast linker for Linux";
-      homepage = "https://github.com/wild-linker/wild";
+      homepage = "https://github.com/tyler274/wild";
       license = [
         lib.licenses.asl20 # or
         lib.licenses.mit
       ];
-      mainProgram = "wild";
+      mainProgram = "elyld";
       platforms = lib.platforms.linux;
     };
   }

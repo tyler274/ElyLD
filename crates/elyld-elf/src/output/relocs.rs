@@ -9,14 +9,14 @@ use object::LittleEndian;
 use object::read::elf::SectionHeader as _;
 use rayon::Scope;
 use std::sync::atomic;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_layout as layout;
-use wild_layout::part_id::PartId;
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{CommonGroupState, ObjectLayoutState};
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_layout as layout;
+use elyld_layout::part_id::PartId;
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{CommonGroupState, ObjectLayoutState};
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{
     Arch, Args as _, ObjectFile, Platform, Relaxation as _, Relocation, SectionFlags as _,
     SectionHeader as _,
 };
@@ -61,7 +61,7 @@ pub(crate) fn process_relocation<
         note_relocation_symbol_reference::<C, A>(&classified, resources, queue, scope);
 
     if !is_debug_section {
-        wild_layout::thunks::handle_thunk_extensions_for_relocation::<A>(
+        elyld_layout::thunks::handle_thunk_extensions_for_relocation::<A>(
             section_part_id,
             resources,
             classified.local_symbol_id,
@@ -224,10 +224,10 @@ pub(crate) fn materialize_relocation_requirements<
             *flags_to_add |= ValueFlags::PLT | ValueFlags::GOT | ValueFlags::CANONICAL_PLT;
         } else if !flags.is_absolute() {
             match args.copy_relocations_enabled() {
-                wild_args::CopyRelocations::Allowed => {
+                elyld_args::CopyRelocations::Allowed => {
                     *flags_to_add |= ValueFlags::COPY_RELOCATION;
                 }
-                wild_args::CopyRelocations::Disallowed(reason) => {
+                elyld_args::CopyRelocations::Disallowed(reason) => {
                     // We don't at present support text relocations, so if we can't apply a copy
                     // relocation, we error instead.
                     bail!(

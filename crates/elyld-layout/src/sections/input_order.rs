@@ -11,11 +11,11 @@ use crate::{
 };
 use hashbrown::HashMap;
 use object::SectionIndex;
-use wild_error::error::Result;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::ProgramSegments;
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+use elyld_error::error::Result;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 pub fn advance_section_offset<P: EnginePlatform>(
     offset: &mut u64,

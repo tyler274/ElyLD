@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::path::Path;
-use wild_fs::archive;
-use wild_scripts::Modifiers;
-use wild_scripts::linker_script::LinkerScript;
+use elyld_fs::archive;
+use elyld_scripts::Modifiers;
+use elyld_scripts::linker_script::LinkerScript;
 
 /// Type-erased view of an input file path and modifiers.
 #[derive(Debug, Clone, Copy)]

@@ -1,7 +1,7 @@
 use object::elf::{EM_AARCH64, EM_LOONGARCH, EM_PPC64, EM_RISCV, EM_X86_64};
 use std::fmt::Display;
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Architecture {
@@ -14,7 +14,7 @@ pub enum Architecture {
 }
 
 impl TryFrom<object::elf::Machine> for Architecture {
-    type Error = wild_error::error::Error;
+    type Error = elyld_error::error::Error;
 
     fn try_from(arch: object::elf::Machine) -> Result<Self, Self::Error> {
         match arch {

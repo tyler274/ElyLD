@@ -1,5 +1,5 @@
 #!/bin/sh
-# Prove wild-util predicates with Kani.
+# Prove elyld-util predicates with Kani.
 # Not packaged in nixpkgs; install with:
 #   cargo install --locked kani-verifier && cargo kani setup
 # CI uses model-checking/kani-github-action. Locally this no-ops if cargo-kani
@@ -14,4 +14,4 @@ if ! command -v cargo-kani >/dev/null 2>&1 && ! cargo kani --version >/dev/null 
     echo "  cargo install --locked kani-verifier && cargo kani setup" >&2
     exit 0
 fi
-exec cargo kani -p wild-util
+exec cargo kani -p elyld-util

@@ -5,11 +5,11 @@ use object::Endianness;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::Path;
 use std::sync::Arc;
-use wild_error::error::Result;
-use wild_error::{bail, env};
-use wild_fs::fs::{FileReplacementMode, FileWriteMode};
-use wild_util::alignment::Alignment;
-use wild_util::arch::Architecture;
+use elyld_error::error::Result;
+use elyld_error::{bail, env};
+use elyld_fs::fs::{FileReplacementMode, FileWriteMode};
+use elyld_util::alignment::Alignment;
+use elyld_util::arch::Architecture;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EntryPoint<'a> {
@@ -20,7 +20,7 @@ pub enum EntryPoint<'a> {
 
 /// GNU `--orphan-handling`. An orphan is an input section not mentioned in the
 /// linker script (or built-in rules). Placement among neighbouring output
-/// sections still follows Wild's custom-section path, not GNU's insertion
+/// sections still follows ElyLD's custom-section path, not GNU's insertion
 /// heuristic.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum OrphanHandling {
@@ -35,7 +35,7 @@ pub enum OrphanHandling {
     Discard,
 }
 
-pub const WILD_UNSUPPORTED_ENV: &str = "WILD_UNSUPPORTED";
+pub const ELYLD_UNSUPPORTED_ENV: &str = "ELYLD_UNSUPPORTED";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RelocationModel {
@@ -71,7 +71,7 @@ impl std::fmt::Display for CopyRelocationsDisabledReason {
     }
 }
 
-/// Indices into `--wild-experiments` for internal tunables.
+/// Indices into `--elyld-experiments` for internal tunables.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Experiment {
     /// How much parallelism to allow when splitting string-merge sections.
@@ -273,7 +273,7 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     /// was provided, in which case `SEGMENT_START` should return its default value.
     fn segment_start_override(
         &self,
-        _name: wild_scripts::linker_script::SegmentName,
+        _name: elyld_scripts::linker_script::SegmentName,
     ) -> Option<u64> {
         None
     }
@@ -413,7 +413,7 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     }
 
     fn linker_identity(&self) -> String {
-        String::from("Wild")
+        String::from("ElyLD")
     }
 
     fn numeric_experiment(&self, _exp: Experiment, default: u64) -> u64 {
@@ -431,11 +431,11 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     fn warn_unsupported(&self, opt: &str) -> Result {
         let message = format!("{opt} is not yet supported");
 
-        match env::var(WILD_UNSUPPORTED_ENV).unwrap_or_default().as_str() {
+        match env::var(ELYLD_UNSUPPORTED_ENV).unwrap_or_default().as_str() {
             "warn" | "" => self.warning(message),
             "ignore" => {}
             "error" => bail!("{message}"),
-            other => bail!("Unsupported value for {WILD_UNSUPPORTED_ENV}={other}"),
+            other => bail!("Unsupported value for {ELYLD_UNSUPPORTED_ENV}={other}"),
         }
         Ok(())
     }

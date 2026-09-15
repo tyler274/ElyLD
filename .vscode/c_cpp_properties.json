@@ -4,7 +4,7 @@
             "name": "wild-tests",
             "browse": {
                 "path": [
-                    "${workspaceFolder}/crates/wild/tests/sources"
+                    "${workspaceFolder}/crates/elyld/tests/sources"
                 ],
                 "limitSymbolsToIncludedHeaders": true
             }

@@ -1,14 +1,14 @@
-//! Format-specific tests for layout-stack modules. Kept in libwild so those
-//! modules can move into wild-layout without depending on Elf64/MachO/Wasm.
+//! Format-specific tests for layout-stack modules. Kept in libelyld so those
+//! modules can move into elyld-layout without depending on Elf64/MachO/Wasm.
 
 mod section_mapping {
     use hashbrown::HashSet;
-    use wild_layout::layout_rules::{SectionOutputInfo, SectionRuleOutcome, SectionRules};
-    use wild_platform::Platform as _;
+    use elyld_layout::layout_rules::{SectionOutputInfo, SectionRuleOutcome, SectionRules};
+    use elyld_platform::Platform as _;
 
     #[test]
     fn test_section_mapping() {
-        let rules = SectionRules::from_rules(&wild_elf::Elf64::default_layout_rules(
+        let rules = SectionRules::from_rules(&elyld_elf::Elf64::default_layout_rules(
             &crate::args::elf::ElfArgs::new().unwrap(),
         ));
         let header = object::elf::SectionHeader64::<object::LittleEndian> {
@@ -24,13 +24,13 @@ mod section_mapping {
             sh_entsize: Default::default(),
         };
         let lookup_name = |name: &str| {
-            rules.lookup::<wild_elf::Elf64>(name.as_bytes(), None, &header, &HashSet::new())
+            rules.lookup::<elyld_elf::Elf64>(name.as_bytes(), None, &header, &HashSet::new())
         };
 
         assert_eq!(
             lookup_name(".comment"),
             SectionRuleOutcome::Section(SectionOutputInfo {
-                section_id: wild_elf::output_section_id::COMMENT,
+                section_id: elyld_elf::output_section_id::COMMENT,
                 must_keep: true,
                 sorted: false,
                 sort_none: false,
@@ -50,7 +50,7 @@ mod section_mapping {
             ..header
         };
         assert_eq!(
-            rules.lookup::<wild_elf::Elf64>(b".rela.data", None, &rela_header, &HashSet::new()),
+            rules.lookup::<elyld_elf::Elf64>(b".rela.data", None, &rela_header, &HashSet::new()),
             SectionRuleOutcome::Discard
         );
 
@@ -59,32 +59,32 @@ mod section_mapping {
             ..header
         };
         assert_eq!(
-            rules.lookup::<wild_elf::Elf64>(b".symtab", None, &symtab_header, &HashSet::new()),
+            rules.lookup::<elyld_elf::Elf64>(b".symtab", None, &symtab_header, &HashSet::new()),
             SectionRuleOutcome::Discard
         );
     }
 }
 
 mod no_disallowed_overlaps {
-    use wild_layout::output_section_id::OutputSections;
-    use wild_layout::{HeaderInfo, compute_layout_sections, compute_segment_layout};
-    use wild_platform::program_segments::ProgramSegmentId;
-    use wild_platform::{SectionAttributes as _, SectionFlags as _};
+    use elyld_layout::output_section_id::OutputSections;
+    use elyld_layout::{HeaderInfo, compute_layout_sections, compute_segment_layout};
+    use elyld_platform::program_segments::ProgramSegmentId;
+    use elyld_platform::{SectionAttributes as _, SectionFlags as _};
 
     #[test]
     fn test_no_disallowed_overlaps() {
         use hashbrown::HashMap;
-        use wild_elf::Elf64;
-        use wild_layout::output_section_id::{OrderEvent, OutputSectionId};
+        use elyld_elf::Elf64;
+        use elyld_layout::output_section_id::{OrderEvent, OutputSectionId};
 
         let output_kind =
-            wild_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed);
+            elyld_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed);
         let mut output_sections = OutputSections::<Elf64>::with_base_address(0x1000, output_kind);
         let (output_order, program_segments) =
             output_sections.output_order(output_kind, &[], &[]).unwrap();
         let mut args = crate::args::elf::ElfArgs::default();
-        if args.architecture() == wild_util::arch::Architecture::Unsupported {
-            args.set_architecture(wild_util::arch::Architecture::X86_64);
+        if args.architecture() == elyld_util::arch::Architecture::Unsupported {
+            args.set_architecture(elyld_util::arch::Architecture::X86_64);
         }
 
         let sections_to_output: hashbrown::HashSet<OutputSectionId> = output_order
@@ -108,7 +108,7 @@ mod no_disallowed_overlaps {
 
         let herd = Default::default();
         let symbol_db =
-            wild_layout::symbol_db::SymbolDb::<Elf64>::new(&args, output_kind, None, None, &herd)
+            elyld_layout::symbol_db::SymbolDb::<Elf64>::new(&args, output_kind, None, None, &herd)
                 .unwrap();
 
         let (_, section_layouts, _) = compute_layout_sections::<Elf64>(
@@ -130,7 +130,7 @@ mod no_disallowed_overlaps {
         let mut last_mem_start = 0;
         let mut last_file_end = 0;
         let mut last_mem_end = 0;
-        let mut last_section_id = wild_layout::output_section_id::FILE_HEADER;
+        let mut last_section_id = elyld_layout::output_section_id::FILE_HEADER;
 
         for event in &output_order {
             let OrderEvent::Section(section_id) = event else {
@@ -221,20 +221,20 @@ mod no_disallowed_overlaps {
 mod expression_eval {
     use crate::error::Result;
     use hashbrown::HashMap;
-    use wild_elf::Elf64;
-    use wild_layout::expression_eval::*;
-    use wild_layout::grouping::SequencedLinkerScript;
-    use wild_layout::output_section_id::OutputSections;
-    use wild_layout::output_section_part_map::OutputSectionPartMap;
-    use wild_layout::parsing::{
+    use elyld_elf::Elf64;
+    use elyld_layout::expression_eval::*;
+    use elyld_layout::grouping::SequencedLinkerScript;
+    use elyld_layout::output_section_id::OutputSections;
+    use elyld_layout::output_section_part_map::OutputSectionPartMap;
+    use elyld_layout::parsing::{
         InternalSymDefInfo, ProcessedLinkerScript, Redirect, RedirectKind, SymbolLoc,
         SymbolPlacement,
     };
-    use wild_layout::symbol_db::{SymbolDb, SymbolIdRange};
-    use wild_layout::{MemoryRegion, OutputRecordLayout};
-    use wild_platform::FileId;
-    use wild_platform::output_section_map::OutputSectionMap;
-    use wild_scripts::linker_script::{AssertCommand, Expression};
+    use elyld_layout::symbol_db::{SymbolDb, SymbolIdRange};
+    use elyld_layout::{MemoryRegion, OutputRecordLayout};
+    use elyld_platform::FileId;
+    use elyld_platform::output_section_map::OutputSectionMap;
+    use elyld_scripts::linker_script::{AssertCommand, Expression};
 
     fn with_dummy_context<R>(
         f: impl for<'test> FnOnce(
@@ -246,7 +246,7 @@ mod expression_eval {
         let sections = OutputSections::<Elf64>::for_testing();
         let layouts = sections.new_section_map::<OutputRecordLayout>();
         let args = crate::args::elf::ElfArgs::new().unwrap();
-        let output_kind = wild_platform::OutputKind::PartialLink;
+        let output_kind = elyld_platform::OutputKind::PartialLink;
         let herd = Default::default();
         let mut symbol_db = SymbolDb::<Elf64>::new(&args, output_kind, None, None, &herd).unwrap();
         f(&layouts, &sections, &mut symbol_db)
@@ -805,12 +805,12 @@ mod expression_eval {
 
 mod part_ids {
     use crate::args::RelocationModel;
-    use wild_layout::output_section_id;
-    use wild_layout::output_section_id::{OutputSectionId, OutputSections};
-    use wild_layout::part_id::*;
-    use wild_platform::OutputKind;
+    use elyld_layout::output_section_id;
+    use elyld_layout::output_section_id::{OutputSectionId, OutputSections};
+    use elyld_layout::part_id::*;
+    use elyld_platform::OutputKind;
 
-    fn check_platform_part_ids<P: wild_layout::EnginePlatform>() {
+    fn check_platform_part_ids<P: elyld_layout::EnginePlatform>() {
         let output_kind = OutputKind::StaticExecutable(RelocationModel::Fixed);
         let output_sections = OutputSections::<P>::with_base_address(0, output_kind);
         let regular_part_base = regular_part_base::<P>();
@@ -865,28 +865,28 @@ mod part_ids {
 
     #[test]
     fn test_platform_part_id_invariants() {
-        check_platform_part_ids::<wild_elf::Elf64>();
-        check_platform_part_ids::<wild_macho::MachO>();
-        check_platform_part_ids::<wild_wasm::Wasm>();
+        check_platform_part_ids::<elyld_elf::Elf64>();
+        check_platform_part_ids::<elyld_macho::MachO>();
+        check_platform_part_ids::<elyld_wasm::Wasm>();
     }
 }
 
 mod output_section_part_map {
-    use wild_layout::output_section_id::OrderEvent;
-    use wild_layout::output_section_part_map::{max_alignment, output_order_map};
-    use wild_layout::part_id::PartId;
-    use wild_platform::Platform;
-    use wild_util::alignment;
+    use elyld_layout::output_section_id::OrderEvent;
+    use elyld_layout::output_section_part_map::{max_alignment, output_order_map};
+    use elyld_layout::part_id::PartId;
+    use elyld_platform::Platform;
+    use elyld_util::alignment;
 
     #[test]
     fn test_merge_parts() {
-        use wild_elf::Elf64;
+        use elyld_elf::Elf64;
 
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<Elf64>::for_testing();
         let (output_order, _program_segments) = output_sections
             .output_order(
-                wild_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
+                elyld_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
                 &[],
                 &[],
             )
@@ -896,7 +896,7 @@ mod output_section_part_map {
         for (section_id, _) in output_sections.ids_with_info() {
             if section_id.is_custom::<Elf64>() {
                 let _ = part_map
-                    .get_mut(section_id.part_id_with_alignment::<Elf64>(wild_util::alignment::MIN));
+                    .get_mut(section_id.part_id_with_alignment::<Elf64>(elyld_util::alignment::MIN));
             }
         }
 
@@ -911,7 +911,7 @@ mod output_section_part_map {
         let mut sum_of_1s = output_sections.new_section_map::<u32>();
         sum_of_1s.for_each_mut(|section_id, sum| {
             if !section_id.is_regular::<Elf64>()
-                && <Elf64 as wild_platform::Platform>::single_part_id(section_id).is_none()
+                && <Elf64 as elyld_platform::Platform>::single_part_id(section_id).is_none()
             {
                 return;
             }
@@ -922,21 +922,21 @@ mod output_section_part_map {
         let mut sum_of_sums = 0;
         sum_of_1s.for_each(|section_id, sum| {
             sum_of_sums += *sum;
-            if *sum == wild_util::alignment::NUM_ALIGNMENTS as u32 {
+            if *sum == elyld_util::alignment::NUM_ALIGNMENTS as u32 {
                 num_sections_with_all_alignments += 1;
             }
 
             let unsupported_single_part = !section_id.is_regular::<Elf64>()
-                && <Elf64 as wild_platform::Platform>::single_part_id(section_id).is_none();
+                && <Elf64 as elyld_platform::Platform>::single_part_id(section_id).is_none();
 
-            let expected = if section_id == wild_layout::output_section_id::UNMAPPED
+            let expected = if section_id == elyld_layout::output_section_id::UNMAPPED
                 || unsupported_single_part
             {
                 0
             } else if section_id.is_custom::<Elf64>() {
                 1
             } else if section_id.is_regular::<Elf64>() {
-                wild_util::alignment::NUM_ALIGNMENTS as u32
+                elyld_util::alignment::NUM_ALIGNMENTS as u32
             } else {
                 1
             };
@@ -950,12 +950,12 @@ mod output_section_part_map {
         assert_eq!(sum_of_sums, expected_sum_of_sums);
 
         let mut headers_only = output_sections.new_part_map::<u32>();
-        *headers_only.get_mut(wild_layout::part_id::FILE_HEADER) += 42;
+        *headers_only.get_mut(elyld_layout::part_id::FILE_HEADER) += 42;
 
         let mut merged = output_sections.new_section_map::<u32>();
         merged.for_each_mut(|section_id, sum| {
             if !section_id.is_regular::<Elf64>()
-                && <Elf64 as wild_platform::Platform>::single_part_id(section_id).is_none()
+                && <Elf64 as elyld_platform::Platform>::single_part_id(section_id).is_none()
             {
                 return;
             }
@@ -963,15 +963,15 @@ mod output_section_part_map {
             *sum = headers_only.values_in_range(range).sum();
         });
 
-        assert_eq!(*merged.get(wild_layout::output_section_id::FILE_HEADER), 42);
-        assert_eq!(*merged.get(wild_elf::output_section_id::TEXT), 0);
-        assert_eq!(*merged.get(wild_elf::output_section_id::BSS), 0);
+        assert_eq!(*merged.get(elyld_layout::output_section_id::FILE_HEADER), 42);
+        assert_eq!(*merged.get(elyld_elf::output_section_id::TEXT), 0);
+        assert_eq!(*merged.get(elyld_elf::output_section_id::BSS), 0);
     }
 
     #[test]
     fn test_mut_with_map() {
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<wild_elf::Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<elyld_elf::Elf64>::for_testing();
         let mut input1 = output_sections.new_part_map::<u32>().map(|_, _| 1);
         let input2 = output_sections.new_part_map::<u32>().map(|_, _| 2);
         let expected = output_sections.new_part_map::<u32>().map(|_, _| 3);
@@ -982,7 +982,7 @@ mod output_section_part_map {
     #[test]
     fn test_merge() {
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<wild_elf::Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<elyld_elf::Elf64>::for_testing();
         let mut input1 = output_sections.new_part_map::<u32>().map(|_, _| 1);
         let input2 = output_sections.new_part_map::<u32>().map(|_, _| 2);
         let expected = output_sections.new_part_map::<u32>().map(|_, _| 3);
@@ -997,13 +997,13 @@ mod output_section_part_map {
     #[test]
     fn test_output_order_map_consistent() {
         use itertools::Itertools;
-        use wild_elf::Elf64;
+        use elyld_elf::Elf64;
 
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<wild_elf::Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<elyld_elf::Elf64>::for_testing();
         let (output_order, _program_segments) = output_sections
             .output_order(
-                wild_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
+                elyld_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
                 &[],
                 &[],
             )
@@ -1018,13 +1018,13 @@ mod output_section_part_map {
 
         for section_id in custom_sections.into_iter().rev() {
             let _ = part_map
-                .get_mut(section_id.part_id_with_alignment::<Elf64>(wild_util::alignment::MIN));
+                .get_mut(section_id.part_id_with_alignment::<Elf64>(elyld_util::alignment::MIN));
         }
 
         // First, make sure that all our built-in part-ids are here. If they're not, we'd fail
         // anyway, but we can give a much better failure message if we check first.
         let mut missing: hashbrown::HashSet<PartId> =
-            wild_layout::part_id::built_in_part_ids::<Elf64>().collect();
+            elyld_layout::part_id::built_in_part_ids::<Elf64>().collect();
         part_map.map(|part_id, _| {
             missing.remove(&part_id);
         });
@@ -1070,13 +1070,13 @@ mod output_section_part_map {
 
     #[test]
     fn test_output_order_map() {
-        use wild_elf::{Elf64, output_section_id};
+        use elyld_elf::{Elf64, output_section_id};
 
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<Elf64>::for_testing();
         let (output_order, _program_segments) = output_sections
             .output_order(
-                wild_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
+                elyld_platform::OutputKind::StaticExecutable(crate::args::RelocationModel::Fixed),
                 &[],
                 &[],
             )
@@ -1119,10 +1119,10 @@ mod output_section_part_map {
 
     #[test]
     fn test_max_alignment() {
-        use wild_elf::{Elf64, output_section_id};
+        use elyld_elf::{Elf64, output_section_id};
 
         let output_sections =
-            wild_layout::output_section_id::OutputSections::<Elf64>::for_testing();
+            elyld_layout::output_section_id::OutputSections::<Elf64>::for_testing();
         let mut part_map = output_sections.new_part_map::<u32>();
 
         assert_eq!(
@@ -1155,8 +1155,8 @@ mod output_section_part_map {
 
 mod input_section_flags {
     use hashbrown::HashSet;
-    use wild_layout::layout_rules::{SectionRule, SectionRuleOutcome, SectionRules};
-    use wild_scripts::linker_script::InputSectionFlags;
+    use elyld_layout::layout_rules::{SectionRule, SectionRuleOutcome, SectionRules};
+    use elyld_scripts::linker_script::InputSectionFlags;
 
     #[test]
     fn test_input_section_flags_lookup() {
@@ -1180,7 +1180,7 @@ mod input_section_flags {
             sh_entsize: Default::default(),
         };
         assert_eq!(
-            rules.lookup::<wild_elf::Elf64>(b".sec.flags", None, &header, &HashSet::new()),
+            rules.lookup::<elyld_elf::Elf64>(b".sec.flags", None, &header, &HashSet::new()),
             SectionRuleOutcome::Custom
         );
 
@@ -1189,7 +1189,7 @@ mod input_section_flags {
             ..header
         };
         assert_eq!(
-            rules.lookup::<wild_elf::Elf64>(b".sec.flags", None, &write_header, &HashSet::new()),
+            rules.lookup::<elyld_elf::Elf64>(b".sec.flags", None, &write_header, &HashSet::new()),
             SectionRuleOutcome::Discard
         );
     }

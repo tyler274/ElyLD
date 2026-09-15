@@ -6,13 +6,13 @@ use crate::{EhFrameHdr, EhFrameHdrEntry, ElfClass, ElfWord as _, debug_assert_ba
 use linker_utils::elf::DynamicRelocationKind;
 use linker_utils::utils::slice_from_all_bytes_mut;
 use std::ops::{Not as _, Range, Sub};
-use wild_args::elf::ElfArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure, error};
-use wild_layout::file_writer::{excessive_allocation, insufficient_allocation};
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::{Layout, Resolution, compute_allocations};
-use wild_platform::{Arch, OutputKind};
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure, error};
+use elyld_layout::file_writer::{excessive_allocation, insufficient_allocation};
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::{Layout, Resolution, compute_allocations};
+use elyld_platform::{Arch, OutputKind};
 use zerocopy::FromBytes;
 
 pub(crate) type ElfLayout<'data, C> = Layout<'data, elf::Elf<C>>;
@@ -761,7 +761,7 @@ impl<'layout, 'out, C: ElfClass> TableWriter<'layout, 'out, C> {
     /// Takes a prefix of dynsym, dynstr and versym suitable for writing the supplied definitions.
     pub(crate) fn take_dynsym_prefix(
         &mut self,
-        defs: &[wild_layout::DynamicSymbolDefinition<elf::Elf<C>>],
+        defs: &[elyld_layout::DynamicSymbolDefinition<elf::Elf<C>>],
     ) -> VersionedDynsymWriter<'layout, 'out, C> {
         let num_symbols = defs.len();
         let strtab_size = defs.iter().map(|d| d.name.len() + 1).sum();

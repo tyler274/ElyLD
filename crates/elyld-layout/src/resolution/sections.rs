@@ -19,11 +19,11 @@ use rayon::iter::{
 };
 use std::borrow::Cow;
 use std::hash::BuildHasher as _;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform::{Args as _, ObjectFile, OrphanHandling, Platform, SectionHeader as _};
-use wild_util::alignment::Alignment;
-use wild_util::hash::{PassThroughHashMap, PreHashed};
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform::{Args as _, ObjectFile, OrphanHandling, Platform, SectionHeader as _};
+use elyld_util::alignment::Alignment;
+use elyld_util::hash::{PassThroughHashMap, PreHashed};
 
 pub(super) fn resolve_sections<'data, P: EnginePlatform>(
     groups: &mut [ResolvedGroup<'data, P>],
@@ -386,7 +386,7 @@ fn apply_init_fini_secondaries<'data, P: EnginePlatform>(
 fn resolve_sections_for_object<'data, P: EnginePlatform>(
     obj: &mut ResolvedObject<'data, P>,
     args: &P::Args,
-    allocator: &wild_util::arena::Member<'data>,
+    allocator: &elyld_util::arena::Member<'data>,
     loaded_metrics: &LoadedMetrics,
     rules: &SectionRules,
     output_sections: &OutputSections<'data, P>,
@@ -434,7 +434,7 @@ fn part_id_for_output<P: EnginePlatform>(
     {
         output_info
             .section_id
-            .part_id_with_alignment::<P>(wild_util::alignment::MIN)
+            .part_id_with_alignment::<P>(elyld_util::alignment::MIN)
     } else if output_info.section_id.is_regular::<P>() {
         output_info
             .section_id
@@ -450,7 +450,7 @@ fn resolve_section<'data, P: EnginePlatform>(
     input_section: &'data P::SectionHeader,
     obj: &mut ResolvedObject<'data, P>,
     args: &P::Args,
-    allocator: &wild_util::arena::Member<'data>,
+    allocator: &elyld_util::arena::Member<'data>,
     loaded_metrics: &LoadedMetrics,
     rules: &SectionRules,
     output_sections: &OutputSections<'data, P>,
@@ -551,7 +551,7 @@ fn resolve_section<'data, P: EnginePlatform>(
             if cli_sort_name {
                 part_id = output_info
                     .section_id
-                    .part_id_with_alignment::<P>(wild_util::alignment::MIN);
+                    .part_id_with_alignment::<P>(elyld_util::alignment::MIN);
             }
             unloaded_section.sort_name_primary = output_info.sort_name_primary;
             unloaded_section.sort_reversed = output_info.sort_reversed;
@@ -709,7 +709,7 @@ fn emit_relocs_section_name<'data, P: EnginePlatform>(
     file_name: Option<&[u8]>,
     rules: &SectionRules,
     output_sections: &OutputSections<'data, P>,
-    allocator: &wild_util::arena::Member<'data>,
+    allocator: &elyld_util::arena::Member<'data>,
     only_if_writable: &HashSet<crate::output_section_id::OutputSectionId>,
 ) -> Option<&'data [u8]> {
     let prefix = input_section.reloc_output_name_prefix()?;

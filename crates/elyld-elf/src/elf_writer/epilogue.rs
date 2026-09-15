@@ -19,26 +19,26 @@ use object::elf::NT_GNU_PROPERTY_TYPE_0;
 use object::from_bytes_mut;
 use rayon::iter::{IntoParallelRefMutIterator as _, ParallelBridge as _, ParallelIterator as _};
 use std::io::{Cursor, Write};
-use wild_args::elf::ElfArgs;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, error};
-use wild_layout::output_section_id::{
+use elyld_args::elf::ElfArgs;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, error};
+use elyld_layout::output_section_id::{
     OutputOrder, OutputSectionId, OutputSections, SectionOutputInfo,
 };
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::output_trace::TraceOutput;
-use wild_layout::parsing::SymbolLoc;
-use wild_layout::part_id::PartId;
-use wild_layout::resolution::SectionSlot;
-use wild_layout::{
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::output_trace::TraceOutput;
+use elyld_layout::parsing::SymbolLoc;
+use elyld_layout::part_id::PartId;
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::{
     EpilogueLayout, InternalSymbols, LinkerScriptLayoutState, ObjectLayout, PreludeLayout,
     Resolution, Section, SyntheticSymbolsLayout, timing_phase, verbose_timing_phase,
 };
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{Arch, Args as _, ObjectFile, OutputKind, Platform};
-use wild_util::alignment;
-use wild_util::sharding::ShardKey;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{Arch, Args as _, ObjectFile, OutputKind, Platform};
+use elyld_util::alignment;
+use elyld_util::sharding::ShardKey;
 use zerocopy::{FromBytes, transmute_mut};
 
 pub(crate) fn write_section_raw<'out, 'data, C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
@@ -202,7 +202,7 @@ pub(crate) fn write_prelude_except_gdb_index<
     verbose_timing_phase!("Write prelude");
 
     let header: &mut elf::FileHeader<C> =
-        from_bytes_mut(buffers.get_mut(wild_layout::part_id::FILE_HEADER))
+        from_bytes_mut(buffers.get_mut(elyld_layout::part_id::FILE_HEADER))
             .map_err(|_| error!("Invalid file header allocation"))?
             .0;
     populate_file_header::<C, A>(layout, &prelude.header_info, header)?;
@@ -272,7 +272,7 @@ pub(crate) fn write_merged_strings<C: ElfClass>(
     layout.merged_strings.for_each(|section_id, merged| {
         if merged.len() > 0 {
             let buffer = buffers.get_mut(
-                section_id.part_id_with_alignment::<elf::Elf<C>>(wild_util::alignment::MIN),
+                section_id.part_id_with_alignment::<elf::Elf<C>>(elyld_util::alignment::MIN),
             );
 
             write_merged_strings_to_buffer(merged, buffer);
@@ -292,7 +292,7 @@ pub(crate) fn write_merged_strings<C: ElfClass>(
 }
 
 pub(crate) fn write_merged_strings_to_buffer(
-    merged: &wild_layout::string_merging::MergedStringsSection,
+    merged: &elyld_layout::string_merging::MergedStringsSection,
     buffer: &mut &mut [u8],
 ) {
     let leading = merged.leading_pad();
@@ -471,7 +471,7 @@ pub(crate) fn write_epilogue<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
     }
 
     for sorted_section in &layout.script_sorted_sections {
-        let wild_layout::FileLayout::Object(object) = layout.file_layout(sorted_section.file_id)
+        let elyld_layout::FileLayout::Object(object) = layout.file_layout(sorted_section.file_id)
         else {
             unreachable!();
         };
@@ -678,7 +678,7 @@ pub(crate) fn verify_resolution_allocation<C: ElfClass, A: Arch<Platform = elf::
     // Allocate however much space was requested.
 
     let mut total_bytes_allocated = 0;
-    wild_layout::output_section_part_map::output_order_map(
+    elyld_layout::output_section_part_map::output_order_map(
         mem_sizes,
         output_order,
         output_sections,
@@ -686,11 +686,11 @@ pub(crate) fn verify_resolution_allocation<C: ElfClass, A: Arch<Platform = elf::
             total_bytes_allocated = alignment.align_up(total_bytes_allocated) + size;
         },
     );
-    total_bytes_allocated = wild_util::alignment::USIZE.align_up(total_bytes_allocated);
+    total_bytes_allocated = elyld_util::alignment::USIZE.align_up(total_bytes_allocated);
     let mut all_mem = vec![0_u64; total_bytes_allocated as usize / size_of::<u64>()];
     let mut all_mem: &mut [u8] = transmute_mut!(all_mem.as_mut_slice());
     let mut offset = 0;
-    let mut buffers = wild_layout::output_section_part_map::output_order_map(
+    let mut buffers = elyld_layout::output_section_part_map::output_order_map(
         mem_sizes,
         output_order,
         output_sections,
@@ -783,7 +783,7 @@ pub(crate) fn write_script_output_data<C: ElfClass>(
             .and_then(|lc| lc.section_offset)
             .unwrap_or(u64::from(data.width)) as usize;
         let offset = end.saturating_sub(usize::from(data.width));
-        let value = wild_layout::expression_eval::evaluate_expression(
+        let value = elyld_layout::expression_eval::evaluate_expression(
             &data.value,
             &SymbolLoc::None,
             None,
@@ -797,9 +797,9 @@ pub(crate) fn write_script_output_data<C: ElfClass>(
             &mut |name| {
                 let Some(symbol_id) = layout
                     .symbol_db
-                    .get_unversioned(&wild_layout::symbol::UnversionedSymbolName::prehashed(name))
+                    .get_unversioned(&elyld_layout::symbol::UnversionedSymbolName::prehashed(name))
                 else {
-                    wild_error::bail!(
+                    elyld_error::bail!(
                         "undefined symbol `{}` in linker script BYTE/SHORT/LONG/QUAD",
                         String::from_utf8_lossy(name)
                     );
@@ -808,7 +808,7 @@ pub(crate) fn write_script_output_data<C: ElfClass>(
                 layout
                     .symbol_resolutions
                     .get(canonical)
-                    .map(|r| wild_layout::expression_eval::SymbolValue::Absolute(r.raw_value))
+                    .map(|r| elyld_layout::expression_eval::SymbolValue::Absolute(r.raw_value))
                     .with_context(|| {
                         format!(
                             "unresolved symbol `{}` in linker script BYTE/SHORT/LONG/QUAD",

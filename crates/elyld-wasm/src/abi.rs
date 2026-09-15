@@ -6,15 +6,15 @@ use crate::{
     walk_wasm_gc_unit_edges, wasm_gc_unit_for_symbol,
 };
 use wasmparser::{RelocationType, SymbolFlags};
-use wild_args::wasm::WasmArgs;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_fs::fs::FileSystem;
-use wild_layout as layout;
-use wild_layout::layout_rules::{SectionKind, SectionRule, SectionRuleOutcome};
-use wild_layout::output_section_id::{OutputSectionId, SectionIdentity, SectionName};
-use wild_platform as platform;
-use wild_platform::Args as _;
+use elyld_args::wasm::WasmArgs;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_fs::fs::FileSystem;
+use elyld_layout as layout;
+use elyld_layout::layout_rules::{SectionKind, SectionRule, SectionRuleOutcome};
+use elyld_layout::output_section_id::{OutputSectionId, SectionIdentity, SectionName};
+use elyld_platform as platform;
+use elyld_platform::Args as _;
 
 impl platform::SectionHeader for SectionHeader {
     fn is_alloc(&self) -> bool {
@@ -122,11 +122,11 @@ impl platform::Symbol for WasmSymbol {
         WasmSymbol::is_weak(self)
     }
 
-    fn visibility(&self) -> wild_layout::symbol_db::Visibility {
+    fn visibility(&self) -> elyld_layout::symbol_db::Visibility {
         if self.is_hidden() {
-            wild_layout::symbol_db::Visibility::Hidden
+            elyld_layout::symbol_db::Visibility::Hidden
         } else {
-            wild_layout::symbol_db::Visibility::Default
+            elyld_layout::symbol_db::Visibility::Default
         }
     }
 
@@ -202,8 +202,8 @@ impl platform::SectionAttributes for SectionAttributes {
 
     fn apply(
         &self,
-        _output_sections: &mut wild_layout::output_section_id::OutputSections<Self::Platform>,
-        _section_id: wild_layout::output_section_id::OutputSectionId,
+        _output_sections: &mut elyld_layout::output_section_id::OutputSections<Self::Platform>,
+        _section_id: elyld_layout::output_section_id::OutputSectionId,
     ) {
         // No-op: Wasm output sections inherit their attributes from `SECTION_DEFINITIONS`.
     }
@@ -325,17 +325,17 @@ pub(crate) const DEFAULT_DEFS: BuiltInSectionDetails = BuiltInSectionDetails {
 };
 
 pub(crate) const NUM_BUILT_IN_SECTIONS: usize =
-    wild_layout::output_section_id::num_built_in_sections::<Wasm>();
+    elyld_layout::output_section_id::num_built_in_sections::<Wasm>();
 
 pub(crate) const SECTION_DEFINITIONS: [BuiltInSectionDetails; NUM_BUILT_IN_SECTIONS] = {
     use crate::output_section_id as osid;
-    use wild_layout::layout_rules::SectionKind;
-    use wild_layout::output_section_id::SectionName;
+    use elyld_layout::layout_rules::SectionKind;
+    use elyld_layout::output_section_id::SectionName;
 
     let mut defs = [DEFAULT_DEFS; NUM_BUILT_IN_SECTIONS];
 
     // The module preamble.
-    defs[wild_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
+    defs[elyld_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
         kind: SectionKind::Primary(SectionIdentity::new(SectionName(b"WASM_HEADER"), ())),
     };
 
@@ -484,7 +484,7 @@ impl platform::Platform for Wasm {
     const NUM_BUILT_IN_REGULAR_SECTIONS: usize = 0;
 
     const VERIFY_IGNORE_SECTION_IDS: &'static [OutputSectionId] =
-        &[wild_layout::output_section_id::FILE_HEADER];
+        &[elyld_layout::output_section_id::FILE_HEADER];
 
     type File<'data> = File<'data>;
     type FileFlags = u32;
@@ -531,67 +531,67 @@ impl platform::Platform for Wasm {
     type ResolvedObjectExt<'data> = WasmObjectLayout<'data>;
     type SectionIdentityExt = ();
     type GcUnit = WasmGcUnit;
-    type Layout<'data> = wild_layout::Layout<'data, Self>;
-    type GroupLayout<'data> = wild_layout::GroupLayout<'data, Self>;
-    type SymbolDb<'data> = wild_layout::symbol_db::SymbolDb<'data, Self>;
-    type Resolver<'data> = wild_layout::resolution::Resolver<'data, Self>;
+    type Layout<'data> = elyld_layout::Layout<'data, Self>;
+    type GroupLayout<'data> = elyld_layout::GroupLayout<'data, Self>;
+    type SymbolDb<'data> = elyld_layout::symbol_db::SymbolDb<'data, Self>;
+    type Resolver<'data> = elyld_layout::resolution::Resolver<'data, Self>;
     type ResolutionResources<'data, 'scope>
-        = wild_layout::resolution::ResolutionResources<'data, 'scope, Self>
+        = elyld_layout::resolution::ResolutionResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type ObjectLayoutState<'data> = wild_layout::ObjectLayoutState<'data, Self>;
-    type CommonGroupState<'data> = wild_layout::CommonGroupState<'data, Self>;
-    type GroupState<'data> = wild_layout::GroupState<'data, Self>;
-    type DynamicLayoutState<'data> = wild_layout::DynamicLayoutState<'data, Self>;
-    type PreludeLayoutState<'data> = wild_layout::PreludeLayoutState<'data, Self>;
-    type StubLibraryLayoutState<'data> = wild_layout::StubLibraryLayoutState<'data, Self>;
+    type ObjectLayoutState<'data> = elyld_layout::ObjectLayoutState<'data, Self>;
+    type CommonGroupState<'data> = elyld_layout::CommonGroupState<'data, Self>;
+    type GroupState<'data> = elyld_layout::GroupState<'data, Self>;
+    type DynamicLayoutState<'data> = elyld_layout::DynamicLayoutState<'data, Self>;
+    type PreludeLayoutState<'data> = elyld_layout::PreludeLayoutState<'data, Self>;
+    type StubLibraryLayoutState<'data> = elyld_layout::StubLibraryLayoutState<'data, Self>;
     type GraphResources<'data, 'scope>
-        = wild_layout::GraphResources<'data, 'scope, Self>
+        = elyld_layout::GraphResources<'data, 'scope, Self>
     where
         'data: 'scope;
-    type LocalWorkQueue = wild_layout::LocalWorkQueue<Self>;
+    type LocalWorkQueue = elyld_layout::LocalWorkQueue<Self>;
     type FinaliseLayoutResources<'scope, 'data>
-        = wild_layout::FinaliseLayoutResources<'scope, 'data, Self>
+        = elyld_layout::FinaliseLayoutResources<'scope, 'data, Self>
     where
         'data: 'scope;
     type FinaliseSizesResources<'data, 'scope>
-        = wild_layout::FinaliseSizesResources<'data, 'scope, Self>
+        = elyld_layout::FinaliseSizesResources<'data, 'scope, Self>
     where
         'data: 'scope;
     type ResolutionWriter<'writer, 'out>
-        = wild_layout::ResolutionWriter<'writer, 'out, Self>
+        = elyld_layout::ResolutionWriter<'writer, 'out, Self>
     where
         'out: 'writer;
-    type DynamicSymbolDefinition<'data> = wild_layout::DynamicSymbolDefinition<'data, Self>;
-    type OutputRecordLayout = wild_layout::OutputRecordLayout;
-    type SymbolResolutions = wild_layout::SymbolResolutions<Self>;
-    type LayoutSection = wild_layout::Section;
-    type HeaderInfo = wild_layout::HeaderInfo;
-    type Resolution = wild_layout::Resolution<Self>;
-    type UnloadedSection = wild_layout::resolution::UnloadedSection;
-    type LoadedMetrics = wild_layout::resolution::LoadedMetrics;
-    type ResolvedObject<'data> = wild_layout::resolution::ResolvedObject<'data, Self>;
-    type ResolvedDynamic<'data> = wild_layout::resolution::ResolvedDynamic<'data, Self>;
-    type ResolvedStubLibrary<'data> = wild_layout::resolution::ResolvedStubLibrary<'data>;
+    type DynamicSymbolDefinition<'data> = elyld_layout::DynamicSymbolDefinition<'data, Self>;
+    type OutputRecordLayout = elyld_layout::OutputRecordLayout;
+    type SymbolResolutions = elyld_layout::SymbolResolutions<Self>;
+    type LayoutSection = elyld_layout::Section;
+    type HeaderInfo = elyld_layout::HeaderInfo;
+    type Resolution = elyld_layout::Resolution<Self>;
+    type UnloadedSection = elyld_layout::resolution::UnloadedSection;
+    type LoadedMetrics = elyld_layout::resolution::LoadedMetrics;
+    type ResolvedObject<'data> = elyld_layout::resolution::ResolvedObject<'data, Self>;
+    type ResolvedDynamic<'data> = elyld_layout::resolution::ResolvedDynamic<'data, Self>;
+    type ResolvedStubLibrary<'data> = elyld_layout::resolution::ResolvedStubLibrary<'data>;
     type LinkerPlugin<'data> = ();
-    type LtoInput<'data> = wild_layout::grouping::LtoInput<'data>;
-    type Group<'data> = wild_layout::grouping::Group<'data, Self>;
-    type SequencedLinkerScript<'data> = wild_layout::grouping::SequencedLinkerScript<'data, Self>;
-    type FileLoader<'data, F: wild_fs::fs::FileSystem> =
-        wild_layout::input_data::FileLoader<'data, F>;
-    type LayoutRulesBuilder<'data> = wild_layout::layout_rules::LayoutRulesBuilder<'data>;
-    type InternalSymbolsBuilder<'data> = wild_layout::parsing::InternalSymbolsBuilder<'data, Self>;
-    type InternalSymDefInfo<'data> = wild_layout::parsing::InternalSymDefInfo<'data, Self>;
-    type OutputSections<'data> = wild_layout::output_section_id::OutputSections<'data, Self>;
-    type OutputOrder<'data> = wild_layout::output_section_id::OutputOrder<'data>;
-    type CustomSectionIds = wild_layout::output_section_id::CustomSectionIds;
-    type FileWriterOutput<F: wild_fs::fs::FileSystem> = wild_layout::file_writer::Output<F>;
-    type LocationCounter<'data> = wild_layout::layout_rules::LocationCounter<'data>;
-    type SectionOutputInfo<'data> = wild_layout::output_section_id::SectionOutputInfo<'data, Self>;
+    type LtoInput<'data> = elyld_layout::grouping::LtoInput<'data>;
+    type Group<'data> = elyld_layout::grouping::Group<'data, Self>;
+    type SequencedLinkerScript<'data> = elyld_layout::grouping::SequencedLinkerScript<'data, Self>;
+    type FileLoader<'data, F: elyld_fs::fs::FileSystem> =
+        elyld_layout::input_data::FileLoader<'data, F>;
+    type LayoutRulesBuilder<'data> = elyld_layout::layout_rules::LayoutRulesBuilder<'data>;
+    type InternalSymbolsBuilder<'data> = elyld_layout::parsing::InternalSymbolsBuilder<'data, Self>;
+    type InternalSymDefInfo<'data> = elyld_layout::parsing::InternalSymDefInfo<'data, Self>;
+    type OutputSections<'data> = elyld_layout::output_section_id::OutputSections<'data, Self>;
+    type OutputOrder<'data> = elyld_layout::output_section_id::OutputOrder<'data>;
+    type CustomSectionIds = elyld_layout::output_section_id::CustomSectionIds;
+    type FileWriterOutput<F: elyld_fs::fs::FileSystem> = elyld_layout::file_writer::Output<F>;
+    type LocationCounter<'data> = elyld_layout::layout_rules::LocationCounter<'data>;
+    type SectionOutputInfo<'data> = elyld_layout::output_section_id::SectionOutputInfo<'data, Self>;
 
     fn write_output_file<'data, A: platform::Arch<Platform = Self>, F: FileSystem>(
-        output: &wild_layout::file_writer::Output<F>,
-        layout: &wild_layout::Layout<'data, Self>,
+        output: &elyld_layout::file_writer::Output<F>,
+        layout: &elyld_layout::Layout<'data, Self>,
     ) -> Result {
         output.write(layout, crate::wasm_writer::write::<A>)
     }
@@ -601,14 +601,14 @@ impl platform::Platform for Wasm {
     }
 
     fn apply_force_keep_sections(
-        _keep_sections: &mut wild_platform::output_section_map::OutputSectionMap<bool>,
+        _keep_sections: &mut elyld_platform::output_section_map::OutputSectionMap<bool>,
         _args: &Self::Args,
     ) {
         // No `-u` / `--require-defined` analogue is wired through for Wasm yet.
     }
 
     fn is_zero_sized_section_content(
-        _section_id: wild_layout::output_section_id::OutputSectionId,
+        _section_id: elyld_layout::output_section_id::OutputSectionId,
     ) -> bool {
         false
     }
@@ -618,23 +618,23 @@ impl platform::Platform for Wasm {
     }
 
     fn finalise_group_layout(
-        _memory_offsets: &wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _memory_offsets: &elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> Self::GroupLayoutExt {
     }
 
     fn frame_data_base_address(
-        _memory_offsets: &wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _memory_offsets: &elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> u64 {
         0
     }
 
     fn post_gc<'data>(
-        groups: &mut [wild_layout::GroupState<Self>],
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        groups: &mut [elyld_layout::GroupState<Self>],
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) -> Result {
         for group in groups {
             for file in &mut group.files {
-                if let wild_layout::FileLayoutState::Object(object) = file {
+                if let elyld_layout::FileLayoutState::Object(object) = file {
                     object.format_specific.compute_live_ordinals();
                 }
             }
@@ -643,41 +643,41 @@ impl platform::Platform for Wasm {
     }
 
     fn activate_dynamic<'data>(
-        _state: &mut wild_layout::DynamicLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _state: &mut elyld_layout::DynamicLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) {
         // Dynamic Wasm objects are not emitted by this backend.
     }
 
     fn pre_finalise_sizes_prelude<'scope, 'data>(
-        _prelude: &mut wild_layout::PreludeLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _resources: &wild_layout::GraphResources<'data, 'scope, Self>,
+        _prelude: &mut elyld_layout::PreludeLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _resources: &elyld_layout::GraphResources<'data, 'scope, Self>,
     ) {
     }
 
     fn finalise_sizes_dynamic<'data>(
-        _object: &mut wild_layout::DynamicLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::DynamicLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) -> Result {
         Ok(())
     }
 
     fn finalise_object_sizes<'data>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
     ) {
     }
 
     fn finalise_object_layout<'data>(
-        _object: &wild_layout::ObjectLayoutState<'data, Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _object: &elyld_layout::ObjectLayoutState<'data, Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
     }
 
     fn finalise_layout_dynamic<'data>(
         _state: &mut Self::DynamicLayoutState<'data>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
         _resources: &Self::FinaliseLayoutResources<'_, 'data>,
         _resolutions_out: &mut Self::ResolutionWriter<'_, '_>,
     ) -> Result<Option<Self::DynamicLayoutExt<'data>>> {
@@ -685,17 +685,17 @@ impl platform::Platform for Wasm {
     }
 
     fn take_dynsym_index(
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _section_layouts: &wild_platform::output_section_map::OutputSectionMap<
-            wild_layout::OutputRecordLayout,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _section_layouts: &elyld_platform::output_section_map::OutputSectionMap<
+            elyld_layout::OutputRecordLayout,
         >,
     ) -> Result<u32> {
         bail!("Wasm dynamic symbol table is not emitted")
     }
 
     fn compute_object_addresses<'data>(
-        _object: &wild_layout::ObjectLayoutState<'data, Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _object: &elyld_layout::ObjectLayoutState<'data, Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) {
     }
 
@@ -713,10 +713,10 @@ impl platform::Platform for Wasm {
     }
 
     fn activate_object_gc<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
         object.format_specific.ensure_gc_states(object.object);
@@ -729,10 +729,10 @@ impl platform::Platform for Wasm {
     }
 
     fn load_gc_unit<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
-        queue: &mut wild_layout::LocalWorkQueue<Self>,
+        object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
+        queue: &mut elyld_layout::LocalWorkQueue<Self>,
         unit: Self::GcUnit,
         scope: &rayon::Scope<'scope>,
     ) -> Result {
@@ -756,11 +756,11 @@ impl platform::Platform for Wasm {
     }
 
     fn load_object_section_relocations<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        _state: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _queue: &mut wild_layout::LocalWorkQueue<Self>,
-        _resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
-        _section: wild_layout::Section,
+        _state: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _queue: &mut elyld_layout::LocalWorkQueue<Self>,
+        _resources: &'scope elyld_layout::GraphResources<'data, '_, Self>,
+        _section: elyld_layout::Section,
         _section_index: object::SectionIndex,
         _scope: &rayon::Scope<'scope>,
     ) -> Result {
@@ -769,13 +769,13 @@ impl platform::Platform for Wasm {
 
     fn create_dynamic_symbol_definition<'data>(
         _symbol_db: &Self::SymbolDb<'data>,
-        _symbol_id: wild_layout::symbol_db::SymbolId,
+        _symbol_id: elyld_layout::symbol_db::SymbolId,
     ) -> Result<Self::DynamicSymbolDefinition<'data>> {
         bail!("Wasm dynamic symbol definitions are not emitted")
     }
 
     fn update_segment_keep_list(
-        _program_segments: &wild_platform::program_segments::ProgramSegments<
+        _program_segments: &elyld_platform::program_segments::ProgramSegments<
             Self::ProgramSegmentDef,
         >,
         _keep_segments: &mut [bool],
@@ -793,14 +793,14 @@ impl platform::Platform for Wasm {
 
     fn program_segment_should_include_section(
         segment_def: Self::ProgramSegmentDef,
-        _section_info: &wild_layout::output_section_id::SectionOutputInfo<Self>,
-        section_id: wild_layout::output_section_id::OutputSectionId,
+        _section_info: &elyld_layout::output_section_id::SectionOutputInfo<Self>,
+        section_id: elyld_layout::output_section_id::OutputSectionId,
         _rosegment: bool,
     ) -> bool {
         use crate::output_section_id as osid;
 
         let section_segment_type = match section_id {
-            wild_layout::output_section_id::FILE_HEADER => SegmentType::Header,
+            elyld_layout::output_section_id::FILE_HEADER => SegmentType::Header,
             osid::WASM_TYPE
             | osid::WASM_IMPORT
             | osid::WASM_FUNCTION
@@ -822,15 +822,15 @@ impl platform::Platform for Wasm {
     }
 
     fn create_linker_defined_symbols(
-        symbols: &mut wild_layout::parsing::InternalSymbolsBuilder<Self>,
-        _output_kind: wild_platform::OutputKind,
+        symbols: &mut elyld_layout::parsing::InternalSymbolsBuilder<Self>,
+        _output_kind: elyld_platform::OutputKind,
         _args: &Self::Args,
     ) {
         // Reserve SymbolId 0 as the linker’s undefined sentinel (Wasm objects have no null symbol
         // entry).
         symbols
-            .add_symbol(wild_layout::parsing::InternalSymDefInfo::new(
-                wild_layout::parsing::SymbolPlacement::Undefined,
+            .add_symbol(elyld_layout::parsing::InternalSymDefInfo::new(
+                elyld_layout::parsing::SymbolPlacement::Undefined,
                 b"",
             ))
             .hide();
@@ -841,13 +841,13 @@ impl platform::Platform for Wasm {
     }
 
     fn built_in_section_infos<'data>()
-    -> Vec<wild_layout::output_section_id::SectionOutputInfo<'data, Self>> {
+    -> Vec<elyld_layout::output_section_id::SectionOutputInfo<'data, Self>> {
         SECTION_DEFINITIONS
             .iter()
-            .map(|d| wild_layout::output_section_id::SectionOutputInfo {
+            .map(|d| elyld_layout::output_section_id::SectionOutputInfo {
                 section_attributes: SectionAttributes::default(),
                 kind: d.kind,
-                min_alignment: wild_util::alignment::MIN,
+                min_alignment: elyld_util::alignment::MIN,
                 location_info: None,
                 secondary_order: None,
                 region_name: None,
@@ -860,8 +860,8 @@ impl platform::Platform for Wasm {
     }
 
     fn new_resolved_object_ext<'data>(
-        symbol_id_range: wild_layout::symbol_db::SymbolIdRange,
-        file_id: wild_platform::FileId,
+        symbol_id_range: elyld_layout::symbol_db::SymbolIdRange,
+        file_id: elyld_platform::FileId,
     ) -> Self::ResolvedObjectExt<'data> {
         WasmObjectLayout {
             symbol_id_range,
@@ -895,7 +895,7 @@ impl platform::Platform for Wasm {
     fn create_finalise_sizes_ext<'data, 'states, 'files, A: platform::Arch<Platform = Self>>(
         _args: &Self::Args,
         groups: &'files mut [layout::GroupState<'data, Self>],
-        symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) -> Result<Self::FinaliseSizesExt<'data>>
     where
         'data: 'files,
@@ -913,11 +913,11 @@ impl platform::Platform for Wasm {
     }
 
     fn load_exception_frame_data<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
         _eh_frame_section_index: object::SectionIndex,
-        _resources: &'scope wild_layout::GraphResources<'data, '_, Self>,
-        _queue: &mut wild_layout::LocalWorkQueue<Self>,
+        _resources: &'scope elyld_layout::GraphResources<'data, '_, Self>,
+        _queue: &mut elyld_layout::LocalWorkQueue<Self>,
         _scope: &rayon::Scope<'scope>,
     ) -> Result {
         // Wasm doesn't have ELF-style `.eh_frame`.
@@ -925,11 +925,11 @@ impl platform::Platform for Wasm {
     }
 
     fn non_empty_section_loaded<'data, 'scope, A: platform::Arch<Platform = Self>>(
-        _object: &mut wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _queue: &mut wild_layout::LocalWorkQueue<Self>,
-        _unloaded: wild_layout::resolution::UnloadedSection,
-        _resources: &'scope wild_layout::GraphResources<'data, 'scope, Self>,
+        _object: &mut elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _queue: &mut elyld_layout::LocalWorkQueue<Self>,
+        _unloaded: elyld_layout::resolution::UnloadedSection,
+        _resources: &'scope elyld_layout::GraphResources<'data, 'scope, Self>,
         _scope: &rayon::Scope<'scope>,
     ) -> Result {
         Ok(())
@@ -937,8 +937,8 @@ impl platform::Platform for Wasm {
 
     fn new_epilogue_layout<'data>(
         _args: &Self::Args,
-        _output_kind: wild_platform::OutputKind,
-        _dynamic_symbol_definitions: &mut [wild_layout::DynamicSymbolDefinition<'data, Self>],
+        _output_kind: elyld_platform::OutputKind,
+        _dynamic_symbol_definitions: &mut [elyld_layout::DynamicSymbolDefinition<'data, Self>],
         _group_states: &[layout::GroupState<'data, Self>],
     ) -> Self::EpilogueLayoutExt {
     }
@@ -951,10 +951,10 @@ impl platform::Platform for Wasm {
     }
 
     fn apply_non_addressable_indexes<'data, 'groups>(
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
         _counts: &Self::NonAddressableCounts,
         _mem_sizes_iter: impl Iterator<
-            Item = &'groups mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+            Item = &'groups mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
         >,
     ) {
         // Wasm has no non-addressable side tables.
@@ -962,10 +962,10 @@ impl platform::Platform for Wasm {
 
     fn finalise_sizes_epilogue<'data>(
         _state: &mut Self::EpilogueLayoutExt,
-        mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _dynamic_symbol_definitions: &[wild_layout::DynamicSymbolDefinition<'data, Self>],
+        mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _dynamic_symbol_definitions: &[elyld_layout::DynamicSymbolDefinition<'data, Self>],
         properties: &Self::LayoutExt<'data>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) {
         properties.encoded_sections.add_sizes_to(mem_sizes);
         properties.add_code_section_size(mem_sizes);
@@ -973,18 +973,18 @@ impl platform::Platform for Wasm {
     }
 
     fn finalise_sizes_all<'data>(
-        _mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        _mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
     ) {
     }
 
     fn finalise_layout_epilogue<'data>(
         _epilogue_state: &mut Self::EpilogueLayoutExt,
-        memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
+        memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
         common_state: &Self::LayoutExt<'data>,
         _dynsym_start_index: u32,
-        _dynamic_symbol_defs: &[wild_layout::DynamicSymbolDefinition<Self>],
+        _dynamic_symbol_defs: &[elyld_layout::DynamicSymbolDefinition<Self>],
     ) -> Result {
         common_state.encoded_sections.add_sizes_to(memory_offsets);
         common_state.add_code_section_size(memory_offsets);
@@ -996,8 +996,8 @@ impl platform::Platform for Wasm {
         _object: &Self::File<'data>,
         _args: &Self::Args,
         _sym: &Self::SymtabEntry,
-        _output_kind: wild_platform::OutputKind,
-        _export_list: Option<&wild_scripts::export_list::ExportList>,
+        _output_kind: elyld_platform::OutputKind,
+        _export_list: Option<&elyld_scripts::export_list::ExportList>,
         _lib_name: &[u8],
         _archive_semantics: bool,
         _is_undefined: bool,
@@ -1007,81 +1007,81 @@ impl platform::Platform for Wasm {
     }
 
     fn allocate_header_sizes<'data>(
-        _prelude: &mut wild_layout::PreludeLayoutState<'data, Self>,
-        sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _header_info: &wild_layout::HeaderInfo,
-        _program_segments: &wild_platform::program_segments::ProgramSegments<
+        _prelude: &mut elyld_layout::PreludeLayoutState<'data, Self>,
+        sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _header_info: &elyld_layout::HeaderInfo,
+        _program_segments: &elyld_platform::program_segments::ProgramSegments<
             Self::ProgramSegmentDef,
         >,
-        _output_sections: &wild_layout::output_section_id::OutputSections<Self>,
+        _output_sections: &elyld_layout::output_section_id::OutputSections<Self>,
         _resources: &layout::FinaliseSizesResources<'data, '_, Self>,
         _args: &Self::Args,
     ) {
         sizes.increment(
-            wild_layout::part_id::FILE_HEADER,
+            elyld_layout::part_id::FILE_HEADER,
             (WASM_MAGIC.len() + 4) as u64,
         );
     }
 
     fn finalise_sizes_for_symbol<'data>(
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
-        _symbol_id: wild_layout::symbol_db::SymbolId,
-        _flags: wild_platform::value_flags::ValueFlags,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        _symbol_id: elyld_layout::symbol_db::SymbolId,
+        _flags: elyld_platform::value_flags::ValueFlags,
     ) -> Result {
         Ok(())
     }
 
     fn allocate_resolution(
-        _flags: wild_platform::value_flags::ValueFlags,
-        _mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _output_kind: wild_platform::OutputKind,
+        _flags: elyld_platform::value_flags::ValueFlags,
+        _mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _output_kind: elyld_platform::OutputKind,
         _args: &Self::Args,
     ) {
     }
 
     fn allocate_object_symtab_space<'data>(
-        _state: &wild_layout::ObjectLayoutState<'data, Self>,
-        _common: &mut wild_layout::CommonGroupState<'data, Self>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<'data, Self>,
-        _per_symbol_flags: &wild_platform::value_flags::AtomicPerSymbolFlags,
+        _state: &elyld_layout::ObjectLayoutState<'data, Self>,
+        _common: &mut elyld_layout::CommonGroupState<'data, Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<'data, Self>,
+        _per_symbol_flags: &elyld_platform::value_flags::AtomicPerSymbolFlags,
     ) -> Result {
         Ok(())
     }
 
     fn allocate_internal_symbol(
-        _symbol_id: wild_layout::symbol_db::SymbolId,
-        _def_info: &wild_layout::parsing::InternalSymDefInfo<Self>,
-        _sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<Self>,
+        _symbol_id: elyld_layout::symbol_db::SymbolId,
+        _def_info: &elyld_layout::parsing::InternalSymDefInfo<Self>,
+        _sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<Self>,
         _format_specific: &mut Self::CommonGroupStateExt,
     ) -> Result {
         Ok(())
     }
 
     fn allocate_prelude(
-        _common: &mut wild_layout::CommonGroupState<Self>,
-        _symbol_db: &wild_layout::symbol_db::SymbolDb<Self>,
+        _common: &mut elyld_layout::CommonGroupState<Self>,
+        _symbol_db: &elyld_layout::symbol_db::SymbolDb<Self>,
     ) {
     }
 
     fn finalise_prelude_layout<'data>(
-        _prelude: &wild_layout::PreludeLayoutState<Self>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _resources: &wild_layout::FinaliseLayoutResources<'_, 'data, Self>,
+        _prelude: &elyld_layout::PreludeLayoutState<Self>,
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _resources: &elyld_layout::FinaliseLayoutResources<'_, 'data, Self>,
     ) -> Result<Self::PreludeLayoutExt> {
         Ok(())
     }
 
     fn create_resolution(
-        flags: wild_platform::value_flags::ValueFlags,
+        flags: elyld_platform::value_flags::ValueFlags,
         raw_value: u64,
         dynamic_symbol_index: Option<std::num::NonZeroU32>,
-        _memory_offsets: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
-        _args: &<Self as wild_platform::Platform>::Args,
-        _output_kind: wild_platform::OutputKind,
-    ) -> wild_layout::Resolution<Self> {
-        wild_layout::Resolution {
+        _memory_offsets: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _args: &<Self as elyld_platform::Platform>::Args,
+        _output_kind: elyld_platform::OutputKind,
+    ) -> elyld_layout::Resolution<Self> {
+        elyld_layout::Resolution {
             raw_value,
             dynamic_symbol_index,
             flags,
@@ -1103,7 +1103,7 @@ impl platform::Platform for Wasm {
 
     fn align_load_segment_start(
         _segment_def: Self::ProgramSegmentDef,
-        _segment_alignment: wild_util::alignment::Alignment,
+        _segment_alignment: elyld_util::alignment::Alignment,
         _file_offset: &mut usize,
         _mem_offset: &mut u64,
     ) {
@@ -1112,19 +1112,19 @@ impl platform::Platform for Wasm {
 
     fn build_output_order_and_program_segments<'data>(
         _custom: &Self::CustomSectionIds,
-        output_kind: wild_platform::OutputKind,
+        output_kind: elyld_platform::OutputKind,
         output_sections: &Self::OutputSections<'data>,
-        secondary: &wild_platform::output_section_map::OutputSectionMap<
-            Vec<wild_layout::output_section_id::OutputSectionId>,
+        secondary: &elyld_platform::output_section_map::OutputSectionMap<
+            Vec<elyld_layout::output_section_id::OutputSectionId>,
         >,
         _location_counters: &[Self::LocationCounter<'data>],
     ) -> (
         Self::OutputOrder<'data>,
-        wild_platform::program_segments::ProgramSegments<Self::ProgramSegmentDef>,
+        elyld_platform::program_segments::ProgramSegments<Self::ProgramSegmentDef>,
     ) {
         use crate::output_section_id as osid;
 
-        let mut builder = wild_layout::output_section_id::OutputOrderBuilder::<Self>::new(
+        let mut builder = elyld_layout::output_section_id::OutputOrderBuilder::<Self>::new(
             Self::program_segment_defs().to_vec(),
             output_kind,
             output_sections,
@@ -1133,7 +1133,7 @@ impl platform::Platform for Wasm {
             &[],
         );
 
-        builder.add_section(wild_layout::output_section_id::FILE_HEADER);
+        builder.add_section(elyld_layout::output_section_id::FILE_HEADER);
         builder.add_section(osid::WASM_TYPE);
         builder.add_section(osid::WASM_IMPORT);
         builder.add_section(osid::WASM_FUNCTION);
@@ -1156,8 +1156,8 @@ impl platform::Platform for Wasm {
         WasmSymbol::default()
     }
 
-    fn is_allowed_in_archive(kind: wild_platform::FileKind) -> bool {
-        kind == wild_platform::FileKind::WasmObject
+    fn is_allowed_in_archive(kind: elyld_platform::FileKind) -> bool {
+        kind == elyld_platform::FileKind::WasmObject
     }
 
     fn section_identity<'data>(

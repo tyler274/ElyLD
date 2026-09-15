@@ -11,8 +11,8 @@ use std::io::{ErrorKind, Read as _, Seek as _, SeekFrom, Write as _};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use wild_error::error;
-use wild_error::error::{Context as _, Result};
+use elyld_error::error;
+use elyld_error::error::{Context as _, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileReplacementMode {
@@ -82,7 +82,7 @@ pub trait OutputFileData: Send {
 /// # Examples
 ///
 /// ```
-/// use libwild::{FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions};
+/// use libelyld::{FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions};
 /// use object::write::{Object, StandardSection, Symbol, SymbolSection};
 /// use object::{Architecture, BinaryFormat, Endianness, SymbolFlags, SymbolKind, SymbolScope};
 /// use std::collections::HashMap;
@@ -121,7 +121,7 @@ pub trait OutputFileData: Send {
 ///         &mut self.bytes
 ///     }
 ///
-///     fn finish(mut self) -> libwild::error::Result {
+///     fn finish(mut self) -> libelyld::error::Result {
 ///         let data = mem::take(&mut self.bytes);
 ///         self.files
 ///             .lock()
@@ -139,18 +139,18 @@ pub trait OutputFileData: Send {
 ///         &self,
 ///         path: &Path,
 ///         _prepopulate_maps: bool,
-///     ) -> libwild::error::Result<(Self::Input, Option<Arc<File>>)> {
+///     ) -> libelyld::error::Result<(Self::Input, Option<Arc<File>>)> {
 ///         let bytes = self
 ///             .files
 ///             .lock()
 ///             .unwrap()
 ///             .get(&path.to_path_buf())
 ///             .cloned()
-///             .ok_or_else(|| libwild::error!("No such in-memory file: {}", path.display()))?;
+///             .ok_or_else(|| libelyld::error!("No such in-memory file: {}", path.display()))?;
 ///         Ok((Input(bytes), None))
 ///     }
 ///
-///     fn file_type(&self, path: &Path) -> libwild::error::Result<FileType> {
+///     fn file_type(&self, path: &Path) -> libelyld::error::Result<FileType> {
 ///         if self
 ///             .files
 ///             .lock()
@@ -167,11 +167,11 @@ pub trait OutputFileData: Send {
 ///         }
 ///     }
 ///
-///     fn canonicalize(&self, path: &Path) -> libwild::error::Result<PathBuf> {
+///     fn canonicalize(&self, path: &Path) -> libelyld::error::Result<PathBuf> {
 ///         Ok(path.to_path_buf())
 ///     }
 ///
-///     fn rename_file(&self, path: &Path, new_path: &Path) -> libwild::error::Result<()> {
+///     fn rename_file(&self, path: &Path, new_path: &Path) -> libelyld::error::Result<()> {
 ///         let mut guard = self.files.lock().unwrap();
 ///         let Some(data) = guard.remove(&path.to_path_buf()) else {
 ///             return Err(std::io::Error::new(
@@ -185,7 +185,7 @@ pub trait OutputFileData: Send {
 ///         Ok(())
 ///     }
 ///
-///     fn remove_file(&self, path: &Path) -> libwild::error::Result<()> {
+///     fn remove_file(&self, path: &Path) -> libelyld::error::Result<()> {
 ///         Ok(self
 ///             .files
 ///             .lock()
@@ -201,9 +201,9 @@ pub trait OutputFileData: Send {
 ///         &self,
 ///         path: Arc<Path>,
 ///         options: OutputOptions,
-///     ) -> libwild::error::Result<Self::Output> {
+///     ) -> libelyld::error::Result<Self::Output> {
 ///         let size = usize::try_from(options.size)
-///             .map_err(|_| libwild::error!("output is too large for this platform"))?;
+///             .map_err(|_| libelyld::error!("output is too large for this platform"))?;
 ///         Ok(Output {
 ///             path: path.to_path_buf(),
 ///             bytes: vec![0; size],
@@ -211,7 +211,7 @@ pub trait OutputFileData: Send {
 ///         })
 ///     }
 ///
-///     fn write_auxiliary(&self, path: &Path, bytes: &[u8]) -> libwild::error::Result {
+///     fn write_auxiliary(&self, path: &Path, bytes: &[u8]) -> libelyld::error::Result {
 ///         self.files
 ///             .lock()
 ///             .unwrap()
@@ -237,7 +237,7 @@ pub trait OutputFileData: Send {
 ///     object.write()
 /// }
 ///
-/// fn run() -> libwild::error::Result {
+/// fn run() -> libelyld::error::Result {
 ///     let fs = InMemoryFileSystem::default();
 ///
 ///     fs.files
@@ -246,7 +246,7 @@ pub trait OutputFileData: Send {
 ///         .insert(PathBuf::from("main.o"), create_main_object()?);
 ///
 ///     let arguments = [
-///         "wild",
+///         "elyld",
 ///         "-m",
 ///         "elf_x86_64",
 ///         "-shared",
@@ -255,7 +255,7 @@ pub trait OutputFileData: Send {
 ///         "libx.so",
 ///     ];
 ///     let get_arguments = || arguments.into_iter();
-///     let mut args = libwild::Args::new(get_arguments)?;
+///     let mut args = libelyld::Args::new(get_arguments)?;
 ///     args.parse(get_arguments)?;
 ///
 ///     let linker = Linker::with_file_system(fs.clone());
@@ -267,7 +267,7 @@ pub trait OutputFileData: Send {
 ///         .unwrap()
 ///         .get(Path::new("libx.so"))
 ///         .cloned()
-///         .ok_or_else(|| libwild::error!("linker did not create libx.so"))?;
+///         .ok_or_else(|| libelyld::error!("linker did not create libx.so"))?;
 ///     // std::fs::write("libx.so", &output)?;
 ///     Ok(())
 /// }

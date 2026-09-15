@@ -4,6 +4,6 @@ pub(crate) mod load;
 
 #[allow(unused_imports)]
 pub(crate) use load::*;
-pub(crate) use wild_args::{InputLinkerScript, InputRef};
-pub(crate) use wild_layout::input_data::{AuxiliaryFiles, FileLoader, InputFile, InputPath};
-pub(crate) use wild_scripts::ScriptData;
+pub(crate) use elyld_args::{InputLinkerScript, InputRef};
+pub(crate) use elyld_layout::input_data::{AuxiliaryFiles, FileLoader, InputFile, InputPath};
+pub(crate) use elyld_scripts::ScriptData;

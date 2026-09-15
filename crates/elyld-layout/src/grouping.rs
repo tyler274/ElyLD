@@ -3,12 +3,12 @@ use crate::symbol::UnversionedSymbolName;
 use crate::symbol_db::{SymbolDb, SymbolId, SymbolIdRange, SymbolStrength};
 use crate::{timing_phase, verbose_timing_phase};
 use std::fmt::Display;
-use wild_args::{Experiment, InputRef};
-use wild_error::error::Result;
-use wild_platform as platform;
-use wild_platform::{FileId, MAX_FILES_PER_GROUP, ObjectFile, Platform};
-use wild_util::input_section_id::{InputSectionId, SectionIdRange};
-use wild_util::sharding::ShardKey as _;
+use elyld_args::{Experiment, InputRef};
+use elyld_error::error::Result;
+use elyld_platform as platform;
+use elyld_platform::{FileId, MAX_FILES_PER_GROUP, ObjectFile, Platform};
+use elyld_util::input_section_id::{InputSectionId, SectionIdRange};
+use elyld_util::sharding::ShardKey as _;
 
 #[derive(Debug, Clone)]
 pub struct DefinedStubLibrary<'a> {
@@ -40,7 +40,7 @@ pub struct LoadedStubLibrary<'data> {
 mod lto {
     use super::*;
     use crossbeam_utils::atomic::AtomicCell;
-    use wild_platform::Visibility;
+    use elyld_platform::Visibility;
 
     #[derive(Debug)]
     pub struct LtoInput<'data> {
@@ -601,7 +601,7 @@ fn determine_max_files_per_group(args: &impl platform::Args) -> usize {
 
     // We may eventually find that a lower value based on the number of threads is better, but for
     // now, if files are small, we allow lots of them in a single group.
-    wild_platform::MAX_FILES_PER_GROUP as usize
+    elyld_platform::MAX_FILES_PER_GROUP as usize
 }
 
 /// Compute the total number of symbols in the supplied objects.

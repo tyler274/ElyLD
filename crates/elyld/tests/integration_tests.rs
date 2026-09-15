@@ -33,7 +33,7 @@
 //! SoSingleLinker:{linker name} If specified, we will use the named linker for liking shared
 //! objects regardless of the linker under test.
 //!
-//! WildExtraLinkArgs:... Extra linker arguments that should only be passed to the Wild linker.
+//! ElyldExtraLinkArgs:... Extra linker arguments that should only be passed to ElyLD.
 //!
 //! Env:NAME=value Adds an environment variable to linker invocations.
 //!
@@ -138,7 +138,7 @@
 //! ReferenceLinkers:{linker-names} List of reference linkers to run this test with.
 //!   `bfd,lld,mold` is a four-way diff (GNU ld, LLD, Mold, Wild). Tests that omit
 //!   this directive use GNU ld only, unless `default_reference_linkers` is set in
-//!   the test config or `WILD_FOUR_WAY=1`.
+//!   the test config or `ELYLD_FOUR_WAY=1`.
 //!
 //! SkipLinker:{linker-name} Don't link with the specified linker. Mostly useful if testing a flag
 //! that isn't supported by GNU ld. Deprecated - use ReferenceLinkers instead.
@@ -158,9 +158,9 @@
 //! ExpectWarning:{message regex} Verifies that the linker emits a warning matching the specified
 //! regex. Warning must be written to stderr. May be specified multiple times - all must match.
 //!
-//! ExpectWarningWild:{message regex} As for ExpectWarning, but only checks Wild's warning output.
+//! ExpectWarningWild:{message regex} As for ExpectWarning, but only checks ElyLD's warning output.
 //!
-//! ExpectErrorWild:{error regex} As for ExpectError, but only checks Wild's error output.
+//! ExpectErrorElyld:{error regex} As for ExpectError, but only checks ElyLD's error output.
 //!
 //! Malfunction:{malfunction-id} Run with the specified malfunction enabled. Linking should still
 //! succeed, but linker-diff should report a diff. That diff will be snapshot tested.
@@ -191,11 +191,11 @@
 //! that the version of rustc available to us is not nightly.
 //!
 //! RequiresCompilerFlags:{flag} Checks if the compiler supports the specified flag(s) and skips the
-//! test if it doesn't. Set WILD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements are
+//! test if it doesn't. Set ELYLD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements are
 //! met and no tests are skipped.
 //!
 //! RequiresLinkerFlags:{flag} Checks if the system linker supports the specified flag(s) and skips
-//! the test if it doesn't. Set WILD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements
+//! the test if it doesn't. Set ELYLD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements
 //! are met and no tests are skipped.
 //!
 //! RequiresRustMusl:{bool} Defaults to false. Set to true to clarify that this test requires the
@@ -211,7 +211,7 @@
 //! expanded to the wasi-libc sysroot. The sysroot is taken from the `WASI_SYSROOT` environment
 //! variable if set, otherwise `/usr` when `/usr/lib/wasm32-wasi/libc.a` exists.
 //!
-//! RequiresZstdCompression:{bool} Requires the ZSTD compression being enabled in the Wild linker.
+//! RequiresZstdCompression:{bool} Requires the ZSTD compression being enabled in ElyLD.
 //!
 //! AutoAddObjects:{bool} Whether to automatically add input objects for the test to the command
 //! line. Defaults to true.
@@ -221,17 +221,17 @@
 //! having been pre-filled with random data. It then compares the output of the two runs to verify
 //! that they're the same.
 //!
-//! TestRelinkAfterRun:{bool} Run Wild's output, relink it at the same path, then run it again.
+//! TestRelinkAfterRun:{bool} Run ElyLD's output, relink it at the same path, then run it again.
 //! Verifies that relinking replaces the output file rather than updating its inode in place.
 //!
 //! TestIncremental:{bool} After the first Wild link with `--incremental`, relink at the same path
 //! and check that `{output}.incr/log` records an incremental-update. Recompiles C sources with
-//! `-DWILD_INC=1` and Rust sources with `--cfg wild_inc` for the second link. The recompile uses
+//! `-DELYLD_INC=1` and Rust sources with `--cfg wild_inc` for the second link. The recompile uses
 //! this config's Compiler, CompilerWrapper, and CompArgs. Rust tests that pass `--emit=obj` compile
 //! to a stable `.o` so an in-place update is possible; rustc save-dir tests typically need
 //! IncrementalAllowFallback because codegen-unit hashes change.
 //!
-//! IncrementalExpect:{exit-code} Exit status expected after the `-DWILD_INC=1` incremental update.
+//! IncrementalExpect:{exit-code} Exit status expected after the `-DELYLD_INC=1` incremental update.
 //! Defaults to 43.
 //!
 //! IncrementalAllowFallback:{bool} Defaults to false. When true, an incremental relink may record
@@ -377,8 +377,8 @@ use gimli::Reader as _;
 use itertools::Itertools;
 use libloading::Library;
 use libtest_mimic::Trial;
-use libwild::error::{Context as _, Error};
-use libwild::{bail, ensure, error};
+use libelyld::error::{Context as _, Error};
+use libelyld::{bail, ensure, error};
 use object::macho::{
     LC_CODE_SIGNATURE, LC_DYLD_CHAINED_FIXUPS, LC_DYLD_EXPORTS_TRIE, MH_HAS_TLV_DESCRIPTORS,
     S_THREAD_LOCAL_REGULAR, S_THREAD_LOCAL_VARIABLES, S_THREAD_LOCAL_ZEROFILL, SEG_LINKEDIT,
@@ -897,9 +897,9 @@ fn run_wasm_with_wasmtime(wasm_file: &Path, linker_name: &str, invoke: Option<&s
 
 /// Set this variable to a non-empty value to check that the current platform meets the requirements
 /// for running all tests.
-const FULL_PLATFORM_REQUIRED_VAR: &str = "WILD_VERIFY_PLATFORM_REQUIREMENTS";
+const FULL_PLATFORM_REQUIRED_VAR: &str = "ELYLD_VERIFY_PLATFORM_REQUIREMENTS";
 
-type Result<T = (), E = libwild::error::Error> = core::result::Result<T, E>;
+type Result<T = (), E = libelyld::error::Error> = core::result::Result<T, E>;
 type ElfFile64<'data> = object::read::elf::ElfFile64<'data, LittleEndian>;
 
 const TEMPLATE_PLACEHOLDER: &str = "$O";
@@ -943,7 +943,7 @@ fn repo_root() -> PathBuf {
 }
 
 fn build_dir() -> PathBuf {
-    std::env::var("WILD_TEST_BUILD_DIR").map_or(base_dir().join("tests/build"), PathBuf::from)
+    std::env::var("ELYLD_TEST_BUILD_DIR").map_or(base_dir().join("tests/build"), PathBuf::from)
 }
 
 #[derive(Debug, Clone)]
@@ -960,7 +960,7 @@ struct Program<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Linker {
-    Wild,
+    Elyld,
     ThirdParty(ThirdPartyLinker),
 }
 
@@ -995,7 +995,7 @@ struct ThirdPartyLinker {
 impl Linker {
     fn path(&self, cross_arch: Option<Architecture>) -> &Path {
         match self {
-            Linker::Wild => wild_path(),
+            Linker::Elyld => elyld_path(),
             Linker::ThirdParty(info) => cross_arch
                 .and_then(|arch| info.cross_paths.get(&arch))
                 .unwrap_or(&info.path),
@@ -1050,20 +1050,20 @@ impl Linker {
         ))
     }
 
-    fn is_wild(&self) -> bool {
-        *self == Linker::Wild
+    fn is_elyld(&self) -> bool {
+        *self == Linker::Elyld
     }
 
     fn name(&self) -> &str {
         match self {
-            Linker::Wild => "wild",
+            Linker::Elyld => "elyld",
             Linker::ThirdParty(l) => l.name,
         }
     }
 
     fn enabled_by_default(&self) -> bool {
         match self {
-            Linker::Wild => true,
+            Linker::Elyld => true,
             Linker::ThirdParty(l) => l.enabled_by_default,
         }
     }
@@ -1078,14 +1078,31 @@ impl Linker {
 
     fn gcc_name(&self) -> &str {
         match self {
-            Linker::Wild => "wild",
+            Linker::Elyld => "elyld",
             Linker::ThirdParty(third_party_linker) => third_party_linker.gcc_name,
         }
     }
 }
 
-fn wild_path() -> &'static Path {
-    Path::new(env!("CARGO_BIN_EXE_wild"))
+fn elyld_path() -> &'static Path {
+    Path::new(env!("CARGO_BIN_EXE_elyld"))
+}
+
+/// Directory to pass as GCC `-B` so collect2 finds `ld` / `ld.elyld` rather than
+/// a stdenv `-B` that still points at another linker.
+fn elyld_b_dir() -> &'static Path {
+    static DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        let bin = elyld_path();
+        let dir = bin.parent().expect("elyld path has a parent").to_path_buf();
+        for name in ["ld", "ld.elyld"] {
+            let link = dir.join(name);
+            let _ = std::fs::remove_file(&link);
+            let _ = std::os::unix::fs::symlink(bin, &link);
+        }
+        dir
+    })
+    .as_path()
 }
 
 #[derive(Debug)]
@@ -1124,7 +1141,7 @@ enum LinkerInvocationMode {
     Cc,
 
     /// We invoke a shell script which invokes the linker. The shell script will have been written
-    /// by previously running wild with WILD_SAVE_DIR set.
+    /// by previously running wild with ELYLD_SAVE_DIR set.
     Script,
 }
 
@@ -1399,7 +1416,7 @@ struct Config {
     driver_mode: Option<DriverMode>,
 }
 
-/// These configs are used by the config file specified in `$WILD_TEST_CONFIG`
+/// These configs are used by the config file specified in `$ELYLD_TEST_CONFIG`
 #[derive(serde::Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct TestConfig {
@@ -1428,7 +1445,7 @@ struct TestConfig {
 
     /// Default `ReferenceLinkers` for tests that omit the directive. Empty means
     /// each third-party linker uses its `enabled_by_default` flag (GNU `ld` only).
-    /// Set to `["bfd", "lld", "mold"]` or export `WILD_FOUR_WAY=1` for a four-way
+    /// Set to `["bfd", "lld", "mold"]` or export `ELYLD_FOUR_WAY=1` for a four-way
     /// diff against GNU ld, LLD, Mold, and Wild. Tests that pin `ReferenceLinkers`
     /// keep that pin (linker-script tests stay GNU-only).
     #[serde(default)]
@@ -1589,7 +1606,7 @@ impl SectionFlags {
 #[derive(Debug, Clone)]
 struct ErrorMatcher {
     regex: regex::Regex,
-    wild_only: bool,
+    elyld_only: bool,
 }
 
 fn get_glibc_version() -> Option<Vec<u32>> {
@@ -1619,8 +1636,8 @@ fn get_glibc_version() -> Option<Vec<u32>> {
 
 /// Checks if the system's glibc supports SFrame-based stack unwinding for a given architecture.
 ///
-/// 1. Check environment variable overrides (WILD_SKIP_SFRAME_BACKTRACE /
-///    WILD_FORCE_SFRAME_BACKTRACE)
+/// 1. Check environment variable overrides (ELYLD_SKIP_SFRAME_BACKTRACE /
+///    ELYLD_FORCE_SFRAME_BACKTRACE)
 /// 2. Check glibc version (must be 2.42+)
 /// 3. Compile and run a test program that uses SFrame-only backtrace to verify it works at runtime
 fn is_sframe_backtrace_supported(arch: Architecture) -> bool {
@@ -1643,10 +1660,10 @@ fn is_sframe_backtrace_supported(arch: Architecture) -> bool {
 }
 
 fn check_sframe_support_for_arch(arch: Architecture) -> bool {
-    if std::env::var("WILD_SKIP_SFRAME_BACKTRACE").is_ok() {
+    if std::env::var("ELYLD_SKIP_SFRAME_BACKTRACE").is_ok() {
         return false;
     }
-    if std::env::var("WILD_FORCE_SFRAME_BACKTRACE").is_ok() {
+    if std::env::var("ELYLD_FORCE_SFRAME_BACKTRACE").is_ok() {
         return true;
     }
 
@@ -1795,13 +1812,13 @@ impl Config {
 
     fn is_linker_enabled(&self, linker: &Linker) -> bool {
         if let Some(references) = self.reference_linkers.as_ref() {
-            if linker.is_wild() {
+            if linker.is_elyld() {
                 return true;
             }
             return references.iter().any(|n| n == linker.gcc_name());
         }
         if !self.test_config.default_reference_linkers.is_empty() {
-            if linker.is_wild() {
+            if linker.is_elyld() {
                 return true;
             }
             if self.skip_linkers.contains(linker.name()) {
@@ -2470,7 +2487,9 @@ fn process_directive(
         "LinkerDriver" => {
             config.linker_driver = LinkerDriver::parse(arg)?;
         }
-        "WildExtraLinkArgs" => config.wild_extra_linker_args = ArgumentSet::parse(arg),
+        "ElyldExtraLinkArgs" | "WildExtraLinkArgs" => {
+            config.wild_extra_linker_args = ArgumentSet::parse(arg)
+        }
         "Env" => {
             let (name, value) = arg
                 .split_once('=')
@@ -2686,8 +2705,8 @@ fn process_directive(
             config.should_run = false;
             config.should_diff = false;
         }
-        "ExpectErrorWild" => {
-            config.expect_stderr.push(ErrorMatcher::wild_only(arg)?);
+        "ExpectErrorElyld" | "ExpectErrorWild" => {
+            config.expect_stderr.push(ErrorMatcher::elyld_only(arg)?);
             config.should_error = true;
             // If there are errors, then there's nothing to run and nothing to diff.
             config.should_run = false;
@@ -2699,8 +2718,8 @@ fn process_directive(
         "ExpectWarning" => {
             config.expect_stderr.push(ErrorMatcher::new(arg)?);
         }
-        "ExpectWarningWild" => {
-            config.expect_stderr.push(ErrorMatcher::wild_only(arg)?);
+        "ExpectWarningElyld" | "ExpectWarningWild" => {
+            config.expect_stderr.push(ErrorMatcher::elyld_only(arg)?);
         }
         "Malfunction" => {
             let prefix = format!("malfunction-{arg}");
@@ -2870,7 +2889,7 @@ impl ProgramInputs {
         cross_arch: Option<Architecture>,
     ) -> Result<Program<'a>> {
         if config.test_incremental {
-            // A previous incremental run may have left a -DWILD_INC / --cfg wild_inc object.
+            // A previous incremental run may have left a -DELYLD_INC / --cfg wild_inc object.
             // Force a clean compile so GNU ld and Wild both start from the unmarked object.
             let stem = config
                 .build_dir()
@@ -2904,11 +2923,11 @@ impl ProgramInputs {
             )
             .collect::<Result<Vec<_>>>()?;
 
-        if config.test_update_in_place && linker.is_wild() {
+        if config.test_update_in_place && linker.is_elyld() {
             let _ = std::fs::remove_file(linker.output_path(self.name(), config));
         }
 
-        if config.test_incremental && linker.is_wild() {
+        if config.test_incremental && linker.is_elyld() {
             let output = linker.output_path(self.name(), config);
             let _ = std::fs::remove_file(&output);
             let mut incr = output.into_os_string();
@@ -2918,16 +2937,16 @@ impl ProgramInputs {
 
         let link_output = linker.link(self.name(), &inputs, config, cross_arch)?;
 
-        if config.test_update_in_place && matches!(linker, Linker::Wild) {
+        if config.test_update_in_place && matches!(linker, Linker::Elyld) {
             self.run_update_in_place_test(&inputs, config, cross_arch, &link_output)?;
         }
 
-        if config.test_incremental && linker.is_wild() {
+        if config.test_incremental && linker.is_elyld() {
             self.run_incremental_test(linker, &inputs, config, cross_arch, &link_output)?;
         }
 
         #[cfg(target_os = "macos")]
-        if config.test_relink_after_run && config.should_run && linker.is_wild() {
+        if config.test_relink_after_run && config.should_run && linker.is_elyld() {
             self.run_relink_after_run_test(linker, &inputs, config, cross_arch, &link_output)?;
         }
 
@@ -2984,7 +3003,7 @@ impl ProgramInputs {
             .with_context(|| format!("Failed to write: {}", path.display()))?;
 
         let updated_link_output =
-            Linker::Wild.link(self.name(), inputs, &config_update_in_place, cross_arch)?;
+            Linker::Elyld.link(self.name(), inputs, &config_update_in_place, cross_arch)?;
 
         // Verify the content matches the first build
         let final_content = std::fs::read(&updated_link_output.binary).with_context(|| {
@@ -3114,7 +3133,7 @@ impl ProgramInputs {
         let restore = RestoreObject::snapshot(&inputs[0].path)?;
 
         self.rebuild_primary(config, &inputs[0].path, cross_arch, true)
-            .context("Failed to recompile primary source with -DWILD_INC=1 / --cfg wild_inc")?;
+            .context("Failed to recompile primary source with -DELYLD_INC=1 / --cfg wild_inc")?;
         let updated = linker.link(self.name(), inputs, config, cross_arch)?;
         let log = std::fs::read_to_string(state_dir.join("log")).with_context(|| {
             format!(
@@ -3190,7 +3209,7 @@ impl ProgramInputs {
         );
         command.args(&config.compiler_args.args);
         if wild_inc {
-            command.arg("-DWILD_INC=1");
+            command.arg("-DELYLD_INC=1");
         }
         let status = command
             .status()
@@ -3237,7 +3256,7 @@ impl ProgramInputs {
                 format!("Failed to copy {} onto {}", tmp.display(), dest.display())
             })?;
         } else {
-            command.env("WILD_SAVE_DIR", dest);
+            command.env("ELYLD_SAVE_DIR", dest);
             let run_with = run_with_path(dest);
             let _ = std::fs::remove_file(&run_with);
             let _ = std::fs::remove_file(cmd_path(&run_with));
@@ -3509,7 +3528,7 @@ impl LinkOutput {
 /// still having it open. Linux 6.11 fixed this problem by removing ETXTBSY, but unfortunately that
 /// got reverted. Someday, we might get O_CLOFORK, but that would only help if the associated mmap
 /// isn't cloned. In the meantime, our options are (a) only write executables from subprocesses -
-/// but then we don't get to test in-process use of libwild or (b) this retry logic. See also
+/// but then we don't get to test in-process use of libelyld or (b) this retry logic. See also
 /// https://github.com/rust-lang/rust/issues/114554
 fn spawn_with_retry(command: &mut Command, timeout: Duration) -> Result<std::process::Child> {
     let start = Instant::now();
@@ -4004,12 +4023,12 @@ fn build_obj(
             if emit_obj {
                 command.arg("-o").arg(&output_path);
             } else {
-                command.env("WILD_SAVE_DIR", &output_path);
+                command.env("ELYLD_SAVE_DIR", &output_path);
             }
         }
     }
 
-    let needs_run_with = command.get_envs().any(|(key, _)| key == "WILD_SAVE_DIR");
+    let needs_run_with = command.get_envs().any(|(key, _)| key == "ELYLD_SAVE_DIR");
 
     // If we're creating a run-with file, then check timestamp on that rather than the directory.
     // Otherwise if a previous run created the directory but failed to create the file, we won't
@@ -4148,8 +4167,8 @@ fn add_rustc_compile_args(
         return Ok(());
     }
 
-    let wild = wild_path().to_str().context("Need UTF-8 path")?.to_owned();
-    command.env("WILD_SAVE_SKIP_LINKING", "1");
+    let wild = elyld_path().to_str().context("Need UTF-8 path")?.to_owned();
+    command.env("ELYLD_SAVE_SKIP_LINKING", "1");
 
     if config.platform == PlatformKind::Wasm {
         command
@@ -4507,7 +4526,7 @@ impl Linker {
     ) -> Result<LinkOutput> {
         let output_path = self.output_path(basename, config);
         let mut linker_args = config.linker_args.clone();
-        if self.is_wild() {
+        if self.is_elyld() {
             linker_args
                 .args
                 .extend(config.wild_extra_linker_args.args.iter().cloned());
@@ -4642,9 +4661,9 @@ impl LinkCommand {
                         command = Command::new(linker_driver.name());
                     }
 
-                    if linker.is_wild() {
+                    if linker.is_elyld() {
                         let save_dir = output_path.with_extension("save");
-                        command.env("WILD_SAVE_DIR", &save_dir);
+                        command.env("ELYLD_SAVE_DIR", &save_dir);
                         opt_save_dir = Some(save_dir);
                     }
 
@@ -4661,15 +4680,19 @@ impl LinkCommand {
                         }
                         Compiler::Gcc(_) => {
                             match linker {
-                                Linker::Wild => {
+                                Linker::Elyld => {
                                     // GCC unfortunately doesn't provide any way to use a custom
                                     // linker. Their flag for switching linkers only accepts a
                                     // hard-coded list of alternatives and the developers don't seem
                                     // to want any equivalent to clang's --ld-path. The closest we
                                     // can get is to put a file called "ld" in a directory, then
                                     // pass "-B" and that directory.
-                                    let bin_dir = wild_path().parent().unwrap();
-                                    command.arg("-B").arg(bin_dir);
+                                    //
+                                    // Drop Nix stdenv `-B` so collect2 cannot pick a host linker
+                                    // before this directory.
+                                    command.env_remove("NIX_CFLAGS_LINK");
+                                    command.env_remove("NIX_LDFLAGS");
+                                    command.arg("-B").arg(elyld_b_dir());
                                 }
                                 Linker::ThirdParty(third_party_linker) => {
                                     command
@@ -4695,7 +4718,7 @@ impl LinkCommand {
                     }
 
                     // Only some linkers support -flavor
-                    if linker.is_wild() || linker.is_lld() {
+                    if linker.is_elyld() || linker.is_lld() {
                         command.arg("-flavor").arg(config.platform.flavor());
                     }
 
@@ -4740,7 +4763,7 @@ impl LinkCommand {
                                 .join(format!("{}.wat", config.test_name));
                             if primary_wat.exists() {
                                 command.arg("--no-entry");
-                                if !linker.is_wild() {
+                                if !linker.is_elyld() {
                                     // TODO(wasm): Support these options
                                     command.arg("--export-all").arg("--no-check-features");
                                 }
@@ -4753,7 +4776,7 @@ impl LinkCommand {
             }
 
             if let Some(malfunction) = config.active_malfunction.as_ref() {
-                command.env(libwild::malfunction::ENV_NAME, malfunction);
+                command.env(libelyld::malfunction::ENV_NAME, malfunction);
             }
 
             if !linker_args.args.iter().any(|arg| arg == "-o") {
@@ -4764,7 +4787,7 @@ impl LinkCommand {
             command.args(&config.post_linker_args.args);
         }
 
-        if linker.is_wild() {
+        if linker.is_elyld() {
             // For Script mode, the linker binary is the first script argument and extra flags must
             // not precede `-flavor` inside the script args. Use env vars instead of CLI
             // flags in that case.
@@ -4773,12 +4796,12 @@ impl LinkCommand {
             if pass_wild_flags_via_cli {
                 command.arg("--validate-output");
                 // TODO: Add a flag or do something so that unsupported flags get ignored. i.e. the
-                // equivalent of the line below, but for directly calling libwild. Perhaps rather
-                // than printing warnings, libwild should return them, then we as the caller can
+                // equivalent of the line below, but for directly calling libelyld. Perhaps rather
+                // than printing warnings, libelyld should return them, then we as the caller can
                 // just choose to not print them.
             } else {
-                command.env(libwild::args::WILD_UNSUPPORTED_ENV, "ignore");
-                command.env(libwild::args::VALIDATE_ENV, "1");
+                command.env(libelyld::args::ELYLD_UNSUPPORTED_ENV, "ignore");
+                command.env(libelyld::args::VALIDATE_ENV, "1");
             }
 
             if config.should_diff || config.assertions.requires_metrics() {
@@ -4786,8 +4809,8 @@ impl LinkCommand {
                     command.arg("--write-layout");
                     command.arg("--write-trace");
                 } else {
-                    command.env(libwild::args::WRITE_LAYOUT_ENV, "1");
-                    command.env(libwild::args::WRITE_TRACE_ENV, "1");
+                    command.env(libelyld::args::WRITE_LAYOUT_ENV, "1");
+                    command.env(libelyld::args::WRITE_TRACE_ENV, "1");
                 }
             }
         }
@@ -4828,10 +4851,10 @@ impl LinkCommand {
         }
 
         // If we're linking with wild and we're going to be invoking the linker directly, then just
-        // use libwild as a library. This is marginally faster, since we avoid the process startup
+        // use libelyld as a library. This is marginally faster, since we avoid the process startup
         // costs. It also allows us to exercise wild as a library. We still exercise wild from the
         // command-line via the shell-script-based tests.
-        if self.linker.is_wild()
+        if self.linker.is_elyld()
             && self.invocation_mode == LinkerInvocationMode::Direct
             && config.can_use_wild_in_process()
         {
@@ -4842,8 +4865,8 @@ impl LinkCommand {
                 .collect::<Option<Vec<&str>>>()
                 .context("Linker args must be valid utf-8")?;
 
-            let get_args = || std::iter::once("wild").chain(args.iter().copied());
-            let mut parsed_args = libwild::Args::new(get_args)?;
+            let get_args = || std::iter::once("elyld").chain(args.iter().copied());
+            let mut parsed_args = libelyld::Args::new(get_args)?;
             parsed_args.set_version("integration-test");
             let warnings = Arc::new(Mutex::new(String::new()));
             parsed_args.on_warning({
@@ -4853,9 +4876,9 @@ impl LinkCommand {
             parsed_args.parse(get_args)?;
 
             // This call is expected to error for all but the first call.
-            let _ = libwild::setup_tracing(&parsed_args);
-            libwild::run(parsed_args)
-                .with_context(|| format!("libwild reported error. Rerun command(s):\n{self}"))?;
+            let _ = libelyld::setup_tracing(&parsed_args);
+            libelyld::run(parsed_args)
+                .with_context(|| format!("libelyld reported error. Rerun command(s):\n{self}"))?;
 
             let warnings = warnings.lock().unwrap();
             self.check_messages(&config.expect_stderr, "stderr", &warnings, "", &warnings)?;
@@ -4906,7 +4929,7 @@ impl LinkCommand {
 
     fn run_save_dir_response(&mut self, config: &Config) -> Result<LinkerMessages> {
         let save_dir = self.output_path.with_extension("save");
-        self.command.env("WILD_SAVE_DIR", &save_dir);
+        self.command.env("ELYLD_SAVE_DIR", &save_dir);
         self.opt_save_dir = Some(save_dir.clone());
 
         let rsp_path = self.output_path.with_extension("rsp");
@@ -4969,8 +4992,8 @@ impl LinkCommand {
             create_save_dir_cmd.current_dir(dir);
         }
 
-        create_save_dir_cmd.env("WILD_SAVE_DIR", &save_dir);
-        create_save_dir_cmd.env("WILD_SAVE_SKIP_LINKING", "1");
+        create_save_dir_cmd.env("ELYLD_SAVE_DIR", &save_dir);
+        create_save_dir_cmd.env("ELYLD_SAVE_SKIP_LINKING", "1");
 
         let output = create_save_dir_cmd.output().with_context(|| {
             format!(
@@ -5000,7 +5023,7 @@ impl LinkCommand {
 
         let mut run_save_dir_cmd = Command::new("bash");
         run_save_dir_cmd.arg(&run_with);
-        run_save_dir_cmd.arg(wild_path());
+        run_save_dir_cmd.arg(elyld_path());
 
         // The fact that our save-dirs use D is an implementation detail, but it's convenient to
         // stress-test our handling of that variable by setting it to an invalid value here.
@@ -5047,7 +5070,7 @@ impl LinkCommand {
         stderr: &str,
     ) -> Result {
         for expected_error in expectations {
-            if expected_error.wild_only && !self.linker.is_wild() {
+            if expected_error.elyld_only && !self.linker.is_elyld() {
                 continue;
             }
 
@@ -5068,7 +5091,7 @@ impl LinkCommand {
     /// Returns whether we can skip invoking the linker.
     fn can_skip(&self) -> bool {
         // We never skip linking when the linker is wild.
-        if self.linker.is_wild() {
+        if self.linker.is_elyld() {
             return false;
         }
 
@@ -5130,7 +5153,7 @@ impl LinkCommand {
 
     fn write_input_hashes(&self) -> Result {
         // We always run wild, so we don't need a hash file.
-        if self.linker.is_wild() {
+        if self.linker.is_elyld() {
             return Ok(());
         }
 
@@ -5376,7 +5399,7 @@ impl Assertions {
             _ => bail!("Unsupported object file format"),
         }
 
-        if linker_used.is_wild() {
+        if linker_used.is_elyld() {
             self.verify_max_thunks(path)?;
         }
         Ok(())
@@ -5434,7 +5457,7 @@ impl Assertions {
         verify_chained_fixups_segment_offsets(obj, bytes)?;
         verify_macho_tlv_template_layout(obj)?;
 
-        if linker_used.is_wild() {
+        if linker_used.is_elyld() {
             verify_macho_tlv_descriptor_bindings(obj, bytes)?;
             verify_uuid(obj, bytes)?;
         }
@@ -5893,16 +5916,16 @@ impl Assertions {
 
         if self.expected_comments.is_empty() {
             match linker_used {
-                Linker::Wild => {
-                    if !was_linked_with_wild(obj) {
-                        bail!("Object was supposed to be linked with wild, but is missing comment");
+                Linker::Elyld => {
+                    if !was_linked_with_elyld(obj) {
+                        bail!("Object was supposed to be linked with ElyLD, but is missing comment");
                     }
                 }
                 Linker::ThirdParty(linker) => {
-                    if was_linked_with_wild(obj) {
+                    if was_linked_with_elyld(obj) {
                         bail!(
                             "Object was supposed to be linked with {linker}, but .comment \
-                             indicates it was linked with Wild"
+                             indicates it was linked with ElyLD"
                         );
                     }
                 }
@@ -5910,12 +5933,12 @@ impl Assertions {
             return Ok(());
         }
         let actual_comments = read_comments(obj)?;
-        if matches!(linker_used, Linker::Wild)
+        if matches!(linker_used, Linker::Elyld)
             && !actual_comments
                 .iter()
-                .any(|comment| comment.starts_with("Linker: Wild "))
+                .any(|comment| comment.starts_with("Linker: ElyLD "))
         {
-            bail!("Wild identity missing from .comment");
+            bail!("ElyLD identity missing from .comment");
         }
         for expected in &self.expected_comments {
             if let Some(expected) = expected.strip_suffix('*') {
@@ -6934,7 +6957,7 @@ fn lookup_line_for_symbol(obj: &object::File, sym_address: u64) -> Result<Option
         match obj.section_by_name(id.name()) {
             Some(section) => section
                 .uncompressed_data()
-                .map_err(|e| libwild::error::Error::from(format!("Failed to read section: {e}"))),
+                .map_err(|e| libelyld::error::Error::from(format!("Failed to read section: {e}"))),
             None => Ok(std::borrow::Cow::Borrowed(&[])),
         }
     };
@@ -7168,7 +7191,7 @@ where
 }
 
 /// Returns whether the supplied object indicates that it was linked with wild.
-fn was_linked_with_wild<'data>(
+fn was_linked_with_elyld<'data>(
     obj: &object::read::elf::ElfFile64<'data, object::Endianness>,
 ) -> bool {
     let Ok(actual_comments) = read_comments(obj) else {
@@ -7176,7 +7199,7 @@ fn was_linked_with_wild<'data>(
     };
     actual_comments
         .iter()
-        .any(|comment| comment.starts_with("Linker: Wild "))
+        .any(|comment| comment.starts_with("Linker: ElyLD "))
 }
 
 fn read_comments<'data>(
@@ -7242,12 +7265,12 @@ impl Display for LinkCommand {
 
         if let Some(save_dir) = self.opt_save_dir.as_ref()
             && save_dir.exists()
-            && self.linker == Linker::Wild
+            && self.linker == Linker::Elyld
         {
             write!(
                 f,
-                "WILD_WRITE_LAYOUT=1 WILD_WRITE_TRACE=1 OUT={} \
-                    {}/run-with cargo run {build_features} --bin wild -- --",
+                "ELYLD_WRITE_LAYOUT=1 ELYLD_WRITE_TRACE=1 OUT={} \
+                    {}/run-with cargo run {build_features} --bin elyld -- --",
                 self.output_path.display(),
                 save_dir.display()
             )?;
@@ -7284,7 +7307,7 @@ impl Display for LinkCommand {
         }
 
         match (self.invocation_mode, &self.linker) {
-            (LinkerInvocationMode::Cc, Linker::Wild) => {
+            (LinkerInvocationMode::Cc, Linker::Elyld) => {
                 write!(
                     f,
                     "cargo build {build_features}; {} {}",
@@ -7292,20 +7315,20 @@ impl Display for LinkCommand {
                     args.join(" ")
                 )
             }
-            (LinkerInvocationMode::Direct, Linker::Wild) => {
+            (LinkerInvocationMode::Direct, Linker::Elyld) => {
                 write!(
                     f,
-                    "cargo run {build_features} --bin wild -- {}",
+                    "cargo run {build_features} --bin elyld -- {}",
                     args.join(" ")
                 )
             }
-            (LinkerInvocationMode::Script, Linker::Wild) => {
+            (LinkerInvocationMode::Script, Linker::Elyld) => {
                 // The first argument is the linker, which we're replacing with `cargo run --`.
                 args.remove(0);
 
                 write!(
                     f,
-                    "{} cargo run {build_features} --bin wild -- -- {}",
+                    "{} cargo run {build_features} --bin elyld -- -- {}",
                     command_str,
                     args.join(" ")
                 )
@@ -7326,7 +7349,7 @@ impl Display for ProgramInputs {
 impl Display for Linker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Linker::Wild => Display::fmt(&"wild", f),
+            Linker::Elyld => Display::fmt(&"elyld", f),
             Linker::ThirdParty(info) => Display::fmt(info.name, f),
         }
     }
@@ -7456,7 +7479,7 @@ fn normalise_report(report: &linker_diff::Report) -> String {
 }
 
 /// Set variable to "update" to update expected outputs of snapshot tests.
-const SNAPSHOT_VAR: &str = "WILD_SNAPSHOT";
+const SNAPSHOT_VAR: &str = "ELYLD_SNAPSHOT";
 const SNAPSHOT_UPDATE: &str = "update";
 
 fn handle_snapshot(path: &Path, actual: &str) -> Result {
@@ -7591,7 +7614,7 @@ fn produce_diff_report(diff_config: &linker_diff::Config) -> Result<linker_diff:
 }
 
 fn setup_wild_ld_symlink() -> Result {
-    let wild = wild_path();
+    let wild = elyld_path();
     let wild_ld_path = wild.with_file_name("ld");
     if let Err(error) = create_symlink(wild, &wild_ld_path)
         && error.kind() != std::io::ErrorKind::AlreadyExists
@@ -7693,7 +7716,7 @@ fn setup_symlink() {
 
 fn should_print_timing() -> bool {
     static VALUE: OnceLock<bool> = OnceLock::new();
-    *VALUE.get_or_init(|| std::env::var("WILD_TEST_PRINT_TIMING").is_ok())
+    *VALUE.get_or_init(|| std::env::var("ELYLD_TEST_PRINT_TIMING").is_ok())
 }
 
 impl LinkerInvocationMode {
@@ -7712,7 +7735,7 @@ impl ErrorMatcher {
         let regex = regex::Regex::new(pattern)?;
         Ok(Self {
             regex,
-            wild_only: false,
+            elyld_only: false,
         })
     }
 
@@ -7720,9 +7743,9 @@ impl ErrorMatcher {
         self.regex.is_match(stderr)
     }
 
-    fn wild_only(pattern: &str) -> Result<Self> {
+    fn elyld_only(pattern: &str) -> Result<Self> {
         Ok(Self {
-            wild_only: true,
+            elyld_only: true,
             ..Self::new(pattern)?
         })
     }
@@ -7771,7 +7794,7 @@ fn available_linkers_for_linux() -> Result<LinkerCatalog> {
     }
 
     // Gold is opt-in only. LLD and Mold join GNU ld when a test lists them in
-    // `ReferenceLinkers` or when `WILD_FOUR_WAY=1` / `default_reference_linkers`
+    // `ReferenceLinkers` or when `ELYLD_FOUR_WAY=1` / `default_reference_linkers`
     // is set. They stay off by default so linker-script tests keep GNU as oracle.
     if let Ok(path) = find_bin(&["gold"]) {
         available.push(Linker::ThirdParty(ThirdPartyLinker {
@@ -7799,7 +7822,7 @@ fn available_linkers_for_linux() -> Result<LinkerCatalog> {
         });
     }
 
-    available.push(Linker::Wild);
+    available.push(Linker::Elyld);
 
     Ok(LinkerCatalog {
         available,
@@ -7832,7 +7855,7 @@ fn available_linkers_for_mac() -> Result<LinkerCatalog> {
         }));
     }
 
-    linkers.push(Linker::Wild);
+    linkers.push(Linker::Elyld);
 
     Ok(LinkerCatalog {
         available: linkers,
@@ -7854,7 +7877,7 @@ fn available_linkers_for_wasm() -> Vec<Linker> {
         }));
     }
 
-    linkers.push(Linker::Wild);
+    linkers.push(Linker::Elyld);
 
     linkers
 }
@@ -7994,7 +8017,7 @@ fn check_unexpected_linker_output(
     }
 
     if programs.iter().any(|reference| {
-        !reference.link_output.linker_used.is_wild()
+        !reference.link_output.linker_used.is_elyld()
             && output(&reference.link_output.messages) == wild_out
     }) {
         return Ok(());
@@ -8042,7 +8065,7 @@ fn check_unexpected_intermediate_output(
         if wild_out.is_empty()
             || intermediates.iter().any(|reference| {
                 let command = reference.command.as_ref().unwrap();
-                !command.linker.is_wild()
+                !command.linker.is_elyld()
                     && output(reference.messages.as_ref().unwrap()) == wild_out
             })
         {
@@ -8352,7 +8375,7 @@ fn full_test_platform_required() -> bool {
 }
 
 fn get_wild_test_cross() -> Result<Option<Vec<Architecture>>> {
-    std::env::var("WILD_TEST_CROSS")
+    std::env::var("ELYLD_TEST_CROSS")
         .ok()
         .map(|cross_arch| {
             if cross_arch == "all" {
@@ -8379,14 +8402,14 @@ fn get_wild_test_cross() -> Result<Option<Vec<Architecture>>> {
 fn read_test_config() -> Result<TestConfig> {
     let config_default_path = repo_root().join("test-config.toml");
 
-    let config_path = std::env::var("WILD_TEST_CONFIG")
+    let config_path = std::env::var("ELYLD_TEST_CONFIG")
         .map(|config_path| repo_root().join(config_path))
         .unwrap_or_else(|_| config_default_path.clone());
 
     let mut config = if config_path.exists() {
         let config_content = std::fs::read_to_string(&config_path).with_context(|| {
             format!(
-                "Failed to read WILD_TEST_CONFIG file at `{}`",
+                "Failed to read ELYLD_TEST_CONFIG file at `{}`",
                 config_path.display()
             )
         })?;
@@ -8397,12 +8420,12 @@ fn read_test_config() -> Result<TestConfig> {
         TestConfig::default()
     } else {
         bail!(
-            "WILD_TEST_CONFIG file not found at `{}`",
+            "ELYLD_TEST_CONFIG file not found at `{}`",
             config_path.display()
         );
     };
 
-    // The environment variable `WILD_TEST_CROSS` can override the config file setting.
+    // The environment variable `ELYLD_TEST_CROSS` can override the config file setting.
     if let Some(qemu_arch_from_env) = get_wild_test_cross()? {
         config.qemu_arch = qemu_arch_from_env;
     }
@@ -8415,7 +8438,7 @@ fn read_test_config() -> Result<TestConfig> {
 }
 
 fn four_way_enabled() -> bool {
-    std::env::var("WILD_FOUR_WAY").is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+    std::env::var("ELYLD_FOUR_WAY").is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 impl PlatformKind {
@@ -8479,7 +8502,7 @@ impl PlatformKind {
     fn default_args_for_linking(self) -> ArgumentSet {
         match self {
             PlatformKind::Elf => ArgumentSet {
-                // Wild linker uses -znow by default!
+                // ElyLD uses -znow by default!
                 args: vec!["-z".to_owned(), "now".to_owned()],
             },
             PlatformKind::MachO | PlatformKind::Wasm => ArgumentSet::empty(),

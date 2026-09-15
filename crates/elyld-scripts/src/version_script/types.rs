@@ -1,11 +1,11 @@
 use glob::Pattern;
 use hashbrown::{HashMap, HashSet};
 use symbolic_demangle::{Demangle, DemangleOptions};
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_util::glob_match::unescape_pattern;
-use wild_util::hash::{PassThroughHasher, PreHashed};
-use wild_util::symbol_name::UnversionedSymbolName;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_util::glob_match::unescape_pattern;
+use elyld_util::hash::{PassThroughHasher, PreHashed};
+use elyld_util::symbol_name::UnversionedSymbolName;
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct MatchRules<'data> {
