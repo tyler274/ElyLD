@@ -475,8 +475,19 @@ fn update_file_offset<P: EnginePlatform>(layout: &mut Layout<P>) -> Result {
                 }
             }
             OrderEvent::Section(section_id) => {
+                let merge_target = layout
+                    .output_sections
+                    .merge_target(section_id)
+                    .unwrap_or(section_id);
+                // NOBITS (especially aligned `.tbss`) overlay the following PROGBITS in the
+                // file. Aligning their `sh_offset` here desyncs later sections from the
+                // already-emitted PT_LOAD / PT_DYNAMIC `p_offset`, so glibc BIND_NOW reads
+                // the mapped PT_DYNAMIC bytes and SIGSEGVs in `elf_dynamic_do_Rela`.
+                let has_file_data = layout.output_sections.has_data_in_file(merge_target);
                 let section_layout = layout.section_layouts.get_mut(section_id);
-                file_offset = section_layout.alignment.align_up_usize(file_offset);
+                if has_file_data {
+                    file_offset = section_layout.alignment.align_up_usize(file_offset);
+                }
 
                 section_layout.file_offset = file_offset;
 
