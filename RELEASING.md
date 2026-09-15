@@ -18,9 +18,9 @@ git push origin refs/tags/0.6.0
 ```
 
 That should trigger the `release.yml` workflow in GitHub. You can follow its progress in the
-[Actions tab](https://github.com/tyler274/wild/actions) in GitHub.
+[Actions tab](https://github.com/tyler274/ElyLD/actions) in GitHub.
 
-When complete, it should create the release in [Releases](https://github.com/tyler274/wild/releases).
+When complete, it should create the release in [Releases](https://github.com/tyler274/ElyLD/releases).
 
 Maintainers can then edit the release notes associated with the release.
 

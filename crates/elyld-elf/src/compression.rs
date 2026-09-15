@@ -449,7 +449,7 @@ fn update_allocation_sizes<P: EnginePlatform>(layout: &mut Layout<P>) {
 
         // Free only `buckets`; the offset maps are still needed to resolve relocations from other
         // debug sections (e.g. `.debug_str_offsets`) that are written later.
-        // https://github.com/tyler274/wild/issues/2113
+        // https://github.com/tyler274/ElyLD/issues/2113
         layout.merged_strings.get_mut(section_id).buckets = Vec::new();
     }
 }

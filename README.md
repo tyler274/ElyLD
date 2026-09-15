@@ -2,17 +2,19 @@
 
 ![Wild logo - drawing of rusty chain links with vines](/images/wild.png)
 
-ElyLD is a linker with the goal of being very fast for iterative development.
+ElyLD is a GNU-ld-compatible linker aimed at fast iterative development. It is a fork of
+[Wild](https://github.com/wild-linker/wild).
 
-The plan is to eventually make it incremental, however that isn't yet implemented. It is however
-already pretty fast even without incremental linking.
+`--incremental` can patch an existing output when inputs change (GC and LTO still fall back to a
+full padded link). It is also used as a drop-in ELF linker for Linux kernels (`vmlinux`), glibc
+DSOs, and as a NixOS stdenv linker.
 
 ## Installation
 
 ### Build from git
 
 ```sh
-cargo install --locked --bin elyld --git https://github.com/tyler274/wild.git elyld
+cargo install --locked --bin elyld --git https://github.com/tyler274/ElyLD.git elyld
 ```
 
 ### Nix
@@ -51,10 +53,8 @@ rustflags = ["-Clink-arg=-fuse-ld=elyld"]
 
 ### CMake
 
-CMake 4.4 or later supports Wild directly when used with Clang or GCC 16 or later. You can select
-Wild as the linker by adding `-DCMAKE_LINKER_TYPE=WILD` to the cmake command-line.
-
-For older versions of cmake, see the generic instructions below.
+CMake 4.4 or later has `CMAKE_LINKER_TYPE=WILD` for upstream Wild (`ld.wild`). For ElyLD, pass
+`--ld-path=elyld` / `-fuse-ld=elyld`, or use the generic `-B` instructions below.
 
 ### C/C++ (autotools, meson, old CMake etc.)
 
@@ -64,7 +64,7 @@ Usually setting `LDFLAGS` is enough, but there are projects that implement their
 export LDFLAGS="${LDFLAGS} -fuse-ld=elyld"
 ```
 
-Or (especially useful for older GCC versions), create a symlink `ld` pointing to `wild` and pass the
+Or (especially useful for older GCC versions), create a symlink `ld` pointing to `elyld` and pass the
 directory to GCC:
 
 ```sh
@@ -78,8 +78,8 @@ export LDFLAGS="${LDFLAGS} -B/tmp"
 Then configure the project (you might need to remove the configuration cache first) and run your
 usual build steps.
 
-Due to the complexity of these build systems, you might want to verify that Wild was used to link a
-binary with [readelf](#how-can-i-verify-that-wild-was-used-to-link-a-binary).
+Due to the complexity of these build systems, you might want to verify that ElyLD was used to link a
+binary with [readelf](#how-can-i-verify-that-elyld-was-used-to-link-a-binary).
 
 ### Illumos specific Cargo configuration:
 
@@ -94,7 +94,7 @@ rustflags = [
 ]
 ```
 
-## Using wild in CI
+## Using ElyLD in CI
 
 If you'd like to use ElyLD as your linker for Rust code in CI, see
 [wild-action](https://github.com/wild-linker/action).
@@ -104,8 +104,8 @@ If you'd like to use ElyLD as your linker for Rust code in CI, see
 ### Why another linker?
 
 Mold is already very fast, however it doesn't do incremental linking and the author has stated that
-they don't intend to. Wild doesn't do incremental linking yet, but that is the end-goal. By writing
-Wild in Rust, it's hoped that the complexity of incremental linking will be achievable.
+they don't intend to. ElyLD implements `--incremental` so repeated links can patch an existing
+output instead of rewriting it from scratch.
 
 ### What's working?
 
@@ -117,6 +117,8 @@ The following platforms / architectures are currently supported:
 * LoongArch64 on Linux (initial support)
 * PPC64LE on Linux (initial support)
 
+Experimental Mach-O (AArch64) and Wasm32 are available behind cargo features (`macho`, `wasm`).
+
 The following is working with the caveat that there may be bugs:
 
 * Output to statically linked, non-relocatable binaries
@@ -125,21 +127,74 @@ The following is working with the caveat that there may be bugs:
 * Output to shared objects (.so files)
 * Rust proc-macros, when linked with ElyLD work
 * Most of the top downloaded crates on crates.io have been tested with ElyLD and pass their tests
-* Debug info
+* Debug info (`--gdb-index`)
 * GNU jobserver support
-* Partial linker script support. See the [linker script support matrix](LINKER_SCRIPT_SUPPORT.md) for details.
-* Linker plugin LTO - [known issues](https://github.com/tyler274/wild/issues?q=is%3Aissue%20state%3Aopen%20label%3ALTO)
+* `--incremental` / `ELYLD_INCREMENTAL=1` — see [Incremental linking](#incremental-linking)
+* Linux kernel `vmlinux` (x86_64 vs GNU ld; Clang ThinLTO vs LLD) — see [Linux kernel](#linux-kernel)
+* glibc `ld.so` / `libc.so` / `lib%.so` relink — see [Glibc](#glibc)
+* GNU ld compatible `--version` (`GNU ld (ElyLD) 2.44`) so glibc `configure` and the kernel's
+  `scripts/ld-version.sh` accept ElyLD
+* Linker-plugin LTO (GNU Gold API: `liblto_plugin.so`, `LLVMgold.so`, rustc `-Clinker-plugin-lto`)
+* GNU `--wrap`, including wrap after LTO
+* Linker scripts used by the kernel and glibc. See the [linker script support matrix](LINKER_SCRIPT_SUPPORT.md)
+* Nix stdenv linker via `-B` / `ld.elyld` (see [nix/nix.md](nix/nix.md))
 
 ### What isn't yet supported?
 
-Here are some of the larger things that aren't yet done, roughly sorted by current priority:
+Here are some of the larger remaining gaps:
 
-* Incremental linking
-* More complex linker scripts
-* Mach-O support
-* Windows support
+* Incremental links with GC or an active LTO plugin still fall back to a full padded link
+* Mach-O and Wasm are experimental (not on by default)
+* Windows / COFF
+* Remaining linker-script gaps listed in [LINKER_SCRIPT_SUPPORT.md](LINKER_SCRIPT_SUPPORT.md)
 
-### How can I verify that Wild was used to link a binary?
+### Incremental linking
+
+Pass `--incremental` or set `ELYLD_INCREMENTAL=1`. The first link writes a `{output}.incr` state
+directory and pads output sections so a later link can patch in place. Unchanged objects skip
+payloads. Custom linker scripts skip section padding so kernel `ASSERT`s keep their sizes; unchanged
+inputs can still skip payloads.
+
+GC (`--gc-sections`) and an active linker plugin fall back to a full padded link. Integration tests
+cover GCC, Clang, and rustc at several `-O` levels, plus unchanged relinks of x86_64 `vmlinux` and
+glibc DSOs. See [DESIGN.md](DESIGN.md) for the atom table and skip-update model.
+
+### Linux kernel
+
+ElyLD links x86_64 `vmlinux` with the kernel's `vmlinux.lds` (`--no-gc-sections`, `--orphan-handling=error`).
+Key symbols (`_stext`, `_etext`, `__init_begin`, `_end`, …) are checked against GNU ld. Clang ThinLTO
+`vmlinux` is checked against LLD. `--incremental` on the same objects is a padded link (not compared
+to GNU addresses); a dirty `init/version-timestamp.o` is expected to drop skip_payloads. ThinLTO
+incremental still falls back because of the plugin.
+
+Point `ELYLD_LINUX_TREE` at a tree that already has `vmlinux.o` and GNU `vmlinux.unstripped` (pack
+with `scripts/pack-vmlinux-objects.sh`), then:
+
+```sh
+cargo test -p elyld --test integration_tests -- vmlinux
+```
+
+ThinLTO objects: `ELYLD_LINUX_LTO_TREE` and `scripts/pack-vmlinux-lto-objects.sh`. Arch-specific
+kernel-like scripts (x86_64, aarch64, riscv64, loongarch64, ppc64le) are covered by the integration
+suite. Feature status is in [LINKER_SCRIPT_SUPPORT.md](LINKER_SCRIPT_SUPPORT.md#linux-kernel-requirements).
+
+### Glibc
+
+ElyLD relinks GNU-built glibc objects: `ld.so`, `libc.so`, and `lib%.so` PIC archives (`libm`,
+`libresolv`, stubs, …). `--incremental` on those DSOs skips unchanged object payloads and still
+rewrites dynamic reloc tables.
+
+`nix develop` sets `ELYLD_GLIBC_TREE` / `ELYLD_GLIBC_BUILD` and provides `wild-build-glibc`. Then:
+
+```sh
+cargo test -p elyld --test integration_tests -- glibc
+```
+
+`wild-glibc-check` runs a glibc `make test` subset against the ElyLD-linked DSOs. Details:
+[LINKER_SCRIPT_SUPPORT.md](LINKER_SCRIPT_SUPPORT.md#glibc-libcso--ldso--libso) and
+[nix/nix.md](nix/nix.md).
+
+### How can I verify that ElyLD was used to link a binary?
 
 Install `readelf` (available from binutils package), then run:
 
@@ -166,9 +221,8 @@ ElyLD is a fork of [Wild](https://github.com/wild-linker/wild). Linkers traditio
 
 ## Benchmarks
 
-The goal of ElyLD is to eventually be very fast via incremental linking. However, we also want to be
-as fast as we can be for non-incremental linking and for the initial link when incremental linking
-is enabled.
+The goal of ElyLD is to be very fast via incremental linking, and as fast as we can be for
+non-incremental linking and for the initial link when incremental linking is enabled.
 
 All benchmarks are run with output to a tmpfs. See [BENCHMARKING.md](BENCHMARKING.md) for details on
 running benchmarks.
@@ -196,8 +250,8 @@ benchmark shows the time to link it.
 
 ![Benchmark of linking librustc-driver](benchmarks/images/ryzen-9955hx/librustc-driver-time.svg)
 
-For something much smaller, this is the time to link Wild itself. This also shows a few different
-Wild versions, so you can see how the link time has been tracking over releases.
+For something much smaller, this is the time to link the linker itself. This also shows a few
+different versions, so you can see how the link time has been tracking over releases.
 
 ![Benchmark of linking wild](benchmarks/images/ryzen-9955hx/wild-time.svg)
 
@@ -247,7 +301,7 @@ time.
 
 # Code of Conduct
 
-The Wild project adheres to the [Rust code of
+This project adheres to the [Rust code of
 conduct](https://rust-lang.org/policies/code-of-conduct/). If you have any moderation concerns or
 queries, please email wild-mod@googlegroups.com.
 
@@ -257,5 +311,5 @@ Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT l
 at your option.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
-Wild by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+ElyLD by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.

@@ -150,6 +150,58 @@ jobs:
       - name: Diff key symbols against LLD
         run: ELYLD_LINUX_LTO_TREE="$PWD/linux-lto" cargo test --profile ci -p elyld --no-default-features --features fork,zstd,plugins,mimalloc --test integration_tests -- vmlinux-lto
 
+  # Cyrene is a znver5 world-rebuild; GitHub-hosted runners cannot compile that
+  # closure. This job builds the overlay linker Cyrene injects (`elyld-ld`) and
+  # instantiates the host toplevel so module/overlay breakage fails CI.
+  cyrene:
+    name: NixOS Cyrene
+    if: github.repository_owner == 'tyler274'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout ElyLD
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          path: wild
+
+      - name: Checkout NixOS flake
+        uses: actions/checkout@v7
+        with:
+          repository: tyler274/nixos
+          persist-credentials: false
+          path: nixos
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v35
+
+      - name: Point Cyrene at this ElyLD
+        working-directory: nixos
+        run: |
+          nix flake lock \
+            --override-input wild "path:${{ github.workspace }}/wild" \
+            --override-input mimalloc-rs github:tyler274/mimalloc
+
+      - name: Build Cyrene's elyld-ld
+        working-directory: nixos
+        run: |
+          nix build -L --show-trace --impure --expr '
+            let flake = builtins.getFlake (toString ./.);
+            in flake.nixosConfigurations.Cyrene.pkgs.elyld-ld
+          '
+          ./result/bin/elyld --version
+          test -e ./result/ld-prefix/ld
+          test -e ./result/ld-prefix/ld.elyld
+
+      - name: Instantiate Cyrene toplevel
+        working-directory: nixos
+        run: |
+          drv=$(nix eval --raw --show-trace --impure --expr '
+            let flake = builtins.getFlake (toString ./.);
+            in flake.nixosConfigurations.Cyrene.config.system.build.toplevel.drvPath
+          ')
+          echo "Cyrene toplevel: $drv"
+
   kani:
     name: Kani
     runs-on: ubuntu-24.04

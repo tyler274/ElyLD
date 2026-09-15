@@ -1,4 +1,4 @@
-// https://github.com/tyler274/wild/issues/1137
+// https://github.com/tyler274/ElyLD/issues/1137
 //#Config:entry-in-shared
 //#SkipArch: ppc64le
 //#LinkArgs:-shared -z now

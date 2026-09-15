@@ -15,7 +15,7 @@ until NixOS 25.11 is branched, unstable Nixpkgs is required.
 
     # Include Wild
     wild = {
-      url = "github:tyler274/wild";
+      url = "github:tyler274/ElyLD";
       # If using ElyLD Flake (not required)
       # inputs.nixpkgs.follows = "nixpkgs";
       #
@@ -65,7 +65,7 @@ until NixOS 25.11 is branched, unstable Nixpkgs is required.
 ```
 Without flakes (npins shown, but any solution can be used):
 
-Add the dependencies to lockfile with npins: `$ npins add github elyld wild -b main`
+Add the dependencies to lockfile with npins: `$ npins add github tyler274 ElyLD -b main`
 
 ```nix
 let

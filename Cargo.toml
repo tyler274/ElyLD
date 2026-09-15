@@ -21,7 +21,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-repository = "https://github.com/tyler274/wild"
+repository = "https://github.com/tyler274/ElyLD"
 license = "MIT OR Apache-2.0"
 version = "1.0.0"
 rust-version = "1.97.1"
