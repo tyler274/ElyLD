@@ -1,6 +1,6 @@
 # Design
 
-This document provides a high level overview of Wild's design. The intent is to not go into too much
+This document provides a high level overview of ElyLD's design. The intent is to not go into too much
 detail, otherwise we increase the risk that it'll get out-of-sync with the code. For full details,
 see comments in the code and the code itself.
 
@@ -36,10 +36,10 @@ ones. GC and LTO still fall back to a full padded link. Custom linker scripts sk
 so kernel `ASSERT`s keep their sizes; unchanged inputs can still skip payloads.
 
 Integration tests cover GCC, Clang, and rustc at `-O0`/`-O1`/`-O2`/`-O3`/`-Os` (plus LTO fallback)
-and an unchanged `--incremental` relink of x86_64 `vmlinux` (`WILD_LINUX_TREE`). Rust `--emit=obj`
+and an unchanged `--incremental` relink of x86_64 `vmlinux` (`ELYLD_LINUX_TREE`). Rust `--emit=obj`
 keeps a stable `.o` path; rustc save-dir tests allow fallback because codegen-unit hashes change
 with `--cfg wild_inc`. Unchanged `--incremental` relinks of glibc `ld.so` / `libc.so` / `libm.so`
-(`WILD_GLIBC_TREE`) skip object payloads; skip updates still rewrite dynamic reloc tables so
+(`ELYLD_GLIBC_TREE`) skip object payloads; skip updates still rewrite dynamic reloc tables so
 `.rela.dyn` / `.relr.dyn` stay in lockstep with layout. Input `.interp` objects (glibc `interp.os`)
 are laid out like other allocated sections.
 
@@ -71,44 +71,44 @@ symbols). Incremental links with an active plugin still fall back to a full padd
 
 Most testing is done by `integration_tests.rs`. This compiles various programs that are written in
 C, C++, Rust and assembly. It then links them with our reference linkers — GNU ld, and for general
-ELF cases also LLD and Mold (`ReferenceLinkers:bfd,lld,mold`). It links them with Wild and compares
+ELF cases also LLD and Mold (`ReferenceLinkers:bfd,lld,mold`). It links them with ElyLD and compares
 the resulting binaries using our own custom diff tool, `linker-diff`. Provided that succeeds, it
 then executes all the linked programs and checks that they give the correct answer.
 
 A four-way diff (GNU ld, LLD, Mold, Wild) is the default for tests that list all three reference
-linkers. Tests that omit `ReferenceLinkers` still use GNU ld only. Set `WILD_FOUR_WAY=1` or
+linkers. Tests that omit `ReferenceLinkers` still use GNU ld only. Set `ELYLD_FOUR_WAY=1` or
 `default_reference_linkers = ["bfd", "lld", "mold"]` in the test config to opt unpinned tests into
 the same four-way. Linker-script tests pin `ReferenceLinkers:bfd`; GNU ld is the script oracle.
 
-Kernel `vmlinux` is GNU-only. Set `WILD_LINUX_TREE` to an x86_64 tree that already has `vmlinux.o`
-and GNU `vmlinux.unstripped`, then `cargo test -p wild-linker --test integration_tests -- vmlinux`.
+Kernel `vmlinux` is GNU-only. Set `ELYLD_LINUX_TREE` to an x86_64 tree that already has `vmlinux.o`
+and GNU `vmlinux.unstripped`, then `cargo test -p elyld --test integration_tests -- vmlinux`.
 Pack objects with `scripts/pack-vmlinux-objects.sh`. CI job `vmlinux` runs when the repository
-variable `WILD_LINUX_OBJECTS_URL` points at that tarball (a from-scratch kernel build will not fit
+variable `ELYLD_LINUX_OBJECTS_URL` points at that tarball (a from-scratch kernel build will not fit
 the 10-minute timeout). `vmlinux-incremental` links the same objects with `--incremental` and checks
 an unchanged second link records `incremental-update`. `vmlinux-incremental-dirty` flips a byte in
 one extra object (mtime is 1s granularity) and checks that skip_payloads drops. Clang ThinLTO uses
-`WILD_LINUX_LTO_TREE` / `scripts/pack-vmlinux-lto-objects.sh` with an LLD-linked oracle; CI job
-`vmlinux-lto` is gated on `WILD_LINUX_LTO_OBJECTS_URL`. Incremental + plugin still falls back to a
+`ELYLD_LINUX_LTO_TREE` / `scripts/pack-vmlinux-lto-objects.sh` with an LLD-linked oracle; CI job
+`vmlinux-lto` is gated on `ELYLD_LINUX_LTO_OBJECTS_URL`. Incremental + plugin still falls back to a
 full padded link (`vmlinux-lto-incremental`). Follow-up: a small userspace / initramfs also linked
-with Wild.
+with ElyLD.
 
 Glibc's `libc.so` link uses GNU ld's default shared script (`DATA_SEGMENT_*`, `CONSTANT`,
-`ONLY_IF_*`). Wild can parse and link that script (see `linker-script-gnu-default`). `nix develop`
-unpacks nixpkgs glibc, sets `WILD_GLIBC_TREE` / `WILD_GLIBC_BUILD` / `WILD_GLIBC_HEADERS`, and
-provides `wild-build-glibc` (GNU ld + GCC 15). Wild's `--version` first line is GNU ld compatible
+`ONLY_IF_*`). ElyLD can parse and link that script (see `linker-script-gnu-default`). `nix develop`
+unpacks nixpkgs glibc, sets `ELYLD_GLIBC_TREE` / `ELYLD_GLIBC_BUILD` / `ELYLD_GLIBC_HEADERS`, and
+provides `wild-build-glibc` (GNU ld + GCC 15). ElyLD's `--version` first line is GNU ld compatible
 so glibc `configure` and the kernel's `scripts/ld-version.sh` accept it; the GNU oracle is still
 linked with GNU ld so the relink tests have something to diff. Then
-`cargo test -p wild-linker --test integration_tests -- glibc`. Override the env vars to use another
+`cargo test -p elyld --test integration_tests -- glibc`. Override the env vars to use another
 tree. `wild-glibc-check` installs those Wild-linked `libc.so` / `ld.so` / `libm.so` (and other
 `lib%.so` relinks when present) into the GNU build and runs a `make test` subset (TLS, IFUNC,
-RELR, ctors, malloc, libm, nptl), then restores the GNU oracles. `WILD_GLIBC_FULL_CHECK=1` runs
+RELR, ctors, malloc, libm, nptl), then restores the GNU oracles. `ELYLD_GLIBC_FULL_CHECK=1` runs
 `make check`. `glibc-*-incremental` tests an unchanged `--incremental` relink of `ld.so` / `libc.so`
 / `libm.so`; `glibc-*-incremental-dirty` flips a byte in `csu/abi-note.o`. Capture a package link
-with `WILD_SAVE_BASE` and set `WILD_PYTHON_LINK` / `WILD_RUSTC_LINK` / `WILD_GCC_LINK` /
-`WILD_LLVM_LINK` / `WILD_FIREFOX_LINK` / `WILD_BLENDER_LINK` / `WILD_CHROME_LINK` to that save-dir.
+with `ELYLD_SAVE_BASE` and set `ELYLD_PYTHON_LINK` / `ELYLD_RUSTC_LINK` / `ELYLD_GCC_LINK` /
+`ELYLD_LLVM_LINK` / `ELYLD_FIREFOX_LINK` / `ELYLD_BLENDER_LINK` / `ELYLD_CHROME_LINK` to that save-dir.
 
-Kani proofs live in `wild-util` (alignment, GNU LMA, skip-payload, plugin/GC fallback, atom
-generations) so they do not compile `wild-layout`. `./scripts/kani.sh` no-ops without `cargo-kani`;
+Kani proofs live in `elyld-util` (alignment, GNU LMA, skip-payload, plugin/GC fallback, atom
+generations) so they do not compile `elyld-layout`. `./scripts/kani.sh` no-ops without `cargo-kani`;
 CI job `kani` uses the official GitHub action.
 
 `--features mimalloc` (on by default) statically embeds mimalloc-rs as the process allocator.
@@ -118,7 +118,7 @@ exclusive with each other and with `dhat`.
 
 ## Modularity (Mold and LLD)
 
-Wild stays one `libwild` crate. The notes below are about *module* boundaries, not new workspace
+Wild stays one `libelyld` crate. The notes below are about *module* boundaries, not new workspace
 crates.
 
 Mold is an ELF-first C++ linker. A `Context` holds all state. `src/passes.cc` runs named passes

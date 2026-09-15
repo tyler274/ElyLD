@@ -5,8 +5,8 @@
 
 use object::LittleEndian;
 use object::elf::SectionFlags;
-use wild_error::error;
-use wild_error::error::Result;
+use elyld_error::error;
+use elyld_error::error::Result;
 
 pub trait WritableFileHeader {
     const CLASS: object::elf::FileClass;

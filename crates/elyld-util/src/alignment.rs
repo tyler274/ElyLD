@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 /// An alignment. Always a power of two.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]

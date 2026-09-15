@@ -16,7 +16,7 @@ particular:
 
 For benchmarking the linker, it's preferable to run just the linker, not the whole build process.
 
-The way to do that is by capturing the linker invocation so that it can be rerun. Wild has a
+The way to do that is by capturing the linker invocation so that it can be rerun. ElyLD has a
 built-in way to do that.
 
 You can benchmark linking of either a debug or a release build of a crate, this depends on what
@@ -29,18 +29,18 @@ Follow-these steps:
     * Examples: [`ripgrep`](https://github.com/BurntSushi/ripgrep.git)
 * Clean the build using `cargo clean`
 * To force the build of your chosen crate to link using wild, we have a couple of options:
-    * Prefix the cargo build command with `RUSTFLAGS="-Clinker=clang -Clink-arg=--ld-path=wild"`
+    * Prefix the cargo build command with `RUSTFLAGS="-Clinker=clang -Clink-arg=--ld-path=elyld"`
     * Modify (or add) the `.cargo/config.toml` file in your chosen crate (example for `ripgrep`)
 
 ```toml
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-Clink-arg=--ld-path=wild"]
+rustflags = ["-Clink-arg=--ld-path=elyld"]
 ```
 
 * Make sure that you have a version of wild in your `$PATH` so that it will be used (try `which
   wild` to check)
-* Run `WILD_SAVE_BASE=/tmp/wild/ripgrep cargo build` in the crate's root directory (include
+* Run `ELYLD_SAVE_BASE=/tmp/wild/ripgrep cargo build` in the crate's root directory (include
   `RUSTFLAGS` as above if you have chosen that method)
 * You will get a few numbered subdirectories in `/tmp/wild/ripgrep` as part of the build process.
     * Directories will be created for builds of build scripts, proc macros and crate binaries built
@@ -227,17 +227,17 @@ Before building rustc, edit or create `bootstrap.toml` in your `rust` directory 
 ```toml
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-Clink-arg=--ld-path=wild"]
+rustflags = ["-Clink-arg=--ld-path=elyld"]
 ```
 
 Now rustc will use wild as the linker on every build. You must have wild in your PATH. In the
-following command, replace `$WILD_REPO_PATH` with the path to the directory containing the wild
+following command, replace `$ELYLD_REPO_PATH` with the path to the directory containing the wild
 repo. You'll need to have already built wild with `cargo build --release`.
 
 To build rustc just cd into the rust repo root and run:
 
 ```sh
-PATH="$WILD_REPO_PATH/target/release:$PATH" WILD_SAVE_BASE=/tmp/rustc-link ./x build rustc
+PATH="$ELYLD_REPO_PATH/target/release:$PATH" ELYLD_SAVE_BASE=/tmp/rustc-link ./x build rustc
 ```
 
 For more information about building rustc
@@ -317,10 +317,10 @@ Start by building with the `perfetto` feature enabled:
 cargo build --release --features perfetto
 ```
 
-Run the linker with `WILD_PERFETTO_OUT` set to some file. e.g.:
+Run the linker with `ELYLD_PERFETTO_OUT` set to some file. e.g.:
 
 ```sh
-WILD_PERFETTO_OUT=$HOME/tmp/tmp.pftrace ./run-with wild
+ELYLD_PERFETTO_OUT=$HOME/tmp/tmp.pftrace ./run-with wild
 ```
 
 Open the [perfetto UI](https://ui.perfetto.dev/). Click "Open trace file" and select `tmp.pftrace`.

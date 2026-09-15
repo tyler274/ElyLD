@@ -3,7 +3,7 @@
 use crate::error::AlreadyInitialised;
 
 /// All trace messages within a span with this name will be emitted.
-/// Must stay in sync with `wild_layout::span_for_file` (`trace_file`).
+/// Must stay in sync with `elyld_layout::span_for_file` (`trace_file`).
 pub(crate) const TRACE_SPAN_NAME: &str = "trace_file";
 
 pub(crate) fn init() -> Result<(), AlreadyInitialised> {

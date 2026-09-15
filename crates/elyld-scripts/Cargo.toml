@@ -1,6 +1,6 @@
 [package]
-name = "wild-scripts"
-description = "Linker-script, version-script, and export-list parsing for the Wild linker"
+name = "elyld-scripts"
+description = "Linker-script, version-script, and export-list parsing for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -16,8 +16,8 @@ object.workspace = true
 symbolic-common.workspace = true
 symbolic-demangle.workspace = true
 tracing.workspace = true
-wild-error = { path = "../wild-error", version = "0.10.0" }
-wild-util = { path = "../wild-util", version = "0.10.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
+elyld-util = { path = "../elyld-util", version = "1.0.0" }
 winnow.workspace = true
 
 [lints]

@@ -2,7 +2,7 @@
 //!
 //! Things that make this specific to linkers and/or wild.
 //!
-//! * It assumes benchmarks are in the form of Wild-generated save-dirs. i.e. a directory (the name
+//! * It assumes benchmarks are in the form of ElyLD-generated save-dirs. i.e. a directory (the name
 //!   of which is the name of the benchmark) where that directory contains a rust-with script.
 //! * It accommodates that some of the linkers fork on startup, then do shutdown work after the
 //!   linker terminates. To prevent this from affecting subsequent runs, it inserts a delay based on
@@ -191,7 +191,7 @@ struct LinkerIdentifier {
     kind: LinkerKind,
     version: String,
     variant: Option<String>,
-    /// The commit hash of the linker. Set for Wild when the path to the linker doesn't include the
+    /// The commit hash of the linker. Set for ElyLD when the path to the linker doesn't include the
     /// version number. i.e. when we've concluded that this isn't a release version.
     hash: Option<String>,
     /// If we've got has, then this is one patch level higher than version.
@@ -201,7 +201,7 @@ struct LinkerIdentifier {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum LinkerKind {
-    Wild,
+    Elyld,
     Lld,
     Mold,
     Bfd,
@@ -217,7 +217,7 @@ struct Benchmark {
 impl LinkerKind {
     fn as_str(self) -> &'static str {
         match self {
-            LinkerKind::Wild => "Wild",
+            LinkerKind::Elyld => "ElyLD",
             LinkerKind::Lld => "LLD",
             LinkerKind::Mold => "Mold",
             LinkerKind::Bfd => "GNU ld",
@@ -226,7 +226,7 @@ impl LinkerKind {
 
     fn supports_arg(self, arg: &str) -> bool {
         match arg {
-            "--no-fork" => matches!(self, LinkerKind::Wild | LinkerKind::Mold),
+            "--no-fork" => matches!(self, LinkerKind::Elyld | LinkerKind::Mold),
             _ => true,
         }
     }
@@ -303,7 +303,7 @@ impl Benchmark {
         if self.config.skip_linkers.contains(&bin.identifier.kind) {
             return false;
         }
-        if bin.identifier.kind == LinkerKind::Wild {
+        if bin.identifier.kind == LinkerKind::Elyld {
             return self.supports_wild_version(&bin.identifier.effective_version);
         }
         true
@@ -317,7 +317,7 @@ impl LinkerIdentifier {
         let mut hash = None;
         let mut variant = None;
 
-        if let Some(mut rest) = version_line.strip_prefix("Wild ") {
+        if let Some(mut rest) = version_line.strip_prefix("ElyLD ") {
             if let Some(r) = rest.strip_prefix("version ") {
                 rest = r;
             }
@@ -328,7 +328,7 @@ impl LinkerIdentifier {
                 hash = Some(take_word(&mut rest).replace(['(', ')'], ""));
             }
 
-            kind = LinkerKind::Wild;
+            kind = LinkerKind::Elyld;
         } else if let Some(mut rest) = version_line.strip_prefix("LLD ") {
             kind = LinkerKind::Lld;
             version = take_word(&mut rest).to_owned();

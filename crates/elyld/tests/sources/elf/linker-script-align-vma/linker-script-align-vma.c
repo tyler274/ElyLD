@@ -16,7 +16,7 @@
 
 //#Config:two-load:default
 //#LinkerScript:linker-script-align-vma-two-load.ld
-//#WildExtraLinkArgs:-z max-page-size=0x200000
+//#ElyldExtraLinkArgs:-z max-page-size=0x200000
 //#ExpectProgramHeader:LOAD flags=RX,vaddr=0x400000
 //#ExpectProgramHeader:LOAD flags=RW,vaddr=0x600000
 

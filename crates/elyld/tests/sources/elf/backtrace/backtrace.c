@@ -16,7 +16,7 @@
 //#Config:sframe:default
 //#CompArgs:-O0 -fomit-frame-pointer -Wa,--gsframe
 //#LinkArgs:-Wl,-z,now,--gc-sections
-//#WildExtraLinkArgs:-Wl,--wild-experimental-sframe
+//#ElyldExtraLinkArgs:-Wl,--elyld-experimental-sframe
 //#RemoveSection:.eh_frame
 //#RemoveSection:.eh_frame_hdr
 //#RequiresGlibcVersion:2.42
@@ -28,7 +28,7 @@
 //#Config:discard-sframe:default
 //#CompArgs:-O0 -fomit-frame-pointer -Wa,--gsframe
 //#LinkArgs:-Wl,-z,now,--gc-sections,--discard-sframe
-//#WildExtraLinkArgs:-Wl,--wild-experimental-sframe
+//#ElyldExtraLinkArgs:-Wl,--elyld-experimental-sframe
 //#RequiresGlibcVersion:2.42
 //#RequiresSFrameBacktrace:true
 //#RunEnabled:false
@@ -37,7 +37,7 @@
 // `--gc-sections`.
 //#ReferenceLinkers:
 
-// Without `--wild-experimental-sframe` we should discard `.sframe` section for now.
+// Without `--elyld-experimental-sframe` we should discard `.sframe` section for now.
 //#Config:discard-sframe-by-default:default
 //#CompArgs:-O0 -fomit-frame-pointer -Wa,--gsframe
 //#RequiresGlibcVersion:2.42

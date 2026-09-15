@@ -19,9 +19,9 @@ use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use wild_error::error::Result;
-use wild_platform::{Args as _, FileId};
-use wild_util::hash::hash_bytes;
+use elyld_error::error::Result;
+use elyld_platform::{Args as _, FileId};
+use elyld_util::hash::hash_bytes;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IncrementalMode {
@@ -71,7 +71,7 @@ pub struct IncrementalSession {
 }
 
 impl IncrementalSession {
-    pub fn from_args(args: &impl wild_platform::Args) -> Option<Self> {
+    pub fn from_args(args: &impl elyld_platform::Args) -> Option<Self> {
         if !args.incremental() {
             return None;
         }
@@ -374,7 +374,7 @@ fn plan_skip_payloads(
     let diff = diff_input_paths(state_dir, loaded_paths);
     let mut skip = HashSet::new();
     for rec in records {
-        if wild_util::incremental::should_skip_payload(
+        if elyld_util::incremental::should_skip_payload(
             rec.skippable,
             reused_files.contains(&rec.file_id),
             diff.changed.contains(&rec.source_path),
@@ -494,7 +494,7 @@ pub fn fallback_for_plugin_or_gc<P: EnginePlatform>(
     args: &P::Args,
     plugin_active: bool,
 ) -> Option<&'static str> {
-    wild_util::incremental::fallback_reason_for_plugin_or_gc(
+    elyld_util::incremental::fallback_reason_for_plugin_or_gc(
         plugin_active,
         args.should_gc_sections() && args.incremental(),
     )

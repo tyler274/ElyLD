@@ -3,7 +3,7 @@
 
 use crate::env;
 
-pub const ENV_NAME: &str = "WILD_MALFUNCTION";
+pub const ENV_NAME: &str = "ELYLD_MALFUNCTION";
 
 #[inline(always)]
 pub fn malfunction_point(name: &str) -> bool {

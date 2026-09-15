@@ -3,9 +3,9 @@ use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::path::Path;
-use wild_error::error::{Context, Result};
-use wild_error::{bail, ensure};
-use wild_platform as platform;
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, ensure};
+use elyld_platform as platform;
 
 /// Describes how a platform spells its options. GNU-style platforms use the default, whereas
 /// link.exe-style platforms accept a `/` prefix, ignore case and attach values with `:`.
@@ -344,7 +344,7 @@ impl<T: platform::Args + super::HasCommonArgs> ArgumentParser<T> {
     pub fn generate_help(&self) -> String {
         const HELP_COL1_WIDTH: usize = 30;
         let mut help = String::new();
-        help.push_str("USAGE:\n    wild [OPTIONS] [FILES...]\n\nOPTIONS:\n");
+        help.push_str("USAGE:\n    elyld [OPTIONS] [FILES...]\n\nOPTIONS:\n");
 
         let mut prefix_options = self.prefix_options.iter().collect_vec();
         prefix_options.sort_by_key(|(prefix, _)| *prefix);
@@ -750,7 +750,7 @@ pub fn parse_number(s: &str) -> Result<u64> {
     } else {
         s.parse::<u64>()
     };
-    parsed.map_err(|_| wild_error::error!("Invalid number: {s}"))
+    parsed.map_err(|_| elyld_error::error!("Invalid number: {s}"))
 }
 
 pub fn read_args_from_file(path: &Path) -> Result<Vec<String>> {

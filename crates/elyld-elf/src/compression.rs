@@ -8,15 +8,15 @@ use crate::{ElfClass, elf_writer};
 use object::bytes_of;
 use object::elf::CompressionType;
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_layout::output_section_id::{OrderEvent, OutputSectionId};
-use wild_layout::resolution::SectionSlot;
-use wild_layout::{
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_layout::output_section_id::{OrderEvent, OutputSectionId};
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::{
     CompressedSection, EnginePlatform, FileLayout, Layout, timing_phase, verbose_timing_phase,
 };
-use wild_platform::{Arch, ObjectFile as _, SectionFlags as _};
-use wild_util::alignment::Alignment;
+use elyld_platform::{Arch, ObjectFile as _, SectionFlags as _};
+use elyld_util::alignment::Alignment;
 use zlib_rs::adler32::{adler32, adler32_combine};
 use zlib_rs::{Deflate, DeflateError, DeflateFlush, Status};
 
@@ -56,7 +56,7 @@ const ZLIB_SYNC_FLUSH_SLACK: usize = 16;
 const ZLIB_OUTPUT_GROW_BYTES: usize = 64;
 
 pub(crate) fn maybe_compress_debug_sections_elf<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
-    layout: &mut wild_layout::Layout<elf::Elf<C>>,
+    layout: &mut elyld_layout::Layout<elf::Elf<C>>,
 ) -> Result {
     let Some(compression_kind) = layout.args().debug_compression_kind else {
         return Ok(());
@@ -81,10 +81,10 @@ pub(crate) fn maybe_compress_debug_sections_elf<C: ElfClass, A: Arch<Platform = 
     }
 
     match compression_kind {
-        wild_args::elf::CompressionKind::Zlib => {
+        elyld_args::elf::CompressionKind::Zlib => {
             compress_sections::<C, A, ZlibCompressor>(layout, &debug_sections)?;
         }
-        wild_args::elf::CompressionKind::Zstd => {
+        elyld_args::elf::CompressionKind::Zstd => {
             compress_sections::<C, A, ZstdCompressor>(layout, &debug_sections)?;
         }
     }
@@ -176,8 +176,8 @@ impl SectionCompressor for ZstdCompressor {
     }
 }
 
-fn zlib_deflate_error(error: DeflateError) -> wild_error::error::Error {
-    wild_error::error::Error::with_message(format!("zlib compression failed: {error:?}"))
+fn zlib_deflate_error(error: DeflateError) -> elyld_error::error::Error {
+    elyld_error::error::Error::with_message(format!("zlib compression failed: {error:?}"))
 }
 
 fn shard_size(uncompressed_len: usize) -> usize {
@@ -259,7 +259,7 @@ fn compress_sections<C: ElfClass, A: Arch<Platform = elf::Elf<C>>, S: SectionCom
         .par_iter()
         .map(
             |&section_id| -> Result<(
-                wild_layout::output_section_id::OutputSectionId,
+                elyld_layout::output_section_id::OutputSectionId,
                 Option<CompressedSection>,
             )> {
                 verbose_timing_phase!("Process debug section");
@@ -314,9 +314,9 @@ fn compress_section<C: ElfClass, S: SectionCompressor>(
 }
 
 fn build_debug_section_in_memory<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
-    section_id: wild_layout::output_section_id::OutputSectionId,
+    section_id: elyld_layout::output_section_id::OutputSectionId,
     mut buffer: &mut [u8],
-    layout: &wild_layout::Layout<elf::Elf<C>>,
+    layout: &elyld_layout::Layout<elf::Elf<C>>,
 ) -> Result {
     let merged = layout.merged_strings.get(section_id);
     if merged.len() > 0 {
@@ -421,7 +421,7 @@ fn update_allocation_sizes<P: EnginePlatform>(layout: &mut Layout<P>) {
         };
 
         let compressed_size: usize = compressed_data.total_compressed_size;
-        let compressed_part_id = section_id.part_id_with_alignment::<P>(wild_util::alignment::MIN);
+        let compressed_part_id = section_id.part_id_with_alignment::<P>(elyld_util::alignment::MIN);
 
         for part_id in section_id.parts::<P>() {
             let part_layout = layout.section_part_layouts.get_mut(part_id);
@@ -449,7 +449,7 @@ fn update_allocation_sizes<P: EnginePlatform>(layout: &mut Layout<P>) {
 
         // Free only `buckets`; the offset maps are still needed to resolve relocations from other
         // debug sections (e.g. `.debug_str_offsets`) that are written later.
-        // https://github.com/wild-linker/wild/issues/2113
+        // https://github.com/tyler274/wild/issues/2113
         layout.merged_strings.get_mut(section_id).buckets = Vec::new();
     }
 }

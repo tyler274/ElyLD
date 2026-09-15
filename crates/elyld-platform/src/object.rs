@@ -7,8 +7,8 @@ use std::fmt::Display;
 use std::num::NonZeroU32;
 use std::ops::Range;
 use std::path::PathBuf;
-use wild_error::error::Result;
-use wild_util::alignment::Alignment;
+use elyld_error::error::Result;
+use elyld_util::alignment::Alignment;
 
 /// Symbol visibility. Lives here so `platform/` does not import `symbol_db`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -137,7 +137,7 @@ pub trait ObjectFile<'data>: Sized + Send + Sync + std::fmt::Debug + 'data {
     fn section_data(
         &self,
         section: &<Self::Platform as Platform>::SectionHeader,
-        member: &wild_util::arena::Member<'data>,
+        member: &elyld_util::arena::Member<'data>,
         loaded_metrics: &<Self::Platform as Platform>::LoadedMetrics,
     ) -> Result<&'data [u8]>;
 

@@ -3,7 +3,7 @@
 
 //#AbstractConfig:base
 //#Arch: x86_64
-//#WildExtraLinkArgs:--incremental -nostdlib
+//#ElyldExtraLinkArgs:--incremental -nostdlib
 //#TestIncremental:true
 //#DiffEnabled:false
 //#CompArgs:--edition=2021 --emit=obj -C panic=abort -C opt-level=0

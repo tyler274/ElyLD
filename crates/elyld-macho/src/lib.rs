@@ -1,5 +1,5 @@
-use wild_layout::output_section_id::OutputSectionId;
-use wild_layout::part_id::PartId;
+use elyld_layout::output_section_id::OutputSectionId;
+use elyld_layout::part_id::PartId;
 
 pub(crate) mod abi;
 pub(crate) mod file;
@@ -22,9 +22,9 @@ pub(crate) use types::*;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct MachO;
 
-impl wild_layout::EnginePlatform for MachO {}
-impl<'data, 'scope> wild_layout::EngineScope<'data, 'scope> for MachO where 'data: 'scope {}
-impl<'writer, 'out> wild_layout::EngineWriter<'writer, 'out> for MachO where 'out: 'writer {}
+impl elyld_layout::EnginePlatform for MachO {}
+impl<'data, 'scope> elyld_layout::EngineScope<'data, 'scope> for MachO where 'data: 'scope {}
+impl<'writer, 'out> elyld_layout::EngineWriter<'writer, 'out> for MachO where 'out: 'writer {}
 
 pub use macho_aarch64::MachOAArch64;
 pub use macho_stub_library::parse_defined_library;
@@ -32,7 +32,7 @@ pub use macho_stub_library::parse_defined_library;
 #[repr(u32)]
 #[derive(Clone, Copy)]
 pub(crate) enum SinglePartSectionId {
-    Strtab = wild_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
+    Strtab = elyld_layout::output_section_id::NUM_COMMON_SINGLE_PART_SECTIONS,
     Got,
     PltGot,
     SymtabGlobal,
@@ -49,7 +49,7 @@ pub(crate) enum SinglePartSectionId {
 
 pub(crate) mod part_id {
     use super::SinglePartSectionId;
-    use wild_layout::part_id::PartId;
+    use elyld_layout::part_id::PartId;
 
     pub(crate) const STRTAB: PartId = SinglePartSectionId::Strtab.part_id();
     pub(crate) const GOT: PartId = SinglePartSectionId::Got.part_id();
@@ -64,7 +64,7 @@ pub(crate) mod part_id {
 
 pub(crate) mod output_section_id {
     use super::SinglePartSectionId;
-    use wild_layout::output_section_id::OutputSectionId;
+    use elyld_layout::output_section_id::OutputSectionId;
 
     pub(crate) const STRTAB: OutputSectionId = SinglePartSectionId::Strtab.output_section_id();
     pub(crate) const GOT: OutputSectionId = SinglePartSectionId::Got.output_section_id();

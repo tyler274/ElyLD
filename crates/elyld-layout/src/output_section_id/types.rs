@@ -1,12 +1,12 @@
 use super::OutputSectionId;
 use crate::layout_rules::SectionKind;
-use wild_platform::Platform;
+use elyld_platform::Platform;
 #[allow(unused_imports)]
-pub use wild_platform::custom_section_ids::*;
+pub use elyld_platform::custom_section_ids::*;
 #[allow(unused_imports)]
-pub use wild_platform::section_identity::*;
-use wild_scripts::linker_script::{Expression, OnlyIf};
-use wild_util::alignment::Alignment;
+pub use elyld_platform::section_identity::*;
+use elyld_scripts::linker_script::{Expression, OnlyIf};
+use elyld_util::alignment::Alignment;
 
 #[derive(Debug)]
 pub struct CustomSectionDetails<'data, P: Platform> {

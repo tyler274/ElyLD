@@ -13,7 +13,7 @@
 //! Example usage:
 //!
 //! ```sh
-//! cargo rustc --bin rg -- -Clinker=/usr/bin/clang-15 -Clink-arg=--ld-path=wild -Clink-arg=-Wl,--write-gc-stats=/tmp/gc-stats.txt -Clink-arg=-Wl,--verbose-gc-stats
+//! cargo rustc --bin rg -- -Clinker=/usr/bin/clang-15 -Clink-arg=--ld-path=elyld -Clink-arg=-Wl,--write-gc-stats=/tmp/gc-stats.txt -Clink-arg=-Wl,--verbose-gc-stats
 //! ```
 
 use crate::resolution::SectionSlot;
@@ -22,8 +22,8 @@ use crate::{EnginePlatform, FileLayout, GroupLayout};
 use hashbrown::HashMap;
 use itertools::Itertools;
 use std::path::PathBuf;
-use wild_error::error::{Context as _, Result};
-use wild_platform::{Args, ObjectFile};
+use elyld_error::error::{Context as _, Result};
+use elyld_platform::{Args, ObjectFile};
 
 pub fn maybe_write_gc_stats<'data, P: EnginePlatform>(
     group_layouts: &[GroupLayout<'data, P>],

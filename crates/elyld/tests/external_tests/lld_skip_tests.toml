@@ -1,5 +1,5 @@
 [skipped_groups.design_differences]
-reason = "Wild uses immediate binding or different load address; output differs from lld by design"
+reason = "ElyLD uses immediate binding or different load address; output differs from lld by design"
 tests = [
   "x86-64-tlsdesc-ld.s",
   "x86-64-tlsdesc-gd-mixed.s",

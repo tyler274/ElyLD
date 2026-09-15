@@ -3,13 +3,13 @@ use linker_utils::bit_misc::BitExtraction;
 use linker_utils::elf::{DynamicRelocationKind, RelocationKindInfo, ppc64_rel_type_to_string};
 use linker_utils::ppc64::RelaxationKind;
 use linker_utils::relaxation::RelocationModifier;
-use wild_error::error::Result;
-use wild_error::{bail, error};
-use wild_platform::{Platform, PreviousRelocationInfo};
+use elyld_error::error::Result;
+use elyld_error::{bail, error};
+use elyld_platform::{Platform, PreviousRelocationInfo};
 
 pub struct ElfPpc64;
 
-impl wild_platform::Arch for ElfPpc64 {
+impl elyld_platform::Arch for ElfPpc64 {
     type Relaxation = Relaxation;
     type Platform = Elf64;
 
@@ -45,12 +45,12 @@ impl wild_platform::Arch for ElfPpc64 {
         _plt_entry: &mut [u8],
         _got_address: u64,
         _plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         bail!("PLT generation for ppc64 is not yet implemented");
     }
 
     /// The thread pointer (`r13`) points 0x7000 bytes past the start of the static TLS block.
-    fn tp_offset_start(layout: &wild_layout::Layout<Elf64>) -> u64 {
+    fn tp_offset_start(layout: &elyld_layout::Layout<Elf64>) -> u64 {
         layout.tls_start_address() + 0x7000
     }
 
@@ -87,8 +87,8 @@ impl wild_platform::Arch for ElfPpc64 {
         relocation_kind: object::elf::RelocationType,
         section_bytes: &[u8],
         offset_in_section: u64,
-        flags: wild_platform::value_flags::ValueFlags,
-        output_kind: wild_platform::OutputKind,
+        flags: elyld_platform::value_flags::ValueFlags,
+        output_kind: elyld_platform::OutputKind,
         section_flags: linker_utils::elf::SectionFlags,
         relax_deltas: Option<&linker_utils::relaxation::SectionRelaxDeltas>,
         _sym_addr: u64,
@@ -107,7 +107,7 @@ impl wild_platform::Arch for ElfPpc64 {
         relocations: &<Self::Platform as Platform>::RelocationSections,
         section: &<Self::Platform as Platform>::SectionHeader,
         offset_in_section: u64,
-    ) -> Result<wild_platform::SourceInfo> {
+    ) -> Result<elyld_platform::SourceInfo> {
         crate::dwarf_address_info::get_source_info::<crate::Class64, Self>(
             object,
             relocations,
@@ -126,7 +126,7 @@ pub struct Relaxation {
     mandatory: bool,
 }
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, section_bytes: &mut [u8], offset_in_section: &mut u64, addend: &mut i64) {
         self.kind.apply(section_bytes, offset_in_section, addend);
     }

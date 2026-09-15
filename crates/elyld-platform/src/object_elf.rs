@@ -5,7 +5,7 @@ use linker_utils::elf::{shf, sht};
 use object::LittleEndian;
 use object::elf::{SectionHeader64, Sym64};
 use object::read::elf::SectionHeader as _;
-use wild_util::alignment::Alignment;
+use elyld_util::alignment::Alignment;
 
 impl SectionHeader for SectionHeader64<LittleEndian> {
     fn is_alloc(&self) -> bool {

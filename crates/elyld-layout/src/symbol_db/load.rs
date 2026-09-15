@@ -6,16 +6,16 @@ use crate::parsing::{InternalSymDefInfo, Prelude, Redirect, SymbolLoc, SymbolPla
 use crate::symbol::UnversionedSymbolName;
 use crate::{EnginePlatform, timing_phase, verbose_timing_phase};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator as _, ParallelIterator};
-use wild_error::error;
-use wild_error::error::{Context as _, Error, Result};
-use wild_platform as platform;
-use wild_platform::value_flags::{RawFlags, ValueFlags};
-use wild_platform::{
+use elyld_error::error;
+use elyld_error::error::{Context as _, Error, Result};
+use elyld_platform as platform;
+use elyld_platform::value_flags::{RawFlags, ValueFlags};
+use elyld_platform::{
     FileId, ObjectFile, OutputKind, PRELUDE_FILE_ID, Platform, RawSymbolName as _, Symbol,
 };
-use wild_scripts::export_list::ExportList;
-use wild_scripts::version_script::VersionScript;
-use wild_util::hash::{PreHashed, hash_bytes};
+use elyld_scripts::export_list::ExportList;
+use elyld_scripts::version_script::VersionScript;
+use elyld_util::hash::{PreHashed, hash_bytes};
 
 pub(super) struct SymbolLoadOutputs<'data> {
     /// Pending non-versioned symbols, grouped by hash bucket.
@@ -29,7 +29,7 @@ struct PendingSymbolHashBucket<'data> {
     versioned_symbols: Vec<PendingVersionedSymbol<'data>>,
 }
 pub fn linker_plugin_disabled_error() -> Error {
-    error!("Wild was compiled without linker-plugin support, but LTO inputs were detected")
+    error!("ElyLD was compiled without linker-plugin support, but LTO inputs were detected")
 }
 
 pub(super) struct SymbolVecWriters<'out> {

@@ -1,7 +1,7 @@
 use crate::linker_script::Expression;
 use hashbrown::HashMap;
-use wild_error::bail;
-use wild_error::error::Result;
+use elyld_error::bail;
+use elyld_error::error::Result;
 
 /// Smallest n such that 2^n >= `value`. `LOG2CEIL(0)` is 0, matching GNU ld.
 pub fn log2ceil(value: u64) -> u64 {

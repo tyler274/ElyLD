@@ -2,13 +2,13 @@ use super::{LE, MachOLayout, SymtabEntry};
 use crate::{MachO, part_id};
 use object::from_bytes_mut;
 use object::macho::{N_ABS, N_SECT};
-use wild_error::error::{Context, Result};
-use wild_error::{bail, error};
-use wild_layout::output_section_id::{OrderEvent, OutputSectionId};
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::resolution::SectionSlot;
-use wild_layout::{ObjectLayout, SymbolCopyInfo};
-use wild_platform::{ObjectFile, Symbol};
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, error};
+use elyld_layout::output_section_id::{OrderEvent, OutputSectionId};
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::{ObjectLayout, SymbolCopyInfo};
+use elyld_platform::{ObjectFile, Symbol};
 
 pub(crate) struct MachOSymbolTableWriter {
     pub(crate) next_strtab_offset: u32,

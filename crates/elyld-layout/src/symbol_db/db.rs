@@ -16,21 +16,21 @@ use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::mem::take;
 use symbolic_demangle::demangle;
-use wild_args::InputLinkerScript;
-use wild_error::error::Result;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::{FlagsForSymbol, PerSymbolFlags, ValueFlags};
-use wild_platform::{
+use elyld_args::InputLinkerScript;
+use elyld_error::error::Result;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::{FlagsForSymbol, PerSymbolFlags, ValueFlags};
+use elyld_platform::{
     Args, EntryPoint, FileId, ObjectFile, OutputKind, PRELUDE_FILE_ID, Platform, SectionHeader,
     Symbol,
 };
-use wild_scripts::export_list::ExportList;
-use wild_scripts::linker_script::Command;
-use wild_scripts::version_script::{
+use elyld_scripts::export_list::ExportList;
+use elyld_scripts::linker_script::Command;
+use elyld_scripts::version_script::{
     RustVersionScript, VersionScript, combine_version_script_bodies,
 };
-use wild_util::hash::{PassThroughHashMap, PreHashed};
-use wild_util::sharding::ShardKey;
+use elyld_util::hash::{PassThroughHashMap, PreHashed};
+use elyld_util::sharding::ShardKey;
 
 #[derive(Default)]
 pub struct LoadedInputs<'data, P: Platform> {
@@ -77,11 +77,11 @@ pub struct SymbolDb<'data, P: Platform> {
     entry: Option<&'data [u8]>,
 
     pub output_kind: OutputKind,
-    pub herd: &'data wild_util::arena::Herd,
+    pub herd: &'data elyld_util::arena::Herd,
 
     /// The next input section ID to assign. Updated by `create_groups` so that subsequent calls
     /// (e.g. for LTO output objects) continue from where the previous call left off.
-    pub next_input_section_id: wild_util::input_section_id::InputSectionId,
+    pub next_input_section_id: elyld_util::input_section_id::InputSectionId,
 
     /// Output part IDs for all input sections across all files, indexed by `InputSectionId`.
     /// Populated after section resolution and `assign_section_ids`. Note that for non-loaded
@@ -172,9 +172,9 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
     pub fn new(
         args: &'data P::Args,
         output_kind: OutputKind,
-        version_script_data: Option<wild_scripts::ScriptData<'data>>,
-        export_list_data: Option<wild_scripts::ScriptData<'data>>,
-        herd: &'data wild_util::arena::Herd,
+        version_script_data: Option<elyld_scripts::ScriptData<'data>>,
+        export_list_data: Option<elyld_scripts::ScriptData<'data>>,
+        herd: &'data elyld_util::arena::Herd,
     ) -> Result<Self> {
         let version_script = version_script_data
             .map(VersionScript::parse)
@@ -205,7 +205,7 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             output_kind,
             herd,
             section_part_ids: Vec::new(),
-            next_input_section_id: wild_util::input_section_id::InputSectionId::from_usize(0),
+            next_input_section_id: elyld_util::input_section_id::InputSectionId::from_usize(0),
             plugin_codegen_link_order: None,
         };
 
@@ -332,7 +332,7 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
 
         for group_objects in &lto_objects
             .into_iter()
-            .chunks(wild_platform::MAX_FILES_PER_GROUP as usize)
+            .chunks(elyld_platform::MAX_FILES_PER_GROUP as usize)
         {
             let mut next_symbol_id = self.next_symbol_id();
             let group_index = self.next_group_index();
@@ -1033,7 +1033,7 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             } else {
                 String::from_utf8_lossy(version).into_owned()
             };
-            wild_error::bail!(
+            elyld_error::bail!(
                 "version script assignment of {version} to symbol {} failed: symbol not defined",
                 String::from_utf8_lossy(name)
             );

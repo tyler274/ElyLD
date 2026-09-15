@@ -1,8 +1,8 @@
 use super::parse::ArgumentParser;
 use super::types::parse_time_phase_options;
 use std::num::NonZeroUsize;
-use wild_fs::fs::{FileReplacementMode, FileWriteMode};
-use wild_platform as platform;
+use elyld_fs::fs::{FileReplacementMode, FileWriteMode};
+use elyld_platform as platform;
 
 pub fn declare_common_args<T: platform::Args + super::HasCommonArgs>(
     parser: &mut ArgumentParser<T>,
@@ -162,7 +162,7 @@ pub fn declare_common_args<T: platform::Args + super::HasCommonArgs>(
     parser
         .declare()
         .long("incremental")
-        .help("Enable incremental linking (see also WILD_INCREMENTAL=1)")
+        .help("Enable incremental linking (see also ELYLD_INCREMENTAL=1)")
         .execute(|args, _modifier_stack| {
             args.common_mut().incremental = true;
             Ok(())

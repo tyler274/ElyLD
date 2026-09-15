@@ -11,10 +11,10 @@ use std::num::NonZero;
 use std::path::Path;
 use std::sync::Arc;
 use strum::EnumMessage as _;
-use wild_error::bail;
-use wild_platform::Args as _;
-use wild_scripts::linker_script::maybe_forced_sysroot;
-use wild_util::alignment::Alignment;
+use elyld_error::bail;
+use elyld_platform::Args as _;
+use elyld_scripts::linker_script::maybe_forced_sysroot;
+use elyld_util::alignment::Alignment;
 
 pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
     parser

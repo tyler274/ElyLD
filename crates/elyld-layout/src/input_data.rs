@@ -1,12 +1,12 @@
 //! Input-file records and the loader handle. Loading (sniffing, archives, plugins) stays in
-//! libwild so this crate does not depend on format parsers.
+//! libelyld so this crate does not depend on format parsers.
 
 use colosseum::sync::Arena;
 use std::path::PathBuf;
 use std::sync::Arc;
-use wild_args::{InputFileRef, Modifiers};
-use wild_fs::fs::{FileSystem, InputFileData};
-use wild_scripts::ScriptData;
+use elyld_args::{InputFileRef, Modifiers};
+use elyld_fs::fs::{FileSystem, InputFileData};
+use elyld_scripts::ScriptData;
 
 pub struct FileLoader<'data, F: FileSystem> {
     /// The files that we've loaded so far.

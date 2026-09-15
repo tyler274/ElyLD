@@ -18,18 +18,18 @@ use std::marker::PhantomData;
 use std::sync::atomic::AtomicBool;
 #[allow(unused_imports)]
 pub(crate) use versions::*;
-use wild_error::bail;
-use wild_error::error::{Context as _, Result};
-use wild_layout as layout;
-use wild_layout::grouping::Group;
-use wild_layout::layout_rules::SectionKind;
-use wild_layout::output_section_id::{OutputSectionId, OutputSections};
+use elyld_error::bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout as layout;
+use elyld_layout::grouping::Group;
+use elyld_layout::layout_rules::SectionKind;
+use elyld_layout::output_section_id::{OutputSectionId, OutputSections};
 #[cfg(all(feature = "plugins", unix))]
-use wild_layout::symbol_db::Visibility;
-use wild_layout::timing_phase;
-use wild_platform as platform;
-use wild_platform::{DynamicTagValues as _, ObjectFile as _, Platform};
-use wild_util::alignment::Alignment;
+use elyld_layout::symbol_db::Visibility;
+use elyld_layout::timing_phase;
+use elyld_platform as platform;
+use elyld_platform::{DynamicTagValues as _, ObjectFile as _, Platform};
+use elyld_util::alignment::Alignment;
 
 #[cfg(all(feature = "plugins", unix))]
 pub(crate) fn convert_elf_visibility(st_visibility: object::elf::SymbolVisibility) -> Visibility {

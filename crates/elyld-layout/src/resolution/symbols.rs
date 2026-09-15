@@ -13,12 +13,12 @@ use crate::symbol_db::{SymbolDb, SymbolId, SymbolStrength, Visibility};
 use crate::{EnginePlatform, symbol_db, timing_phase, verbose_timing_phase};
 use atomic_take::AtomicTake;
 use rayon::Scope;
-use wild_error::debug_assert_bail;
-use wild_error::error::{Context as _, Result};
-use wild_platform::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
-use wild_platform::{Args as _, FileId, ObjectFile, PRELUDE_FILE_ID, Platform, Symbol as _};
-use wild_scripts::linker_script::Expression;
-use wild_util::hash::{PassThroughHashMap, PreHashed};
+use elyld_error::debug_assert_bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
+use elyld_platform::{Args as _, FileId, ObjectFile, PRELUDE_FILE_ID, Platform, Symbol as _};
+use elyld_scripts::linker_script::Expression;
+use elyld_util::hash::{PassThroughHashMap, PreHashed};
 
 pub struct ResolutionResources<'data, 'scope, P: Platform> {
     pub(super) definitions_per_file: &'scope Vec<Vec<AtomicTake<&'scope mut [SymbolId]>>>,
@@ -581,7 +581,7 @@ pub fn resolve_symbol<'data, 'scope, P: EnginePlatform>(
                 // objects, however the rules for whether this should result in a DT_NEEDED entry
                 // are kind of subtle, so for now, we don't activate shared objects from shared
                 // objects. See
-                // https://github.com/wild-linker/wild/issues/930#issuecomment-3007027924 for
+                // https://github.com/tyler274/wild/issues/930#issuecomment-3007027924 for
                 // more details. TODO: Fix this.
                 if !is_dynamic || !resources.symbol_db.file(symbol_file_id).is_dynamic() {
                     resources.try_request_file_id(symbol_file_id, scope);

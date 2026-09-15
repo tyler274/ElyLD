@@ -3,10 +3,10 @@ use crate::output_section_id::{LocationCounterIndex, OutputSectionId};
 use crate::symbol::UnversionedSymbolName;
 use crate::symbol_db::{SymbolId, SymbolIdRange};
 use crate::{EnginePlatform, OutputSections, timing_phase, verbose_timing_phase};
-use wild_args::{InputLinkerScript, InputRef, Modifiers};
-use wild_error::error::{Context as _, Result};
-use wild_platform::{Args, FileId, ObjectFile, OutputKind, Platform, Symbol};
-use wild_scripts::linker_script::Expression;
+use elyld_args::{InputLinkerScript, InputRef, Modifiers};
+use elyld_error::error::{Context as _, Result};
+use elyld_platform::{Args, FileId, ObjectFile, OutputKind, Platform, Symbol};
+use elyld_scripts::linker_script::Expression;
 
 pub fn process_linker_scripts<'data, P: EnginePlatform>(
     linker_scripts_in: &[InputLinkerScript<'data>],
@@ -38,14 +38,14 @@ pub struct ParsedInputObject<'data, P: Platform> {
 pub struct ProcessedLinkerScript<'data, P: Platform> {
     pub input: InputRef<'data>,
     pub symbol_defs: Vec<InternalSymDefInfo<'data, P>>,
-    pub memory_regions: Vec<wild_scripts::linker_script::MemoryRegion<'data>>,
-    pub program_headers: Vec<wild_scripts::linker_script::Phdr<'data>>,
+    pub memory_regions: Vec<elyld_scripts::linker_script::MemoryRegion<'data>>,
+    pub program_headers: Vec<elyld_scripts::linker_script::Phdr<'data>>,
     pub location_counters: Vec<LocationCounter<'data>>,
     pub ordered_sections: Vec<OutputSectionId>,
     /// GNU `INSERT AFTER` / `INSERT BEFORE`, if this script is a fragment.
     pub insert: Option<ScriptInsert<'data>>,
     pub region_aliases: Vec<(&'data [u8], &'data [u8])>,
-    pub nocrossrefs: Vec<wild_scripts::linker_script::NocrossrefConstraint<'data>>,
+    pub nocrossrefs: Vec<elyld_scripts::linker_script::NocrossrefConstraint<'data>>,
 }
 
 impl<'data, P: Platform> ProcessedLinkerScript<'data, P> {
@@ -236,7 +236,7 @@ impl<'data, P: EnginePlatform> Prelude<'data, P> {
             .iter()
             .try_for_each(|(name, value)| -> Result<()> {
                 let mut value = winnow::BStr::new(value);
-                let expr = wild_scripts::linker_script::parse_expression(&mut value)
+                let expr = elyld_scripts::linker_script::parse_expression(&mut value)
                     .with_context(|| format!("Failed to parse --defsym {name}={value}"))?;
 
                 let placement = SymbolPlacement::Redirect(Redirect {
@@ -344,16 +344,16 @@ impl<'data, P: Platform> std::fmt::Display for ProcessedLinkerScript<'data, P> {
 }
 
 impl Redirect<'_> {
-    pub fn missing_target(&self, target_name: &[u8]) -> wild_error::error::Error {
-        wild_error::error!(
+    pub fn missing_target(&self, target_name: &[u8]) -> elyld_error::error::Error {
+        elyld_error::error!(
             "Symbol '{name}' referenced by {kind} does not exist",
             name = String::from_utf8_lossy(target_name),
             kind = self.kind.message_text(),
         )
     }
 
-    pub fn missing_resolution(&self, target_name: &[u8]) -> wild_error::error::Error {
-        wild_error::error!(
+    pub fn missing_resolution(&self, target_name: &[u8]) -> elyld_error::error::Error {
+        elyld_error::error!(
             "Symbol '{name}' referenced by {kind} has no resolution.",
             name = String::from_utf8_lossy(target_name),
             kind = self.kind.message_text(),

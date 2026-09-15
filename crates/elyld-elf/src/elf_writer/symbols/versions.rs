@@ -3,10 +3,10 @@ use super::super::types::TableWriter;
 use crate as elf;
 use crate::{ElfClass, Verdaux, Verdef, Vernaux, Verneed, VersionDef, Versym, part_id};
 use object::LittleEndian;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, error};
-use wild_layout::file_writer::{excessive_allocation, insufficient_allocation};
-use wild_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, error};
+use elyld_layout::file_writer::{excessive_allocation, insufficient_allocation};
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
 
 #[derive(Default)]
 pub(crate) struct VersionWriter<'out> {

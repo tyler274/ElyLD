@@ -2,9 +2,9 @@ use super::output_section_id::OutputSectionId;
 use glob::Pattern;
 use hashbrown::HashSet;
 use std::borrow::Cow;
-use wild_error::error::Result;
-use wild_scripts::linker_script::OnlyIf;
-use wild_util::glob_match::{
+use elyld_error::error::Result;
+use elyld_scripts::linker_script::OnlyIf;
+use elyld_util::glob_match::{
     GlobPatternType, analyze_glob_pattern, compile_glob_pattern, unescape_pattern,
 };
 
@@ -131,7 +131,7 @@ pub struct SectionRule<'data> {
     pub only_if_section_id: Option<OutputSectionId>,
 
     /// GNU `INPUT_SECTION_FLAGS`: require and forbid ELF `sh_flags` bits.
-    input_section_flags: wild_scripts::linker_script::InputSectionFlags,
+    input_section_flags: elyld_scripts::linker_script::InputSectionFlags,
 }
 
 impl<'data> SectionRule<'data> {
@@ -141,7 +141,7 @@ impl<'data> SectionRule<'data> {
         outcome: SectionRuleOutcome,
     ) -> Result<Self> {
         let compiled_file_pattern = input_file_pattern
-            .map(|pattern| compile_glob_pattern(pattern).map_err(|e| wild_error::error!("{e}")))
+            .map(|pattern| compile_glob_pattern(pattern).map_err(|e| elyld_error::error!("{e}")))
             .transpose()?;
 
         let name_matcher = match analyze_glob_pattern(pattern) {
@@ -151,7 +151,7 @@ impl<'data> SectionRule<'data> {
             }
             GlobPatternType::Star | GlobPatternType::NonStar => {
                 let compiled_pattern =
-                    compile_glob_pattern(pattern).map_err(|e| wild_error::error!("{}", e))?;
+                    compile_glob_pattern(pattern).map_err(|e| elyld_error::error!("{}", e))?;
 
                 SectionNameMatcher::Glob(pattern, compiled_pattern)
             }
@@ -164,7 +164,7 @@ impl<'data> SectionRule<'data> {
             outcome,
             only_if: None,
             only_if_section_id: None,
-            input_section_flags: wild_scripts::linker_script::InputSectionFlags::EMPTY,
+            input_section_flags: elyld_scripts::linker_script::InputSectionFlags::EMPTY,
         })
     }
 
@@ -179,14 +179,14 @@ impl<'data> SectionRule<'data> {
     pub fn with_excludes(mut self, patterns: &[&'data [u8]]) -> Result<Self> {
         self.exclude_file_patterns = patterns
             .iter()
-            .map(|pattern| compile_glob_pattern(pattern).map_err(|e| wild_error::error!("{e}")))
+            .map(|pattern| compile_glob_pattern(pattern).map_err(|e| elyld_error::error!("{e}")))
             .collect::<Result<Vec<_>>>()?;
         Ok(self)
     }
 
     pub fn with_input_section_flags(
         mut self,
-        flags: wild_scripts::linker_script::InputSectionFlags,
+        flags: elyld_scripts::linker_script::InputSectionFlags,
     ) -> Self {
         self.input_section_flags = flags;
         self
@@ -287,7 +287,7 @@ impl<'data> SectionRule<'data> {
             outcome: SectionRuleOutcome::SortedSection(SectionOutputInfo::keep(section_id)),
             only_if: None,
             only_if_section_id: None,
-            input_section_flags: wild_scripts::linker_script::InputSectionFlags::EMPTY,
+            input_section_flags: elyld_scripts::linker_script::InputSectionFlags::EMPTY,
         }
     }
 
@@ -299,7 +299,7 @@ impl<'data> SectionRule<'data> {
             outcome,
             only_if: None,
             only_if_section_id: None,
-            input_section_flags: wild_scripts::linker_script::InputSectionFlags::EMPTY,
+            input_section_flags: elyld_scripts::linker_script::InputSectionFlags::EMPTY,
         }
     }
 
@@ -311,7 +311,7 @@ impl<'data> SectionRule<'data> {
             outcome,
             only_if: None,
             only_if_section_id: None,
-            input_section_flags: wild_scripts::linker_script::InputSectionFlags::EMPTY,
+            input_section_flags: elyld_scripts::linker_script::InputSectionFlags::EMPTY,
         }
     }
 

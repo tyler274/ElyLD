@@ -11,12 +11,12 @@ use wasm_encoder::{
     ConstExpr, ElementSection, Elements, ExportSection, FunctionSection, GlobalSection,
     ImportSection, MemorySection, TableSection, TypeSection,
 };
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, ensure};
-use wild_fs::fs::OutputFileData;
-use wild_layout::file_writer::{SizedOutput, split_output_into_sections};
-use wild_layout::{Layout, timing_phase, verbose_timing_phase};
-use wild_platform::Arch;
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, ensure};
+use elyld_fs::fs::OutputFileData;
+use elyld_layout::file_writer::{SizedOutput, split_output_into_sections};
+use elyld_layout::{Layout, timing_phase, verbose_timing_phase};
+use elyld_platform::Arch;
 
 fn apply_resolved_reloc(
     index_map: &WasmObjectIndexMap,
@@ -50,7 +50,7 @@ fn apply_section_reloc(
 ) -> Result<()> {
     let mut reloc = *reloc;
     reloc.offset = reloc.offset.checked_sub(local_base).ok_or_else(|| {
-        wild_error::error!("Wasm relocation offset is before the body or payload start")
+        elyld_error::error!("Wasm relocation offset is before the body or payload start")
     })?;
     apply_resolved_reloc(
         index_map,
@@ -73,10 +73,10 @@ pub(crate) fn write<'data, A: Arch<Platform = Wasm>>(
     padding.fill_zero();
 
     let preamble = section_buffers
-        .get_mut(wild_layout::output_section_id::FILE_HEADER)
+        .get_mut(elyld_layout::output_section_id::FILE_HEADER)
         .get_mut(..8)
         .ok_or_else(|| {
-            wild_error::error!("Wasm output buffer is shorter than the 8-byte preamble")
+            elyld_error::error!("Wasm output buffer is shorter than the 8-byte preamble")
         })?;
     preamble[..4].copy_from_slice(&WASM_MAGIC);
     preamble[4..8].copy_from_slice(&WASM_VERSION.to_le_bytes());
@@ -109,7 +109,7 @@ pub(crate) fn write<'data, A: Arch<Platform = Wasm>>(
 
 fn copy_metadata_sections(
     layout: &WasmLayout<'_>,
-    section_buffers: &mut wild_platform::output_section_map::OutputSectionMap<&mut [u8]>,
+    section_buffers: &mut elyld_platform::output_section_map::OutputSectionMap<&mut [u8]>,
 ) -> Result<()> {
     let encoded = &layout.encoded_sections;
     copy_encoded_section(

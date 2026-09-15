@@ -13,10 +13,10 @@ use crate::{
 };
 use hashbrown::{HashMap, HashSet};
 use std::cell::OnceCell;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_scripts::linker_script::Expression;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_scripts::linker_script::Expression;
 
 /// End VMA of `section_id`, including secondary contributions that have not yet been
 /// merged into the primary. Needed for `_etext = .` / `text_size = _etext - _stext` while

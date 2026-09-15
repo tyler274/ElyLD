@@ -8,8 +8,8 @@ use linker_utils::elf::{
     RelocationSize, SIZE_4KB, Sign,
 };
 use std::borrow::Cow;
-use wild_error::{bail, ensure};
-use wild_platform::PreviousRelocationInfo;
+use elyld_error::{bail, ensure};
+use elyld_platform::PreviousRelocationInfo;
 
 pub struct MachOAArch64;
 
@@ -30,7 +30,7 @@ pub struct Relaxation {
     rel_info: RelocationKindInfo,
 }
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, section_bytes: &mut [u8], offset_in_section: &mut u64, addend: &mut i64) {
         self.kind.apply(section_bytes, offset_in_section, addend);
     }
@@ -52,13 +52,13 @@ impl wild_platform::Relaxation for Relaxation {
     }
 }
 
-impl wild_platform::Arch for MachOAArch64 {
+impl elyld_platform::Arch for MachOAArch64 {
     type Relaxation = Relaxation;
     type Platform = MachO;
-    fn start_memory_address(_output_kind: wild_platform::OutputKind) -> u64 {
+    fn start_memory_address(_output_kind: elyld_platform::OutputKind) -> u64 {
         crate::MACHO_START_MEM_ADDRESS
     }
-    fn arch_identifier() -> <Self::Platform as wild_platform::Platform>::ArchIdentifier {
+    fn arch_identifier() -> <Self::Platform as elyld_platform::Platform>::ArchIdentifier {
         todo!()
     }
 
@@ -72,7 +72,7 @@ impl wild_platform::Arch for MachOAArch64 {
         plt_entry: &mut [u8],
         got_address: u64,
         plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         // TODO: For simplicity, we assume now the PLT entry precedes the GOT entry, so we can
         // make the offset calculation in the unsigned type.
         debug_assert!(plt_address < got_address);
@@ -95,7 +95,7 @@ impl wild_platform::Arch for MachOAArch64 {
 
     fn relocation_from_raw(
         rel: object::macho::RelocationInfo,
-    ) -> wild_error::error::Result<RelocationKindInfo> {
+    ) -> elyld_error::error::Result<RelocationKindInfo> {
         let rel_size_in_bytes = 1 << rel.r_length;
         let rel_size = RelocationSize::ByteSize(rel_size_in_bytes);
         let rel_kind = if rel.r_pcrel {
@@ -182,15 +182,15 @@ impl wild_platform::Arch for MachOAArch64 {
         }
     }
 
-    fn tp_offset_start(layout: &wild_layout::Layout<Self::Platform>) -> u64 {
+    fn tp_offset_start(layout: &elyld_layout::Layout<Self::Platform>) -> u64 {
         todo!()
     }
 
-    fn get_property_class(_property_type: u32) -> Option<wild_platform::PropertyClass> {
+    fn get_property_class(_property_type: u32) -> Option<elyld_platform::PropertyClass> {
         todo!()
     }
 
-    fn merge_eflags(eflags: impl Iterator<Item = u32>) -> wild_error::error::Result<u32> {
+    fn merge_eflags(eflags: impl Iterator<Item = u32>) -> elyld_error::error::Result<u32> {
         todo!()
     }
 
@@ -199,21 +199,21 @@ impl wild_platform::Arch for MachOAArch64 {
     }
 
     fn get_source_info<'data>(
-        object: &<Self::Platform as wild_platform::Platform>::File<'data>,
-        relocations: &<Self::Platform as wild_platform::Platform>::RelocationSections,
-        section: &<Self::Platform as wild_platform::Platform>::SectionHeader,
+        object: &<Self::Platform as elyld_platform::Platform>::File<'data>,
+        relocations: &<Self::Platform as elyld_platform::Platform>::RelocationSections,
+        section: &<Self::Platform as elyld_platform::Platform>::SectionHeader,
         offset_in_section: u64,
-    ) -> wild_error::error::Result<wild_platform::SourceInfo> {
-        Ok(wild_platform::SourceInfo(None))
+    ) -> elyld_error::error::Result<elyld_platform::SourceInfo> {
+        Ok(elyld_platform::SourceInfo(None))
     }
 
     fn new_relaxation(
         relocation_kind: object::macho::RelocationInfo,
         section_bytes: &[u8],
         offset_in_section: u64,
-        flags: wild_platform::value_flags::ValueFlags,
-        output_kind: wild_platform::OutputKind,
-        section_flags: <Self::Platform as wild_platform::Platform>::SectionFlags,
+        flags: elyld_platform::value_flags::ValueFlags,
+        output_kind: elyld_platform::OutputKind,
+        section_flags: <Self::Platform as elyld_platform::Platform>::SectionFlags,
         relax_deltas: Option<&linker_utils::relaxation::SectionRelaxDeltas>,
         _sym_addr: u64,
         _section_address: u64,

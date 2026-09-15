@@ -1,10 +1,10 @@
-# Recommendations for Packaging Wild linker
+# Recommendations for Packaging ElyLD
 
 ## Binaries
 
-This repository consists of Wild linker and linker-diff binaries. We recommend providing the `wild`
-binary and symlink `ld.wild` pointing to it, as this enables `-fuse-ld=wild` usage with Clang.
-Linker-diff is mainly a tool to aid Wild development, so you most likely don't want to package it.
+This repository consists of ElyLD and linker-diff binaries. We recommend providing the `elyld`
+binary and symlink `ld.elyld` pointing to it, as this enables `-fuse-ld=elyld` usage with Clang.
+Linker-diff is mainly a tool to aid ElyLD development, so you most likely don't want to package it.
 
 ## Building
 
@@ -13,7 +13,7 @@ that enables stripping of the binaries. The default feature set includes `mimall
 
 ### Optional features
 
-Wild has these build-time features:
+ElyLD has these build-time features:
 
 - `fork` (enabled by default) – an optimisation of process clean-up phase using `fork()`. Can be
   disabled in the runtime via `--no-fork` flag.
@@ -29,17 +29,17 @@ Wild has these build-time features:
 
 To test built binary, you can use `cargo test`, preferably with the same configuration as the build
 to avoid rebuilding. The testsuite is configured with `test-config.toml` file (default values are
-used if absent) and `WILD_TEST_IGNORE_FORMAT`.
+used if absent) and `ELYLD_TEST_IGNORE_FORMAT`.
 
 To tweak the configuration, you can copy `test-config.toml.example` to `test-config.toml` and edit
 it to your liking. You can learn more about the options
 at [Configuration file for tests](./CONTRIBUTING.md#configuration-file-for-tests). Just be careful
-with `run_all_diffs` option, it's meant mostly for Wild development and may cause false positives.
+with `run_all_diffs` option, it's meant mostly for ElyLD development and may cause false positives.
 
-Setting `WILD_TEST_IGNORE_FORMAT` disables format checks of C/C++ source files in tests which you
+Setting `ELYLD_TEST_IGNORE_FORMAT` disables format checks of C/C++ source files in tests which you
 might prefer because your `clang-format` may give different results.
 
 ## Issues
 
-If you, or the users of your package, encounter any issues or pain points with Wild, don't hesitate
+If you, or the users of your package, encounter any issues or pain points with ElyLD, don't hesitate
 to report them to us or reach out for help.

@@ -1,6 +1,6 @@
 [package]
-name = "wild-fs"
-description = "Filesystem and archive I/O for the Wild linker"
+name = "elyld-fs"
+description = "Filesystem and archive I/O for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -11,7 +11,7 @@ edition.workspace = true
 libc.workspace = true
 memmap2.workspace = true
 object.workspace = true
-wild-error = { path = "../wild-error", version = "0.10.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
 
 [target.'cfg(unix)'.dependencies]
 nix.workspace = true

@@ -9,17 +9,17 @@ use foldhash::HashSet;
 use std::borrow::Cow;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use wild_error::env;
-use wild_fs::archive::{ArchiveEntry, ArchiveIterator};
-use wild_platform as platform;
-use wild_scripts::linker_script::LinkerScript;
+use elyld_error::env;
+use elyld_fs::archive::{ArchiveEntry, ArchiveIterator};
+use elyld_platform as platform;
+use elyld_scripts::linker_script::LinkerScript;
 
 #[derive(Debug, Default)]
 pub(crate) struct SaveDir(Option<SaveDirState>);
 
-const SAVE_DIR_ENV: &str = "WILD_SAVE_DIR";
-const SAVE_BASE_ENV: &str = "WILD_SAVE_BASE";
-const SKIP_LINKING_ENV: &str = "WILD_SAVE_SKIP_LINKING";
+const SAVE_DIR_ENV: &str = "ELYLD_SAVE_DIR";
+const SAVE_BASE_ENV: &str = "ELYLD_SAVE_BASE";
+const SKIP_LINKING_ENV: &str = "ELYLD_SAVE_SKIP_LINKING";
 
 const PRELUDE: &str = include_str!("save-dir-prelude.sh");
 

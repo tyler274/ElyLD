@@ -1,6 +1,6 @@
 # Linker Script Support
 
-This page documents which linker script features Wild supports, which are partially implemented,
+This page documents which linker script features ElyLD supports, which are partially implemented,
 and which are planned for the future. Each feature is marked with one of four statuses: `✅`
 (supported), `🧪` (partial), `📅` (planned), or `❌` (not planned). A dedicated section at the
 end lists the features required to link the Linux kernel.
@@ -132,7 +132,7 @@ section has no explicit `>region`, a compatible region is selected from the flag
 The Linux kernel's build system uses a rich set of linker script features across `vmlinux.lds` and
 related architecture-specific scripts. The table below lists each such feature along with its
 current status. Kernel-like scripts for x86_64, aarch64, riscv64, loongarch64, and ppc64le are
-covered by Wild's integration tests. An x86_64 `vmlinux` link with `--no-gc-sections` matches GNU ld
+covered by ElyLD's integration tests. An x86_64 `vmlinux` link with `--no-gc-sections` matches GNU ld
 for `_stext`, `_etext`, `__init_begin`, `_end`, and `.rodata` size. Merge-string inputs are merged at
 their section alignment without mixing different alignments in one pool, and `SHF_STRINGS`
 tail-merges like GNU ld. `SHF_MERGE` inputs with relocations are concatenated, not unique'd. Constant
@@ -179,7 +179,7 @@ Current glibc links `libc.so` / `ld.so` with `gcc -shared` and a version script,
 `libpcprofile`, and the `libpthread` / `libdl` / `librt` / `libutil` / `libanl` stubs)
 use GNU's `lib%.so` pattern (`*_pic.a`, crtbeginS/crtendS, linked against `libc.so`).
 libnsl and NSS DSOs that still call deprecated RPC APIs are linked against
-`linkobj/libc.so`, matching GNU `libc-for-link`. Wild's default ELF layout is what
+`linkobj/libc.so`, matching GNU `libc-for-link`. ElyLD's default ELF layout is what
 those links use. GNU ld's default shared script
 (`DATA_SEGMENT_*`, `CONSTANT`, `ONLY_IF_*`, `SORT_NONE`, `LINKER_VERSION` as an ELF nop,
 `SORT(CONSTRUCTORS)`, mid-list `EXCLUDE_FILE`) is still parsed and linked
@@ -191,13 +191,13 @@ section so identity and `*(.comment)` share one `.comment`. `LINKER_VERSION` is
 parsed; GNU inserts a string only with `--enable-linker-version` (off by default),
 while Wild always writes identity.
 
-Glibc `configure` only accepted GNU ld / gold / LLD `--version` strings; Wild now prints a GNU ld
-compatible first line (`GNU ld (Wild) 2.44`) so configure and `scripts/ld-version.sh` accept it.
+Glibc `configure` only accepted GNU ld / gold / LLD `--version` strings; ElyLD now prints a GNU ld
+compatible first line (`GNU ld (ElyLD) 2.44`) so configure and `scripts/ld-version.sh` accept it.
 The GNU oracle is still linked with GNU ld so the relink tests have a BFD binary to diff against.
-`nix develop` sets `WILD_GLIBC_TREE` to nixpkgs' glibc source and `WILD_GLIBC_BUILD` to
+`nix develop` sets `ELYLD_GLIBC_TREE` to nixpkgs' glibc source and `ELYLD_GLIBC_BUILD` to
 `target/glibc-gnu`; run `wild-build-glibc` then
-`cargo test -p wild-linker --test integration_tests -- glibc`. Override those variables to use
-another tree. `wild-glibc-check` runs a glibc `make test` subset against the Wild-linked
+`cargo test -p elyld --test integration_tests -- glibc`. Override those variables to use
+another tree. `wild-glibc-check` runs a glibc `make test` subset against ElyLD-linked
 `libc.so` / `ld.so` / `lib%.so` DSOs. `--incremental` on those DSOs is covered by
 `glibc-*-incremental` (unchanged relink; skip updates still emit dynamic reloc tables). A full
 `make check` is follow-up.

@@ -1,6 +1,6 @@
 [package]
-name = "wild-util"
-description = "Shared utilities for the Wild linker"
+name = "elyld-util"
+description = "Shared utilities for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -16,7 +16,7 @@ hashbrown.workspace = true
 leb128.workspace = true
 memchr.workspace = true
 object.workspace = true
-wild-error = { path = "../wild-error", version = "0.10.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
 
 [dev-dependencies]
 itertools.workspace = true

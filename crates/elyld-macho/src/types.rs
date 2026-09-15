@@ -7,14 +7,14 @@ use object::macho::{
 };
 use object::{Endianness, SectionIndex, macho};
 use std::num::NonZeroU64;
-use wild_args::macho::MachOArgs;
-use wild_layout::layout_rules::SectionKind;
-use wild_layout::output_section_id::{SectionIdentity, SectionName};
-use wild_layout::symbol_db::SymbolId;
-use wild_platform as platform;
-use wild_platform::{Args, FileId};
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+use elyld_args::macho::MachOArgs;
+use elyld_layout::layout_rules::SectionKind;
+use elyld_layout::output_section_id::{SectionIdentity, SectionName};
+use elyld_layout::symbol_db::SymbolId;
+use elyld_platform as platform;
+use elyld_platform::{Args, FileId};
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 pub(super) const LE: Endianness = Endianness::Little;
 
@@ -214,8 +214,8 @@ impl platform::SectionAttributes for SectionAttributes {
 
     fn apply(
         &self,
-        output_sections: &mut wild_layout::output_section_id::OutputSections<Self::Platform>,
-        section_id: wild_layout::output_section_id::OutputSectionId,
+        output_sections: &mut elyld_layout::output_section_id::OutputSections<Self::Platform>,
+        section_id: elyld_layout::output_section_id::OutputSectionId,
     ) {
         let info = output_sections.section_infos.get_mut(section_id);
         // TODO: For now, we copy what ELF does to break ties in types. This acts as a workaround

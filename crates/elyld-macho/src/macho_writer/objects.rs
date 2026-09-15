@@ -8,16 +8,16 @@ use object::macho::{
 };
 use std::ops::BitAnd;
 use tracing::debug_span;
-use wild_error::error::{Context, Result};
-use wild_error::{bail, ensure, error};
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::output_trace::HexU64;
-use wild_layout::resolution::SectionSlot;
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{ObjectLayout, Resolution, Section, verbose_timing_phase};
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{Arch, ObjectFile as _, Relaxation as _};
-use wild_util::alignment::MACHO_PAGE_ALIGNMENT;
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, ensure, error};
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::output_trace::HexU64;
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{ObjectLayout, Resolution, Section, verbose_timing_phase};
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{Arch, ObjectFile as _, Relaxation as _};
+use elyld_util::alignment::MACHO_PAGE_ALIGNMENT;
 
 pub(crate) fn write_plt_entries<A: Arch<Platform = MachO>>(
     layout: &MachOLayout<'_>,
@@ -117,7 +117,7 @@ pub(crate) fn write_object<'data, A: Arch<Platform = MachO>>(
     verbose_timing_phase!("Write object", file_id = object.file_id.as_u32());
 
     let _span = debug_span!("write_file", filename = %object.input).entered();
-    let _file_span = wild_layout::span_for_file(layout.args(), object.file_id);
+    let _file_span = elyld_layout::span_for_file(layout.args(), object.file_id);
     for (i, sec) in object.sections.iter().enumerate() {
         match sec {
             SectionSlot::Loaded(sec) => {

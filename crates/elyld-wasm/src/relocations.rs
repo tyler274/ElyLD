@@ -1,8 +1,8 @@
 use crate::{WasmDataSegmentLayout, WasmSymbol, WasmSymbolKind};
 use std::ops::Range;
 use wasmparser::{BinaryReader, RelocationEntry, RelocationType};
-use wild_error::error::Result;
-use wild_error::{bail, ensure};
+use elyld_error::error::Result;
+use elyld_error::{bail, ensure};
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmRelocSection {
@@ -16,7 +16,7 @@ impl WasmRelocSection {
     pub(crate) fn decode_entries(&self, data: &[u8]) -> Result<Vec<WasmRelocation>> {
         let payload = data
             .get(self.payload_range.start as usize..self.payload_range.end as usize)
-            .ok_or_else(|| wild_error::error!("Wasm reloc section payload range out of bounds"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm reloc section payload range out of bounds"))?;
         let reader = wasmparser::RelocSectionReader::new(BinaryReader::new(
             payload,
             u64::from(self.payload_range.start),
@@ -155,10 +155,10 @@ pub(crate) fn apply_relocation(bytes: &mut [u8], reloc: &WasmRelocation, value: 
     let size = reloc.slot_size();
     let end = offset
         .checked_add(size)
-        .ok_or_else(|| wild_error::error!("Wasm relocation offset overflow"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm relocation offset overflow"))?;
     let slot = bytes
         .get_mut(offset..end)
-        .ok_or_else(|| wild_error::error!("Wasm relocation slot out of range"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm relocation slot out of range"))?;
     match reloc.ty {
         RelocationType::FunctionIndexLeb
         | RelocationType::MemoryAddrLeb
@@ -228,8 +228,8 @@ pub(crate) fn data_relocations_are_supported(relocs: &[WasmRelocation]) -> bool 
 pub(crate) fn reloc_value_with_addend(base: u32, addend: i64) -> Result<u32> {
     let value = i64::from(base)
         .checked_add(addend)
-        .ok_or_else(|| wild_error::error!("Wasm relocation value overflow"))?;
-    u32::try_from(value).map_err(|_| wild_error::error!("Wasm relocation value out of range"))
+        .ok_or_else(|| elyld_error::error!("Wasm relocation value overflow"))?;
+    u32::try_from(value).map_err(|_| elyld_error::error!("Wasm relocation value out of range"))
 }
 
 /// Apply addend policy. Relative table/memory bases already include the addend.
@@ -275,6 +275,6 @@ pub(crate) fn try_data_symbol_memory_address(
         return Ok(None);
     };
     Ok(Some(segment_base.checked_add(sym.offset).ok_or_else(
-        || wild_error::error!("Wasm data symbol address overflow"),
+        || elyld_error::error!("Wasm data symbol address overflow"),
     )?))
 }

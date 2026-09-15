@@ -1,4 +1,4 @@
-//! Runs LLD's ELF test suite via lit with Wild substituted for ld.lld.
+//! Runs LLD's ELF test suite via lit with ElyLD substituted for ld.lld.
 //! One test per architecture for granular reporting in cargo test output.
 
 use crate::{Result, TestConfig};
@@ -105,7 +105,7 @@ fn run_lit_for_arch(
     std::os::unix::fs::symlink(&cfg_src, lit_tmp.path().join("wild-lit.site.cfg.py"))?;
     std::os::unix::fs::symlink(test_dir.join("ELF"), lit_tmp.path().join("ELF"))?;
 
-    let wild_bin = std::path::Path::new(env!("CARGO_BIN_EXE_wild"));
+    let wild_bin = std::path::Path::new(env!("CARGO_BIN_EXE_elyld"));
     let llvm_tools_dir = test_config.llvm_tools_dir.to_str().unwrap();
 
     // Create a fakes directory with all lld variant names pointing to Wild.
@@ -119,7 +119,7 @@ fn run_lit_for_arch(
     for linker_name in &["ld.lld", "lld-link", "ld64.lld", "wasm-ld"] {
         let script_path = fakes_dir.path().join(linker_name);
         std::fs::write(&script_path, &script_contents)?;
-        libwild::make_executable(&std::fs::File::open(&script_path)?)?;
+        libelyld::make_executable(&std::fs::File::open(&script_path)?)?;
     }
 
     let tmpdir = tempfile::tempdir()?;
@@ -135,14 +135,14 @@ fn run_lit_for_arch(
         .arg("wild-lit.site")
         .arg(lit_tmp.path().join("ELF"))
         .arg(format!("--filter={arch}"))
-        .env("WILD_BIN", wild_bin)
-        .env("WILD_FAKES_DIR", fakes_dir.path())
+        .env("ELYLD_BIN", wild_bin)
+        .env("ELYLD_FAKES_DIR", fakes_dir.path())
         .env("LLVM_TOOLS_DIR", llvm_tools_dir)
         .env("LLD_OBJ_ROOT", tmpdir.path())
         .env("HOST_TRIPLE", "x86_64-unknown-linux-gnu")
         .env("TARGET_TRIPLE", arch)
-        .env("WILD_EMULATION", emulation)
-        .env("WILD_LIT_CFG", test_dir.join("lit.cfg.py"));
+        .env("ELYLD_EMULATION", emulation)
+        .env("ELYLD_LIT_CFG", test_dir.join("lit.cfg.py"));
 
     if !xfail_list.is_empty() {
         cmd.arg("--xfail").arg(xfail_list.join(";"));

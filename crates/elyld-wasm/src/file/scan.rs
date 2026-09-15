@@ -4,21 +4,21 @@ use crate::{
     wasm_gc_unit_for_symbol,
 };
 use wasmparser::{BinaryReader, ImportSectionReader, RelocationType, SymbolFlags, TypeRef};
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_platform as platform;
-use wild_platform::Args as _;
-use wild_platform::value_flags::ValueFlags;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_platform as platform;
+use elyld_platform::Args as _;
+use elyld_platform::value_flags::ValueFlags;
 
 pub(crate) fn mark_all_wasm_units_live_and_scan_relocs<
     'data,
     'scope,
     A: platform::Arch<Platform = Wasm>,
 >(
-    object: &mut wild_layout::ObjectLayoutState<'data, Wasm>,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    object: &mut elyld_layout::ObjectLayoutState<'data, Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) -> Result {
     object.format_specific.mark_all_units_live();
@@ -42,10 +42,10 @@ pub(crate) fn mark_all_wasm_units_live_and_scan_relocs<
 }
 
 pub(crate) fn enqueue_wasm_gc_unit<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
     unit: WasmGcUnit,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) {
     if object.format_specific.is_dead(unit) {
@@ -56,9 +56,9 @@ pub(crate) fn enqueue_wasm_gc_unit<'data, 'scope, A: platform::Arch<Platform = W
 /// Roots: export section, EXPORTED / NO_STRIP linking flags, InitFuncs, `--export`.
 /// Entry arrives via `LoadGlobalSymbol` from the prelude path.
 pub(crate) fn enqueue_wasm_gc_roots<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) -> Result {
     let file = object.object;
@@ -129,9 +129,9 @@ pub(crate) fn enqueue_wasm_gc_roots<'data, 'scope, A: platform::Arch<Platform = 
 }
 
 pub(crate) fn enqueue_wasm_force_export_roots<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) {
     for name in resources.symbol_db.args.force_export_symbol_names() {
@@ -156,10 +156,10 @@ pub(crate) fn enqueue_wasm_force_export_roots<'data, 'scope, A: platform::Arch<P
 }
 
 pub(crate) fn walk_wasm_gc_unit_edges<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
     unit: WasmGcUnit,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) -> Result {
     match unit {
@@ -197,10 +197,10 @@ pub(crate) fn walk_wasm_gc_unit_edges<'data, 'scope, A: platform::Arch<Platform 
 }
 
 pub(crate) fn note_wasm_reloc_edge<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
     reloc: &WasmRelocation,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) -> Result {
     if reloc.ty == RelocationType::TypeIndexLeb {
@@ -243,10 +243,10 @@ pub(crate) fn note_wasm_import_unit_definition<
     'scope,
     A: platform::Arch<Platform = Wasm>,
 >(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
     unit: WasmGcUnit,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) {
     let offsets = match unit {
@@ -269,10 +269,10 @@ pub(crate) fn note_wasm_import_unit_definition<
 }
 
 pub(crate) fn send_wasm_definition_request<'data, 'scope, A: platform::Arch<Platform = Wasm>>(
-    object: &wild_layout::ObjectLayoutState<'data, Wasm>,
+    object: &elyld_layout::ObjectLayoutState<'data, Wasm>,
     local_symbol_offset: usize,
-    resources: &'scope wild_layout::GraphResources<'data, 'scope, Wasm>,
-    queue: &mut wild_layout::LocalWorkQueue<Wasm>,
+    resources: &'scope elyld_layout::GraphResources<'data, 'scope, Wasm>,
+    queue: &mut elyld_layout::LocalWorkQueue<Wasm>,
     scope: &rayon::Scope<'scope>,
 ) {
     let local_symbol_id = object.symbol_id_range.offset_to_id(local_symbol_offset);

@@ -5,10 +5,10 @@
 //! is always the empty string.
 
 use hashbrown::{HashMap, HashSet};
-use wild_error::error::Result;
-use wild_layout::EnginePlatform;
-use wild_layout::layout_rules::SectionKind;
-use wild_layout::output_section_id::OutputSections;
+use elyld_error::error::Result;
+use elyld_layout::EnginePlatform;
+use elyld_layout::layout_rules::SectionKind;
+use elyld_layout::output_section_id::OutputSections;
 
 /// Final `.strtab` contents and `st_name` offsets after suffix merging.
 #[derive(Debug, Default)]
@@ -23,7 +23,7 @@ impl FinalizedStrtab {
             return Ok(0);
         }
         self.offsets.get(name).copied().ok_or_else(|| {
-            wild_error::error!(".strtab is missing `{}`", String::from_utf8_lossy(name))
+            elyld_error::error!(".strtab is missing `{}`", String::from_utf8_lossy(name))
         })
     }
 }

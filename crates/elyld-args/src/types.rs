@@ -9,10 +9,10 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, OnceLock};
-use wild_error::error::{Result, Warning};
-use wild_error::{bail, ensure, env};
-use wild_fs::fs::{FileReplacementMode, FileWriteMode};
-use wild_platform::FileId;
+use elyld_error::error::{Result, Warning};
+use elyld_error::{bail, ensure, env};
+use elyld_fs::fs::{FileReplacementMode, FileWriteMode};
+use elyld_platform::FileId;
 
 #[derive(derive_more::Debug)]
 pub struct CommonArgs {
@@ -36,7 +36,7 @@ pub struct CommonArgs {
     pub file_write_mode: Option<FileWriteMode>,
     pub fallocate_output_file: Option<bool>,
     pub madvise_huge_pages: Option<bool>,
-    /// Input paths observed while parsing, for `WILD_SAVE_DIR` / `WILD_SAVE_BASE`.
+    /// Input paths observed while parsing, for `ELYLD_SAVE_DIR` / `ELYLD_SAVE_BASE`.
     pub files_to_copy: HashSet<PathBuf>,
 
     /// Original CLI tokens after the program name, for save-dir replay scripts.
@@ -110,7 +110,7 @@ pub enum CounterKind {
     L1dMiss,
 }
 
-use wild_platform::RelocationModel;
+use elyld_platform::RelocationModel;
 
 pub trait HasCommonArgs {
     fn common(&self) -> &CommonArgs;
@@ -146,7 +146,7 @@ impl Default for CommonArgs {
                 .is_ok_and(|v| v == "1"),
             write_layout: env::var(WRITE_LAYOUT_ENV).is_ok_and(|v| v == "1"),
             write_trace: env::var(WRITE_TRACE_ENV).is_ok_and(|v| v == "1"),
-            print_allocations: env::var("WILD_PRINT_ALLOCATIONS")
+            print_allocations: env::var("ELYLD_PRINT_ALLOCATIONS")
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .map(FileId::from_encoded),
@@ -159,7 +159,7 @@ impl Default for CommonArgs {
             fatal_warnings: false,
             version: std::borrow::Cow::Borrowed("unknown version"),
             has_flavor: false,
-            incremental: env::var("WILD_INCREMENTAL").is_ok_and(|v| v == "1"),
+            incremental: env::var("ELYLD_INCREMENTAL").is_ok_and(|v| v == "1"),
         }
     }
 }
@@ -234,21 +234,21 @@ impl CommonArgs {
     /// Returns a string that identifies this linker. This is written into the .comment
     /// section which usually also contains the versions of compilers that were used.
     pub fn linker_identity(&self) -> String {
-        format!("Wild {} (compatible with GNU linkers)", self.version)
+        format!("ElyLD {} (compatible with GNU linkers)", self.version)
     }
 
     /// `--version` / `-v` / `-V` text. First line matches GNU ld so glibc and the
-    /// kernel accept Wild. The parenthetical must not contain a `x.y` version or
+    /// kernel accept ElyLD. The parenthetical must not contain a `x.y` version or
     /// glibc's `sed` captures that instead of `GNU_LD_COMPAT_VERSION`.
     pub fn version_message(&self) -> String {
         format!(
-            "GNU ld (Wild) {}\n{}",
+            "GNU ld (ElyLD) {}\n{}",
             Self::GNU_LD_COMPAT_VERSION,
             self.linker_identity()
         )
     }
 
-    /// Records an input path for later `WILD_SAVE_DIR` / `WILD_SAVE_BASE` copying.
+    /// Records an input path for later `ELYLD_SAVE_DIR` / `ELYLD_SAVE_BASE` copying.
     pub fn handle_file(&mut self, arg: &str) {
         self.files_to_copy.insert(Path::new(arg).to_path_buf());
     }
@@ -291,7 +291,7 @@ impl CommonArgs {
         self.should_fork
     }
 
-    pub fn numeric_experiment(&self, exp: wild_platform::Experiment, default: u64) -> u64 {
+    pub fn numeric_experiment(&self, exp: elyld_platform::Experiment, default: u64) -> u64 {
         self.numeric_experiments
             .get(exp as usize)
             .copied()
@@ -300,7 +300,7 @@ impl CommonArgs {
     }
 
     pub fn from_env() -> Result<Self> {
-        use wild_platform::MAX_FILES_PER_GROUP;
+        use elyld_platform::MAX_FILES_PER_GROUP;
 
         // SAFETY: Should be called early before other descriptors are opened and
         // so we open it before the arguments are parsed (can open a file).
@@ -360,7 +360,7 @@ impl std::fmt::Debug for Args {
     }
 }
 
-pub use wild_scripts::{Input, InputSpec, Modifiers};
+pub use elyld_scripts::{Input, InputSpec, Modifiers};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum BSymbolicKind {
@@ -376,7 +376,7 @@ pub fn parse_time_phase_options(input: &str) -> Result<Vec<CounterKind>> {
 }
 
 impl std::str::FromStr for CounterKind {
-    type Err = wild_error::error::Error;
+    type Err = elyld_error::error::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         Ok(match s {

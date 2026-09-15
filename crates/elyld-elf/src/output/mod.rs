@@ -23,21 +23,21 @@ pub(crate) use relr::*;
 #[allow(unused_imports)]
 pub(crate) use rules::*;
 use std::num::NonZeroU64;
-use wild_args::elf::ElfArgs;
-use wild_error::bail;
-use wild_error::error::{Context as _, Result};
-use wild_layout as layout;
-use wild_layout::layout_rules::SectionKind;
-use wild_layout::output_section_id::{SectionIdentity, SectionName};
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::part_id::PartId;
-use wild_layout::string_merging::{MergedStringStartAddresses, MergedStringsSection};
-use wild_layout::{CommonGroupState, ObjectLayout, Resolution};
-use wild_platform as platform;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::ValueFlags;
-use wild_platform::{Arch, ObjectFile, OutputKind, Relocation, ThunkConfig};
-use wild_util::alignment;
+use elyld_args::elf::ElfArgs;
+use elyld_error::bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout as layout;
+use elyld_layout::layout_rules::SectionKind;
+use elyld_layout::output_section_id::{SectionIdentity, SectionName};
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::part_id::PartId;
+use elyld_layout::string_merging::{MergedStringStartAddresses, MergedStringsSection};
+use elyld_layout::{CommonGroupState, ObjectLayout, Resolution};
+use elyld_platform as platform;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::ValueFlags;
+use elyld_platform::{Arch, ObjectFile, OutputKind, Relocation, ThunkConfig};
+use elyld_util::alignment;
 
 impl<C: ElfClass> Elf<C> {
     pub(super) const DEFAULT_DEFS: BuiltInSectionDetails<C> = BuiltInSectionDetails {
@@ -59,7 +59,7 @@ impl<C: ElfClass> Elf<C> {
         let mut defs = [Self::DEFAULT_DEFS; ELF_NUM_BUILT_IN_SECTIONS];
 
         // A section into which we write headers.
-        defs[wild_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
+        defs[elyld_layout::output_section_id::FILE_HEADER.as_usize()] = BuiltInSectionDetails {
             kind: Self::primary_section(b""),
             section_flags: shf::ALLOC,
             ..Self::DEFAULT_DEFS
@@ -614,7 +614,7 @@ pub(crate) fn value_with_addend<'data, C: ElfClass>(
     // section to see if it's a string-merge section. For string-merge symbols with names,
     // `raw_value` will have already been computed, so we can avoid computing it again.
     if resolution.raw_value == 0
-        && let Some(r) = wild_layout::string_merging::get_merged_string_output_address::<Elf<C>>(
+        && let Some(r) = elyld_layout::string_merging::get_merged_string_output_address::<Elf<C>>(
             symbol_index,
             addend,
             object_layout.object,
@@ -646,7 +646,7 @@ pub struct ResolvedObjectExt<'data> {
 /// contexts that aren't currently generic over Arch.
 pub(super) fn thunk_config_for_object<C: ElfClass>(file: &File<'_, C>) -> Option<ThunkConfig> {
     match file.arch {
-        wild_util::arch::Architecture::AArch64 => crate::elf_aarch64::ElfAArch64::thunk_config(),
+        elyld_util::arch::Architecture::AArch64 => crate::elf_aarch64::ElfAArch64::thunk_config(),
         _ => None,
     }
 }

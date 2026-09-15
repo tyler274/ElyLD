@@ -1,10 +1,10 @@
 use crate::linker_script::skip_comments_and_whitespace;
 use crate::script_data::ScriptData;
 use crate::version_script::{MatchRules, SymbolLookupNameWrapper, parse_matcher};
-use wild_error::error;
-use wild_error::error::Result;
-use wild_util::hash::PreHashed;
-use wild_util::symbol_name::UnversionedSymbolName;
+use elyld_error::error;
+use elyld_error::error::Result;
+use elyld_util::hash::PreHashed;
+use elyld_util::symbol_name::UnversionedSymbolName;
 use winnow::{BStr, Parser};
 
 #[derive(Debug, Default)]

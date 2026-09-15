@@ -1,4 +1,4 @@
-//! Layout helpers that Kani can prove without compiling `wild-layout`.
+//! Layout helpers that Kani can prove without compiling `elyld-layout`.
 
 use crate::alignment::Alignment;
 

@@ -16,11 +16,11 @@ use crate::symbol_db::SymbolDb;
 use crate::{EnginePlatform, timing_phase};
 use hashbrown::{HashMap, HashSet};
 use object::SectionIndex;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::{ObjectFile, RelocationList as _};
-use wild_scripts::linker_script::{Expression, NocrossrefConstraint};
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::{ObjectFile, RelocationList as _};
+use elyld_scripts::linker_script::{Expression, NocrossrefConstraint};
 
 /// BYTE/SHORT/LONG/QUAD advance the location counter via a trailing secondary section that has no
 /// input parts. Grow the primary section so the writer buffer covers those bytes.
@@ -570,7 +570,7 @@ pub fn check_nocrossrefs<'data, P: EnginePlatform>(
                     let from_name = output_sections.display_name(from_id);
                     let to_name = output_sections.display_name(to_id);
                     let symbol_name = symbol_db.symbol_name_for_display(def_id);
-                    error = Some(wild_error::error!(
+                    error = Some(elyld_error::error!(
                         "prohibited cross reference from {from_name} to `{symbol_name}` in {to_name}"
                     ));
                 });

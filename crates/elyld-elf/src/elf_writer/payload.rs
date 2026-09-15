@@ -8,17 +8,17 @@ use crate::{ElfClass, output_section_id, sframe};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator as _, ParallelIterator};
 use rayon::slice::ParallelSliceMut as _;
 use std::sync::atomic::Ordering::Relaxed;
-use wild_error::error::{Context as _, Result};
-use wild_fs::fs::OutputFileData;
-use wild_layout::file_writer::{
+use elyld_error::error::{Context as _, Result};
+use elyld_fs::fs::OutputFileData;
+use elyld_layout::file_writer::{
     SizedOutput, split_buffers_by_alignment, split_output_by_group, split_output_into_sections,
 };
-use wild_layout::output_section_id::OrderEvent;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::output_trace::TraceOutput;
-use wild_layout::{FileLayout, Layout, timing_phase, verbose_timing_phase};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::{Arch, Args as _};
+use elyld_layout::output_section_id::OrderEvent;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::output_trace::TraceOutput;
+use elyld_layout::{FileLayout, Layout, timing_phase, verbose_timing_phase};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::{Arch, Args as _};
 use zerocopy::FromBytes;
 
 pub(crate) fn write_file_contents<'data, C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
@@ -97,7 +97,7 @@ pub(crate) fn write_file_contents<'data, C: ElfClass, A: Arch<Platform = elf::El
 
 pub(crate) fn fill_padding_for_sections<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
     layout: &Layout<'_, elf::Elf<C>>,
-    padding: wild_layout::file_writer::PaddingSlices<'_>,
+    padding: elyld_layout::file_writer::PaddingSlices<'_>,
 ) {
     timing_phase!("Fill padding for sections");
 
@@ -123,7 +123,7 @@ pub(crate) fn fill_padding_for_sections<C: ElfClass, A: Arch<Platform = elf::Elf
 pub(crate) fn section_covering_file_offset<C: ElfClass>(
     layout: &Layout<'_, elf::Elf<C>>,
     file_offset: usize,
-) -> Option<wild_layout::output_section_id::OutputSectionId> {
+) -> Option<elyld_layout::output_section_id::OutputSectionId> {
     let mut found = None;
     layout.merged_section_layouts.for_each(|id, rec| {
         if rec.file_size == 0 {

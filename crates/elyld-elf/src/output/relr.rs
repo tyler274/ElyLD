@@ -2,7 +2,7 @@
 use crate::types::ElfClass;
 use std::marker::PhantomData;
 use std::ops::Range;
-use wild_error::error::Result;
+use elyld_error::error::Result;
 
 pub(crate) const fn relr_bitmap_slots<C: ElfClass>() -> u64 {
     C::RELR_ENTRY_SIZE * 8 - 1

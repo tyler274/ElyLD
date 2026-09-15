@@ -9,8 +9,8 @@ use crate::{
 use hashbrown::HashMap;
 use std::borrow::Cow;
 use wasmparser::{FuncType, GlobalType};
-use wild_error::ensure;
-use wild_error::error::{Context as _, Result};
+use elyld_error::ensure;
+use elyld_error::error::{Context as _, Result};
 
 pub(crate) fn encode_i32_const_body(value: i32) -> Vec<u8> {
     let mut bytes = vec![0x41];
@@ -200,7 +200,7 @@ pub(crate) fn wrap_command_exports(layout: &mut WasmLayout<'_>, call_ctors: u32)
             .function_type_indices
             .get(defined_idx)
             .ok_or_else(|| {
-                wild_error::error!(
+                elyld_error::error!(
                     "export `{}` function index {} has no type",
                     export.name,
                     export.index
@@ -209,7 +209,7 @@ pub(crate) fn wrap_command_exports(layout: &mut WasmLayout<'_>, call_ctors: u32)
         let n_params = layout
             .output_types
             .get(type_index as usize)
-            .ok_or_else(|| wild_error::error!("missing Wasm type {type_index}"))?
+            .ok_or_else(|| elyld_error::error!("missing Wasm type {type_index}"))?
             .params()
             .len();
         pending.push(PendingWrap {
@@ -235,7 +235,7 @@ pub(crate) fn wrap_command_exports(layout: &mut WasmLayout<'_>, call_ctors: u32)
                 u32::try_from(layout.function_type_indices.len())
                     .context("too many Wasm functions")?,
             )
-            .ok_or_else(|| wild_error::error!("Wasm function index overflow"))?;
+            .ok_or_else(|| elyld_error::error!("Wasm function index overflow"))?;
         layout.function_type_indices.push(wrap.type_index);
         layout.function_bodies.push(owned_linker_function_body(
             encode_command_export_wrapper_body(call_ctors, wrap.original, wrap.n_params),
@@ -270,7 +270,7 @@ pub(crate) fn function_type_for_symbol<'a>(
             sym.index
         );
         *input.module_functions.get(dense as usize).ok_or_else(|| {
-            wild_error::error!(
+            elyld_error::error!(
                 "Wasm function index {} out of range (dense {dense}, live len {})",
                 sym.index,
                 input.module_functions.len()
@@ -280,7 +280,7 @@ pub(crate) fn function_type_for_symbol<'a>(
     input
         .types
         .get(type_index as usize)
-        .ok_or_else(|| wild_error::error!("Wasm type index {type_index} out of range"))
+        .ok_or_else(|| elyld_error::error!("Wasm type index {type_index} out of range"))
 }
 
 /// From InitFuncs to `(output function index, result count)`, sorted by ascending priority.

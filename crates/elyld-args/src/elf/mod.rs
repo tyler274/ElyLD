@@ -18,13 +18,13 @@ use std::num::{NonZeroU32, NonZeroU64};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use strum::{EnumMessage as _, IntoEnumIterator as _};
-use wild_error::error::{Error, Result};
-use wild_error::{bail, env, error};
-use wild_platform as platform;
-use wild_platform::{Args as _, OrphanHandling, OutputKind, SectionName};
-use wild_scripts::linker_script::SegmentName;
-use wild_util::alignment::Alignment;
-use wild_util::arch::Architecture;
+use elyld_error::error::{Error, Result};
+use elyld_error::{bail, env, error};
+use elyld_platform as platform;
+use elyld_platform::{Args as _, OrphanHandling, OutputKind, SectionName};
+use elyld_scripts::linker_script::SegmentName;
+use elyld_util::alignment::Alignment;
+use elyld_util::arch::Architecture;
 
 #[derive(Debug)]
 pub struct ElfArgs {
@@ -944,7 +944,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::str::FromStr;
     use tempfile::NamedTempFile;
-    use wild_platform::Args as _;
+    use elyld_platform::Args as _;
 
     const INPUT1: &[&str] = &[
         "-pie",
@@ -1326,14 +1326,14 @@ mod tests {
     }
 
     // Helper: parse args and expect a parse error.
-    fn parse_args_err<'a>(args: impl IntoIterator<Item = &'a str>) -> wild_error::error::Error {
+    fn parse_args_err<'a>(args: impl IntoIterator<Item = &'a str>) -> elyld_error::error::Error {
         let mut elf_args = ElfArgs::new().unwrap();
         elf_args.parse(args.into_iter()).unwrap_err()
     }
 
     #[test]
     fn test_ttext_hex_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         let args = parse_args(["-Ttext=0x700000"]);
         assert_eq!(
             args.start_address_for_section(SectionName(b".text")),
@@ -1343,7 +1343,7 @@ mod tests {
 
     #[test]
     fn test_ttext_decimal_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         // 7340032 == 0x700000
         let args = parse_args(["-Ttext=7340032"]);
         assert_eq!(
@@ -1354,7 +1354,7 @@ mod tests {
 
     #[test]
     fn test_tdata_hex_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         let args = parse_args(["-Tdata=0x800000"]);
         assert_eq!(
             args.start_address_for_section(SectionName(b".data")),
@@ -1364,7 +1364,7 @@ mod tests {
 
     #[test]
     fn test_tdata_decimal_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         // 8388608 == 0x800000
         let args = parse_args(["-Tdata=8388608"]);
         assert_eq!(
@@ -1375,7 +1375,7 @@ mod tests {
 
     #[test]
     fn test_tbss_hex_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         let args = parse_args(["-Tbss=0x900000"]);
         assert_eq!(
             args.start_address_for_section(SectionName(b".bss")),
@@ -1385,7 +1385,7 @@ mod tests {
 
     #[test]
     fn test_tbss_decimal_round_trip() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         // 9437184 == 0x900000
         let args = parse_args(["-Tbss=9437184"]);
         assert_eq!(
@@ -1409,7 +1409,7 @@ mod tests {
 
     #[test]
     fn test_section_start_takes_precedence_over_ttext() {
-        use wild_platform::SectionName;
+        use elyld_platform::SectionName;
         // --section-start=.text=0x600000 should win over -Ttext=0x700000
         let args = parse_args(["--section-start=.text=0x600000", "-Ttext=0x700000"]);
         assert_eq!(
@@ -1425,20 +1425,20 @@ mod tests {
         let msg = args.common.version_message();
         let mut lines = msg.lines();
         let first = lines.next().expect("GNU ld line");
-        let identity = lines.next().expect("Wild identity line");
+        let identity = lines.next().expect("ElyLD identity line");
         assert_eq!(
             first,
-            format!("GNU ld (Wild) {}", CommonArgs::GNU_LD_COMPAT_VERSION)
+            format!("GNU ld (ElyLD) {}", CommonArgs::GNU_LD_COMPAT_VERSION)
         );
         assert!(
-            identity.starts_with("Wild "),
-            "identity line should name Wild: {identity}"
+            identity.starts_with("ElyLD "),
+            "identity line should name ElyLD: {identity}"
         );
         assert!(identity.contains("compatible with GNU linkers"));
         // Glibc's sed matches `GNU ld` on a line; the identity line must not.
         assert!(
             !identity.contains("GNU ld"),
-            "identity line must not contain `GNU ld` or glibc configure captures the Wild version"
+            "identity line must not contain `GNU ld` or glibc configure captures ElyLD version"
         );
     }
 

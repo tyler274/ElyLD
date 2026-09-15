@@ -6,9 +6,9 @@ use hashbrown::HashSet;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicI64;
-use wild_error::bail;
-use wild_error::error::{Context as _, Result};
-use wild_util::arch::SUPPORTED_TARGETS;
+use elyld_error::bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_util::arch::SUPPORTED_TARGETS;
 
 pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
     parser
@@ -22,10 +22,10 @@ pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
             writeln!(stdout, "{}", parser.generate_help())?;
 
             // The following listing is something autoconf detection relies on.
-            writeln!(stdout, "wild: supported targets: {SUPPORTED_TARGETS}")?;
+            writeln!(stdout, "elyld: supported targets: {SUPPORTED_TARGETS}")?;
             writeln!(
                 stdout,
-                "wild: supported emulations: {}",
+                "elyld: supported emulations: {}",
                 super::super::supported_emulations()
             )?;
 
@@ -144,7 +144,7 @@ pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
 
     parser
         .declare_with_param()
-        .long("wild-experiments")
+        .long("elyld-experiments")
         .help("List of numbers. Used to tweak internal parameters. '_' keeps default value.")
         .execute(|args, _modifier_stack, value| {
             args.common_mut().numeric_experiments = value

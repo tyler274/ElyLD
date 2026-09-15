@@ -1,13 +1,13 @@
 use crate::{Wasm, relocation_type_to_string};
 use wasmparser::RelocationType;
-use wild_platform::PreviousRelocationInfo;
+use elyld_platform::PreviousRelocationInfo;
 
 pub struct WasmWasm32;
 
 #[derive(Debug, Clone)]
 pub struct Relaxation {}
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, _section_bytes: &mut [u8], _offset_in_section: &mut u64, _addend: &mut i64) {
         unreachable!()
     }
@@ -29,11 +29,11 @@ impl wild_platform::Relaxation for Relaxation {
     }
 }
 
-impl wild_platform::Arch for WasmWasm32 {
+impl elyld_platform::Arch for WasmWasm32 {
     type Relaxation = Relaxation;
     type Platform = Wasm;
 
-    fn arch_identifier() -> <Self::Platform as wild_platform::Platform>::ArchIdentifier {}
+    fn arch_identifier() -> <Self::Platform as elyld_platform::Platform>::ArchIdentifier {}
 
     fn get_dynamic_relocation_type(
         _relocation: linker_utils::elf::DynamicRelocationKind,
@@ -45,14 +45,14 @@ impl wild_platform::Arch for WasmWasm32 {
         _plt_entry: &mut [u8],
         _got_address: u64,
         _plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         // Wasm has no PLT.
         unreachable!("wasm has no PLT")
     }
 
     fn relocation_from_raw(
-        _r_type: <Self::Platform as wild_platform::Platform>::RelocationInfo,
-    ) -> wild_error::error::Result<linker_utils::elf::RelocationKindInfo> {
+        _r_type: <Self::Platform as elyld_platform::Platform>::RelocationInfo,
+    ) -> elyld_error::error::Result<linker_utils::elf::RelocationKindInfo> {
         // TODO: map Wasm reloc type codes (R_WASM_*) to RelocationKindInfo.
         todo!()
     }
@@ -61,17 +61,17 @@ impl wild_platform::Arch for WasmWasm32 {
         std::borrow::Cow::Borrowed(relocation_type_to_string(r_type))
     }
 
-    fn tp_offset_start(_layout: &wild_layout::Layout<Self::Platform>) -> u64 {
+    fn tp_offset_start(_layout: &elyld_layout::Layout<Self::Platform>) -> u64 {
         // Wasm has no TLS yet.
         0
     }
 
-    fn get_property_class(_property_type: u32) -> Option<wild_platform::PropertyClass> {
+    fn get_property_class(_property_type: u32) -> Option<elyld_platform::PropertyClass> {
         // Wasm has no GNU property notes.
         None
     }
 
-    fn merge_eflags(_eflags: impl Iterator<Item = u32>) -> wild_error::error::Result<u32> {
+    fn merge_eflags(_eflags: impl Iterator<Item = u32>) -> elyld_error::error::Result<u32> {
         // Wasm has no e_flags equivalent.
         Ok(0)
     }
@@ -81,11 +81,11 @@ impl wild_platform::Arch for WasmWasm32 {
     }
 
     fn get_source_info<'data>(
-        _object: &<Self::Platform as wild_platform::Platform>::File<'data>,
-        _relocations: &<Self::Platform as wild_platform::Platform>::RelocationSections,
-        _section: &<Self::Platform as wild_platform::Platform>::SectionHeader,
+        _object: &<Self::Platform as elyld_platform::Platform>::File<'data>,
+        _relocations: &<Self::Platform as elyld_platform::Platform>::RelocationSections,
+        _section: &<Self::Platform as elyld_platform::Platform>::SectionHeader,
         _offset_in_section: u64,
-    ) -> wild_error::error::Result<wild_platform::SourceInfo> {
+    ) -> elyld_error::error::Result<elyld_platform::SourceInfo> {
         todo!()
     }
 
@@ -93,9 +93,9 @@ impl wild_platform::Arch for WasmWasm32 {
         _relocation_kind: RelocationType,
         _section_bytes: &[u8],
         _offset_in_section: u64,
-        _flags: wild_platform::value_flags::ValueFlags,
-        _output_kind: wild_platform::OutputKind,
-        _section_flags: <Self::Platform as wild_platform::Platform>::SectionFlags,
+        _flags: elyld_platform::value_flags::ValueFlags,
+        _output_kind: elyld_platform::OutputKind,
+        _section_flags: <Self::Platform as elyld_platform::Platform>::SectionFlags,
         _relax_deltas: Option<&linker_utils::relaxation::SectionRelaxDeltas>,
         _sym_addr: u64,
         _section_address: u64,

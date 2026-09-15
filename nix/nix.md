@@ -1,7 +1,7 @@
 # Nix
 
 Wild includes a Nix flake, an overlay, and a derivation for building Wild.
-this allows users to use the latest git revision of Wild without having to
+this allows users to use the latest git revision of ElyLD without having to
 wait for a release to be packaged in Nixpkgs.
 
 There are two ways of using an unstable Wild, one is with Nix Flakes. Note that
@@ -15,11 +15,11 @@ until NixOS 25.11 is branched, unstable Nixpkgs is required.
 
     # Include Wild
     wild = {
-      url = "github:wild-linker/wild";
-      # If using the Wild Flake (not required)
+      url = "github:tyler274/wild";
+      # If using ElyLD Flake (not required)
       # inputs.nixpkgs.follows = "nixpkgs";
       #
-      # If not using the Wild flake, and just using the overlay
+      # If not using ElyLD flake, and just using the overlay
       flake = false;
     };
   };
@@ -40,11 +40,11 @@ until NixOS 25.11 is branched, unstable Nixpkgs is required.
         ];
       };
 
-      # Create a stdenv that uses the Wild linker
+      # Create a stdenv that uses ElyLD
       wildStdenv = pkgs.useWildLinker pkgs.stdenv;
     in
     {
-      # Add an output of some very cool package that is linked with the Wild linker
+      # Add an output of some very cool package that is linked with ElyLD
       #
       # Note that if a Rust package is being linked with `buildRustPackage`, you will
       # need to create a `rustPlatform` using `makeRustPlatform` with this stdenv. See
@@ -65,7 +65,7 @@ until NixOS 25.11 is branched, unstable Nixpkgs is required.
 ```
 Without flakes (npins shown, but any solution can be used):
 
-Add the dependencies to lockfile with npins: `$ npins add github wild-linker wild -b main`
+Add the dependencies to lockfile with npins: `$ npins add github elyld wild -b main`
 
 ```nix
 let
@@ -88,7 +88,7 @@ setup is required. This applies to Flake-based packages, or other solutions.
 ```nix
 let
   # First steps are the same as above. Create a Nixpkgs instance
-  # with Wild.
+  # with ElyLD.
   pkgs = import nixpkgs {
     system = "x86_64-linux";
     overlays = [
@@ -128,23 +128,23 @@ LTO plugin search path, mold, glibc (static + source for relink tests), and:
 
 Kani is not in nixpkgs. Install it with `cargo install --locked kani-verifier &&
 cargo kani setup`, then `./scripts/kani.sh`. Firefox, Blender, Chrome, and kernel
-source trees are **not** pulled into the shell; point `WILD_*_TREE` /
-`WILD_*_LINK` at local checkouts.
+source trees are **not** pulled into the shell; point `ELYLD_*_TREE` /
+`ELYLD_*_LINK` at local checkouts.
 
 ## Glibc relink tests
 
 `nix develop` (or `nix-shell nix/shell.nix`) puts glibc's build tools on `PATH` (`python3`, `bison`,
 `gawk`, …), unpacks the nixpkgs glibc source, and sets:
 
-* `WILD_GLIBC_TREE` — that source (override to use another checkout)
-* `WILD_GLIBC_BUILD` — `$PWD/target/glibc-gnu`
-* `WILD_GLIBC_HEADERS` — nixpkgs `linuxHeaders`
+* `ELYLD_GLIBC_TREE` — that source (override to use another checkout)
+* `ELYLD_GLIBC_BUILD` — `$PWD/target/glibc-gnu`
+* `ELYLD_GLIBC_HEADERS` — nixpkgs `linuxHeaders`
 
 Glibc `configure` rejects Wild, so the GNU oracle is built first:
 
 ```sh
 wild-build-glibc
-cargo test -p wild-linker --test integration_tests -- glibc
+cargo test -p elyld --test integration_tests -- glibc
 ```
 
 `wild-build-glibc` uses unwrapped GCC 15 (the Nix gcc wrapper injects `_FORTIFY_SOURCE=3`) and GNU
@@ -156,7 +156,7 @@ wild-glibc-check
 ```
 
 That swaps Wild-linked `libc.so` / `ld.so` (and `libm.so` / `libresolv.so` / stubs when the relink
-tests produced them) into `$WILD_GLIBC_BUILD`, runs a `make test` subset (TLS, IFUNC, RELR, ctors,
-malloc, libm, nptl), and restores the GNU oracles. `WILD_GLIBC_FULL_CHECK=1` runs `make check`
+tests produced them) into `$ELYLD_GLIBC_BUILD`, runs a `make test` subset (TLS, IFUNC, RELR, ctors,
+malloc, libm, nptl), and restores the GNU oracles. `ELYLD_GLIBC_FULL_CHECK=1` runs `make check`
 instead. Single tests:
-`make -C "$WILD_GLIBC_BUILD" test t=elf/tst-tls1`.
+`make -C "$ELYLD_GLIBC_BUILD" test t=elf/tst-tls1`.

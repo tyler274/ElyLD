@@ -1,8 +1,8 @@
-//! If the environment variable `WILD_REFERENCE_LINKER` is set, then once we've finished linking,
+//! If the environment variable `ELYLD_REFERENCE_LINKER` is set, then once we've finished linking,
 //! we'll link again using the linker specified in the environment variable. The output from the
 //! reference linker will be the same, but with '.ref-linker' appended. We'll then diff the two
 //! outputs and report any unexpected differences found. Setting the environment variable will also
-//! enable writing of trace and layout files by the Wild linker, which allow additional information
+//! enable writing of trace and layout files by ElyLD, which allow additional information
 //! to be added to the diff outputs.
 //!
 //! For this to work, the linker-diff binary needs to be installed in the same directory as wild.
@@ -11,7 +11,7 @@ use crate::bail;
 use crate::error::{Context as _, Result};
 use std::path::PathBuf;
 use std::process::Command;
-use wild_error::env;
+use elyld_error::env;
 
 pub(crate) fn maybe_diff() -> Result {
     if let Ok(reference_linker) = env::var(crate::args::REFERENCE_LINKER_ENV)
@@ -60,14 +60,14 @@ fn run_diff(paths: &BinPaths) -> Result {
     let linker_diff_path = std::env::current_exe()?.with_file_name("linker-diff");
 
     if !linker_diff_path.exists() {
-        bail!("linker-diff binary needs to be in the same directory as wild")
+        bail!("linker-diff binary needs to be in the same directory as elyld")
     }
 
     let mut command = Command::new(linker_diff_path);
     command
-        .arg("--wild-defaults")
+        .arg("--elyld-defaults")
         .arg("--display-names")
-        .arg("wild,ref")
+        .arg("elyld,ref")
         .arg("--ref")
         .arg(&paths.reference_output)
         .arg(&paths.our_output);

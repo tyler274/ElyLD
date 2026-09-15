@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pack Clang ThinLTO x86_64 vmlinux inputs + LLD oracle for WILD_LINUX_LTO_TREE.
+# Pack Clang ThinLTO x86_64 vmlinux inputs + LLD oracle for ELYLD_LINUX_LTO_TREE.
 # Usage: pack-vmlinux-lto-objects.sh [kernel-tree] [out.tar.zst]
 #
 # Kernel build (from a tree that already has a .config):
@@ -7,7 +7,7 @@
 #   make LLVM=1 LLVM_IAS=1 -j"$(nproc)" vmlinux
 # Copy the LLD-linked vmlinux to vmlinux.unstripped before packing.
 set -eu
-TREE=${1:-${WILD_LINUX_LTO_TREE:?set WILD_LINUX_LTO_TREE or pass the kernel tree}}
+TREE=${1:-${ELYLD_LINUX_LTO_TREE:?set ELYLD_LINUX_LTO_TREE or pass the kernel tree}}
 OUT=${2:-$PWD/vmlinux-lto-objects-x86_64.tar.zst}
 case $OUT in
     /*) ;;

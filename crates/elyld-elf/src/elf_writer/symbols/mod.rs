@@ -11,15 +11,15 @@ use rayon::iter::{ParallelBridge as _, ParallelIterator as _};
 pub(crate) use table::*;
 #[allow(unused_imports)]
 pub(crate) use versions::*;
-use wild_error::bail;
-use wild_error::error::{Context as _, Result};
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{
+use elyld_error::bail;
+use elyld_error::error::{Context as _, Result};
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{
     DynamicLayout, FileLayout, LinkerScriptLayoutState, ObjectLayout, PreludeLayout,
 };
-use wild_platform as platform;
-use wild_platform::ObjectFile;
-use wild_platform::value_flags::ValueFlags;
+use elyld_platform as platform;
+use elyld_platform::ObjectFile;
+use elyld_platform::value_flags::ValueFlags;
 
 pub(crate) struct VersionedDynsymWriter<'layout, 'out, C: ElfClass> {
     pub(crate) dynsym_writer: SymbolTableWriter<'layout, 'out, C>,
@@ -177,11 +177,11 @@ pub(crate) fn write_internal_dynsym<C: ElfClass>(
     dynsym_writer: &mut SymbolTableWriter<'_, '_, C>,
     layout: &ElfLayout<C>,
     symbol_id: SymbolId,
-    def_info: &wild_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
+    def_info: &elyld_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
 ) -> Result {
     if matches!(
         def_info.placement,
-        wild_layout::parsing::SymbolPlacement::Redirect(_)
+        elyld_layout::parsing::SymbolPlacement::Redirect(_)
     ) {
         return write_defsym_dynsym(dynsym_writer, layout, symbol_id, def_info);
     }
@@ -221,7 +221,7 @@ pub(crate) fn write_defsym_dynsym<C: ElfClass>(
     dynsym_writer: &mut SymbolTableWriter<'_, '_, C>,
     layout: &ElfLayout<C>,
     symbol_id: SymbolId,
-    def_info: &wild_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
+    def_info: &elyld_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
 ) -> Result {
     let resolution = layout
         .local_symbol_resolution(symbol_id)
@@ -244,7 +244,7 @@ pub(crate) fn write_defsym_dynsym<C: ElfClass>(
 }
 
 pub(crate) fn write_copy_relocation_dynamic_symbol_definition<'data, C: ElfClass>(
-    sym_def: &wild_layout::DynamicSymbolDefinition<elf::Elf<C>>,
+    sym_def: &elyld_layout::DynamicSymbolDefinition<elf::Elf<C>>,
     object: &DynamicLayout<'data, elf::Elf<C>>,
     layout: &ElfLayout<C>,
     dynamic_symbol_writer: &mut SymbolTableWriter<'_, '_, C>,
@@ -277,7 +277,7 @@ pub(crate) fn write_copy_relocation_dynamic_symbol_definition<'data, C: ElfClass
 }
 
 pub(crate) fn write_canonical_plt_dynamic_symbol_definition<'data, C: ElfClass>(
-    sym_def: &wild_layout::DynamicSymbolDefinition<elf::Elf<C>>,
+    sym_def: &elyld_layout::DynamicSymbolDefinition<elf::Elf<C>>,
     object: &DynamicLayout<'data, elf::Elf<C>>,
     layout: &ElfLayout<C>,
     dynamic_symbol_writer: &mut SymbolTableWriter<'_, '_, C>,
@@ -297,7 +297,7 @@ pub(crate) fn write_canonical_plt_dynamic_symbol_definition<'data, C: ElfClass>(
 }
 
 pub(crate) fn write_regular_object_dynamic_symbol_definition<'data, C: ElfClass>(
-    sym_def: &wild_layout::DynamicSymbolDefinition<elf::Elf<C>>,
+    sym_def: &elyld_layout::DynamicSymbolDefinition<elf::Elf<C>>,
     object: &ObjectLayout<'data, elf::Elf<C>>,
     layout: &ElfLayout<C>,
     dynamic_symbol_writer: &mut SymbolTableWriter<'_, '_, C>,

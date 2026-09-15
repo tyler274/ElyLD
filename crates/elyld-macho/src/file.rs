@@ -10,12 +10,12 @@ use object::macho::N_SECT;
 use object::read::macho::{MachHeader, Nlist, Section, Segment};
 use std::borrow::Cow;
 use std::slice::Iter;
-use wild_args::macho::MachOArgs;
-use wild_error::error::Result;
-use wild_error::{ensure, error};
-use wild_layout as layout;
-use wild_layout::file_writer::copy_section_data;
-use wild_platform as platform;
+use elyld_args::macho::MachOArgs;
+use elyld_error::error::Result;
+use elyld_error::{ensure, error};
+use elyld_layout as layout;
+use elyld_layout::file_writer::copy_section_data;
+use elyld_platform as platform;
 
 #[derive(derive_more::Debug)]
 pub struct File<'data> {
@@ -180,7 +180,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
         &self,
         _lib_name: &[u8],
         _state: &mut DynamicLayoutStateExt,
-        _mem_sizes: &mut wild_layout::output_section_part_map::OutputSectionPartMap<u64>,
+        _mem_sizes: &mut elyld_layout::output_section_part_map::OutputSectionPartMap<u64>,
     ) -> Result {
         Ok(())
     }
@@ -209,8 +209,8 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
     fn section_data(
         &self,
         _section: &SectionHeader,
-        _member: &wild_util::arena::Member<'data>,
-        _loaded_metrics: &wild_layout::resolution::LoadedMetrics,
+        _member: &elyld_util::arena::Member<'data>,
+        _loaded_metrics: &elyld_layout::resolution::LoadedMetrics,
     ) -> Result<&'data [u8]> {
         todo!()
     }
@@ -285,7 +285,7 @@ impl<'data> platform::ObjectFile<'data> for File<'data> {
 
     fn should_enforce_undefined(
         &self,
-        _resources: &wild_layout::GraphResources<'data, '_, Self::Platform>,
+        _resources: &elyld_layout::GraphResources<'data, '_, Self::Platform>,
     ) -> bool {
         todo!()
     }

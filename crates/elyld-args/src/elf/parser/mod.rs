@@ -10,10 +10,10 @@ pub use inputs::*;
 use object::Endianness;
 use std::ffi::CString;
 use std::path::PathBuf;
-use wild_error::bail;
-use wild_error::error::Context as _;
-use wild_platform::{Args as _, OrphanHandling};
-use wild_scripts::linker_script::maybe_forced_sysroot;
+use elyld_error::bail;
+use elyld_error::error::Context as _;
+use elyld_platform::{Args as _, OrphanHandling};
+use elyld_scripts::linker_script::maybe_forced_sysroot;
 
 pub(super) const SILENTLY_IGNORED_FLAGS: &[&str] = &[
     // Just like other modern linkers, we don't need groups in order to resolve cycles.
@@ -384,7 +384,7 @@ pub(super) fn setup_argument_parser() -> ArgumentParser<ElfArgs> {
 
     parser
         .declare()
-        .long("wild-experimental-sframe")
+        .long("elyld-experimental-sframe")
         .help("Enable experimental support for SFrame V2 (this option may be removed at any time)")
         .execute(|args, _modifier_stack| {
             args.experimental_sframe = true;
@@ -615,7 +615,7 @@ fn add_gnu_compat_flags(parser: &mut ArgumentParser<ElfArgs>) {
         });
 }
 
-fn apply_color_diagnostics(value: Option<&str>) -> wild_error::error::Result {
+fn apply_color_diagnostics(value: Option<&str>) -> elyld_error::error::Result {
     let mode = match value {
         None | Some("always") => ColorDiagnostics::Always,
         Some("auto") => ColorDiagnostics::Auto,

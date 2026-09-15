@@ -12,9 +12,9 @@ use std::ops::Range;
 use wasmparser::{
     BinaryReader, ImportSectionReader, KnownCustom, Linking, Parser, Payload, SymbolInfo, TypeRef,
 };
-use wild_error::ensure;
-use wild_error::error::Result;
-use wild_util::alignment::Alignment;
+use elyld_error::ensure;
+use elyld_error::error::Result;
+use elyld_util::alignment::Alignment;
 
 pub(crate) fn parse_wasm_module<'data>(input: &'data [u8]) -> Result<File<'data>> {
     ensure!(input.len() >= 8, "Wasm module too short");
@@ -127,10 +127,10 @@ pub(crate) fn count_function_and_global_imports(
     };
     let header = sections
         .get(section_index as usize)
-        .ok_or_else(|| wild_error::error!("Wasm import section index out of range"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm import section index out of range"))?;
     let payload = data
         .get(header.payload_range_usize())
-        .ok_or_else(|| wild_error::error!("Wasm import section payload out of bounds"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm import section payload out of bounds"))?;
     let reader = ImportSectionReader::new(BinaryReader::new(
         payload,
         u64::from(header.payload_range.start),
@@ -142,12 +142,12 @@ pub(crate) fn count_function_and_global_imports(
             TypeRef::Func(_) | TypeRef::FuncExact(_) => {
                 num_function_imports = num_function_imports
                     .checked_add(1)
-                    .ok_or_else(|| wild_error::error!("too many Wasm function imports"))?;
+                    .ok_or_else(|| elyld_error::error!("too many Wasm function imports"))?;
             }
             TypeRef::Global(_) => {
                 num_global_imports = num_global_imports
                     .checked_add(1)
-                    .ok_or_else(|| wild_error::error!("too many Wasm global imports"))?;
+                    .ok_or_else(|| elyld_error::error!("too many Wasm global imports"))?;
             }
             _ => {}
         }
@@ -166,10 +166,10 @@ pub(crate) fn section_entry_count(
     };
     let header = sections
         .get(section_index as usize)
-        .ok_or_else(|| wild_error::error!("Wasm section index out of range"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm section index out of range"))?;
     let payload = data
         .get(header.payload_range_usize())
-        .ok_or_else(|| wild_error::error!("Wasm section payload out of bounds"))?;
+        .ok_or_else(|| elyld_error::error!("Wasm section payload out of bounds"))?;
     let mut reader = BinaryReader::new(payload, u64::from(header.payload_range.start));
     Ok(reader.read_var_u32()?)
 }

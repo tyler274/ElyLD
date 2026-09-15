@@ -35,10 +35,10 @@ use itertools::Itertools;
 pub use layout_rules::LayoutRules;
 use linker_utils::elf::RelocationKind;
 use std::sync::Mutex;
-use wild_error::error::{Context, Result};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::value_flags::PerSymbolFlags;
-use wild_platform::{
+use elyld_error::error::{Context, Result};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::value_flags::PerSymbolFlags;
+use elyld_platform::{
     Arch, Args as _, FileId, ObjectFile, Platform, ProgramSegmentDef as _, SectionAttributes as _,
 };
 
@@ -329,7 +329,7 @@ where
                     },
                 )
                 .map_err(|_| {
-                    wild_error::error!(
+                    elyld_error::error!(
                         "region '{}' already defined",
                         String::from_utf8_lossy(region.name)
                     )
@@ -340,13 +340,13 @@ where
     for s in &linker_scripts {
         for &(alias, region) in &s.parsed.region_aliases {
             let Some(existing) = memory_regions.get(region).cloned() else {
-                wild_error::bail!(
+                elyld_error::bail!(
                     "memory region '{}' not declared",
                     String::from_utf8_lossy(region)
                 );
             };
             memory_regions.try_insert(alias, existing).map_err(|_| {
-                wild_error::error!(
+                elyld_error::error!(
                     "region '{}' already defined",
                     String::from_utf8_lossy(alias)
                 )
@@ -652,9 +652,9 @@ pub fn needs_tlsld(relocation_kind: RelocationKind) -> bool {
     )
 }
 
-/// Span name must match libwild debug_trace TRACE_SPAN_NAME (`trace_file`).
+/// Span name must match libelyld debug_trace TRACE_SPAN_NAME (`trace_file`).
 pub fn span_for_file(
-    args: &impl wild_platform::Args,
+    args: &impl elyld_platform::Args,
     file_id: FileId,
 ) -> Option<tracing::span::EnteredSpan> {
     args.should_trace_file(file_id)

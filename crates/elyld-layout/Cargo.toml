@@ -1,6 +1,6 @@
 [package]
-name = "wild-layout"
-description = "Layout, resolution, and symbol-db engine for the Wild linker"
+name = "elyld-layout"
+description = "Layout, resolution, and symbol-db engine for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -18,9 +18,9 @@ derive_more.workspace = true
 foldhash.workspace = true
 hashbrown.workspace = true
 itertools.workspace = true
-linker-layout = { path = "../linker-layout", version = "0.10.0" }
-linker-trace = { path = "../linker-trace", version = "0.10.0" }
-linker-utils = { path = "../linker-utils", version = "0.10.0" }
+linker-layout = { path = "../linker-layout", version = "1.0.0" }
+linker-trace = { path = "../linker-trace", version = "1.0.0" }
+linker-utils = { path = "../linker-utils", version = "1.0.0" }
 memchr.workspace = true
 object.workspace = true
 perfetto-recorder.workspace = true
@@ -31,12 +31,12 @@ smallvec.workspace = true
 symbolic-demangle.workspace = true
 thread_local.workspace = true
 tracing.workspace = true
-wild-args = { path = "../wild-args", version = "0.10.0" }
-wild-error = { path = "../wild-error", version = "0.10.0" }
-wild-fs = { path = "../wild-fs", version = "0.10.0" }
-wild-platform = { path = "../wild-platform", version = "0.10.0" }
-wild-scripts = { path = "../wild-scripts", version = "0.10.0" }
-wild-util = { path = "../wild-util", version = "0.10.0" }
+elyld-args = { path = "../elyld-args", version = "1.0.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
+elyld-fs = { path = "../elyld-fs", version = "1.0.0" }
+elyld-platform = { path = "../elyld-platform", version = "1.0.0" }
+elyld-scripts = { path = "../elyld-scripts", version = "1.0.0" }
+elyld-util = { path = "../elyld-util", version = "1.0.0" }
 winnow.workspace = true
 
 [dev-dependencies]

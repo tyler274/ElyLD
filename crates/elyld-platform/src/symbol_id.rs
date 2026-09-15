@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
-use wild_error::error::Context as _;
-use wild_util::sharding::ShardKey;
+use elyld_error::error::Context as _;
+use elyld_util::sharding::ShardKey;
 
 /// An ID for a symbol. All symbols from all input files are allocated a unique symbol ID. The
 /// symbol ID 0 is reserved for the undefined symbol.
@@ -183,7 +183,7 @@ impl AtomicSymbolId {
 }
 
 impl TryFrom<usize> for SymbolId {
-    type Error = wild_error::error::Error;
+    type Error = elyld_error::error::Error;
 
     fn try_from(value: usize) -> std::result::Result<Self, Self::Error> {
         Ok(SymbolId(u32::try_from(value).context("Too many symbols")?))

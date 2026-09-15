@@ -1,16 +1,16 @@
 //! Code to double-check that we did certain things correctly. Generally only used in debug builds.
 //!
 //! Output validation stays with the ELF write path (`elf_writer` calls this when
-//! `--validate-output` / `WILD_VALIDATE_OUTPUT=1` is set). Integration tests always enable that.
+//! `--validate-output` / `ELYLD_VALIDATE_OUTPUT=1` is set). Integration tests always enable that.
 
 use crate as elf;
 use crate::ElfClass;
 use linker_utils::elf::secnames::GOT_SECTION_NAME_STR;
 use object::LittleEndian;
 use object::read::elf::SectionHeader as _;
-use wild_error::error::{Context as _, Result};
-use wild_layout::Layout;
-use wild_platform::{ObjectFile as _, Platform};
+use elyld_error::error::{Context as _, Result};
+use elyld_layout::Layout;
+use elyld_platform::{ObjectFile as _, Platform};
 
 type ElfLayout<'data, C> = Layout<'data, elf::Elf<C>>;
 
@@ -51,7 +51,7 @@ fn validate_object<C: ElfClass>(object: &elf::File<'_, C>, layout: &ElfLayout<C>
     for group in &layout.group_layouts {
         for file in &group.files {
             match file {
-                wild_layout::FileLayout::Object(obj) => {
+                elyld_layout::FileLayout::Object(obj) => {
                     for (sec_index, _sec) in obj.object.sections.enumerate() {
                         if let Some(resolution) =
                             obj.section_resolutions[sec_index.0].full_resolution()

@@ -1,7 +1,7 @@
 //! Shared incremental-relink checks for the kernel and glibc opt-in tests.
 
-use libwild::error::{Context as _, Result};
-use libwild::{bail, ensure};
+use libelyld::error::{Context as _, Result};
+use libelyld::{bail, ensure};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

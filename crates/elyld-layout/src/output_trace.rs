@@ -6,8 +6,8 @@ use std::mem::take;
 use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use wild_error::error::Result;
-use wild_fs::fs::FileSystem;
+use elyld_error::error::Result;
+use elyld_fs::fs::FileSystem;
 
 pub struct TraceOutput {
     state: Option<State>,

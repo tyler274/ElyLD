@@ -21,21 +21,21 @@ use itertools::Itertools;
 use rayon::Scope;
 use std::ffi::CString;
 use std::mem::{replace, size_of};
-use wild_args::UnresolvedSymbols;
-use wild_error::bail;
-use wild_error::error::{Context, Error, Result};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::{ProgramSegmentId, ProgramSegments};
-use wild_platform::value_flags::{
+use elyld_args::UnresolvedSymbols;
+use elyld_error::bail;
+use elyld_error::error::{Context, Error, Result};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::{ProgramSegmentId, ProgramSegments};
+use elyld_platform::value_flags::{
     AtomicPerSymbolFlags, FlagsForSymbol as _, PerSymbolFlags, ValueFlags,
 };
-use wild_platform::{
+use elyld_platform::{
     Arch, Args as _, ObjectFile, OutputKind, PRELUDE_FILE_ID, ProgramSegmentDef as _,
     SectionAttributes as _, Symbol as _,
 };
-use wild_scripts::linker_script::Expression;
-use wild_util::alignment;
-use wild_util::sharding::ShardKey;
+use elyld_scripts::linker_script::Expression;
+use elyld_util::alignment;
+use elyld_util::sharding::ShardKey;
 
 impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
     pub fn new(input_state: resolution::ResolvedPrelude<'data, P>, args: &P::Args) -> Self {

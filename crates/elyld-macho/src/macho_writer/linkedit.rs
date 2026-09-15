@@ -15,14 +15,14 @@ use object::{Endianness, U16, U32, from_bytes_mut, slice_from_bytes_mut};
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
 use sha2::{Digest, Sha256};
-use wild_error::error::{Context, Result};
-use wild_error::{bail, ensure, error};
-use wild_fs::fs::OutputFileData;
-use wild_layout::file_writer::{SizedOutput, split_output_into_sections};
-use wild_layout::symbol_db::SymbolId;
-use wild_layout::{FileLayout, SegmentLayout, verbose_timing_phase};
-use wild_platform::{ObjectFile, Symbol};
-use wild_util::alignment::MACHO_PAGE_ALIGNMENT;
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, ensure, error};
+use elyld_fs::fs::OutputFileData;
+use elyld_layout::file_writer::{SizedOutput, split_output_into_sections};
+use elyld_layout::symbol_db::SymbolId;
+use elyld_layout::{FileLayout, SegmentLayout, verbose_timing_phase};
+use elyld_platform::{ObjectFile, Symbol};
+use elyld_util::alignment::MACHO_PAGE_ALIGNMENT;
 use zerocopy::FromZeros;
 
 pub(crate) fn build_exports_trie(layout: &MachOLayout<'_>) -> Result<Vec<u8>> {
@@ -71,7 +71,7 @@ pub(crate) fn build_exports_trie(layout: &MachOLayout<'_>) -> Result<Vec<u8>> {
                 flags |= object::macho::EXPORT_SYMBOL_FLAGS_WEAK_DEFINITION;
             }
 
-            Ok(wild_util::trie::Symbol {
+            Ok(elyld_util::trie::Symbol {
                 name: symbol.name,
                 address,
                 flags,
@@ -79,7 +79,7 @@ pub(crate) fn build_exports_trie(layout: &MachOLayout<'_>) -> Result<Vec<u8>> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(wild_util::trie::build(&mut symbols))
+    Ok(elyld_util::trie::build(&mut symbols))
 }
 
 pub(crate) fn exported_symbol_is_weak(

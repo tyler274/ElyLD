@@ -8,9 +8,9 @@ use object::LittleEndian;
 use object::read::elf::{RelocationSections, SectionHeader as _, Sym as _};
 use std::borrow::Cow;
 use std::path::PathBuf;
-use wild_error::error::Result;
-use wild_fs::fs::path_from_bytes;
-use wild_platform::{Arch, ObjectFile as _, Relocation, SourceInfo, SourceInfoDetails};
+use elyld_error::error::Result;
+use elyld_fs::fs::path_from_bytes;
+use elyld_platform::{Arch, ObjectFile as _, Relocation, SourceInfo, SourceInfoDetails};
 
 /// The address at which we'll pretend that we loaded the section we're interested in. This value is
 /// arbitrary, but should be larger than the largest input section we expect to encounter and small

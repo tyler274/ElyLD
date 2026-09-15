@@ -8,7 +8,7 @@ use crate::linker_script::{
 use itertools::assert_equal;
 use std::assert_matches;
 use std::path::Path;
-use wild_util::alignment::Alignment;
+use elyld_util::alignment::Alignment;
 
 fn parse_script(text: &str) -> Result<LinkerScript<'_>> {
     LinkerScript::parse(text.as_bytes(), Path::new("test-linker-script.txt"))

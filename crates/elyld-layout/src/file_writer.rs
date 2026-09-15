@@ -8,14 +8,14 @@ use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender};
-use wild_args::WRITE_VERIFY_ALLOCATIONS_ENV;
-use wild_error::env;
-use wild_error::error::{Context as _, Error, Result};
-use wild_fs::fs::{
+use elyld_args::WRITE_VERIFY_ALLOCATIONS_ENV;
+use elyld_error::env;
+use elyld_error::error::{Context as _, Error, Result};
+use elyld_fs::fs::{
     FileReplacementMode, FileSystem, FileType, FileWriteMode, OutputFileData, OutputOptions,
 };
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::{Args, OutputKind};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::{Args, OutputKind};
 
 pub struct Output<F: FileSystem> {
     path: Arc<Path>,
@@ -281,14 +281,14 @@ impl<O: OutputFileData> SizedOutput<O> {
 }
 
 pub fn insufficient_allocation(section_name: &str) -> Error {
-    wild_error::error!(
+    elyld_error::error!(
         "Insufficient {section_name} allocation. {}",
         verify_allocations_message()
     )
 }
 
 pub fn excessive_allocation(section_name: &str, remaining: u64, allocated: u64) -> Error {
-    wild_error::error!(
+    elyld_error::error!(
         "Allocated too much space in {section_name}. {remaining} of {allocated} bytes remain. {}",
         verify_allocations_message()
     )
@@ -408,7 +408,7 @@ pub fn split_buffers_by_alignment<'out, 'data, P: EnginePlatform>(
                 .get_mut(part_id.output_section_id::<P>())
                 .split_off_mut(..rec.file_size)
                 .ok_or_else(|| {
-                    wild_error::error!(
+                    elyld_error::error!(
                         "Failed to take {} bytes for section {} with alignment {}",
                         rec.file_size,
                         layout

@@ -7,11 +7,11 @@ use linker_utils::relaxation::opt_input_to_output;
 use object::LittleEndian;
 use object::read::elf::{SectionHeader as _, Sym as _};
 use std::iter;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, error};
-use wild_layout::ObjectLayout;
-use wild_layout::output_trace::TraceOutput;
-use wild_platform::{Arch, ObjectFile, Relocation};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, error};
+use elyld_layout::ObjectLayout;
+use elyld_layout::output_trace::TraceOutput;
+use elyld_platform::{Arch, ObjectFile, Relocation};
 use zerocopy::FromBytes;
 
 pub(crate) fn write_eh_frame_data<'data, C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(

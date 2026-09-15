@@ -10,14 +10,14 @@ use crate::{
 };
 use hashbrown::{HashMap, HashSet};
 use std::cell::OnceCell;
-use wild_error::error::{Context, Result};
-use wild_error::{bail, error};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::ProgramSegments;
-use wild_platform::{Args as _, SectionAttributes as _, SectionFlags as _};
-use wild_scripts::linker_script::Expression;
-use wild_util::alignment::Alignment;
-use wild_util::layout::{align_vma_lma, gnu_default_lma};
+use elyld_error::error::{Context, Result};
+use elyld_error::{bail, error};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_platform::{Args as _, SectionAttributes as _, SectionFlags as _};
+use elyld_scripts::linker_script::Expression;
+use elyld_util::alignment::Alignment;
+use elyld_util::layout::{align_vma_lma, gnu_default_lma};
 
 pub fn compute_layout_sections<'data, P: EnginePlatform>(
     group_states: &[GroupState<'data, P>],
@@ -743,7 +743,7 @@ pub fn pick_compatible_memory_region<'data>(
 }
 
 pub fn memory_flags_match(
-    flags: Option<wild_scripts::linker_script::MemoryFlags>,
+    flags: Option<elyld_scripts::linker_script::MemoryFlags>,
     writable: bool,
     executable: bool,
 ) -> bool {

@@ -14,16 +14,16 @@ use crate::{EnginePlatform, timing_phase, verbose_timing_phase};
 use hashbrown::HashMap;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::num::NonZeroU32;
-use wild_args::InputRef;
-use wild_error::error::{Context, Result};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::ProgramSegments;
-use wild_platform::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
-use wild_platform::{
+use elyld_args::InputRef;
+use elyld_error::error::{Context, Result};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::ProgramSegments;
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, PerSymbolFlags, ValueFlags};
+use elyld_platform::{
     Arch, Args as _, NonAddressableIndexes as _, ObjectFile, OutputKind, SectionAttributes as _,
 };
-use wild_scripts::linker_script::Expression;
-use wild_util::alignment;
+use elyld_scripts::linker_script::Expression;
+use elyld_util::alignment;
 
 /// Update resolutions for symbol redirects.
 pub fn update_redirect_resolutions<'data, P: EnginePlatform>(

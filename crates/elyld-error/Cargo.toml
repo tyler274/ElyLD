@@ -1,6 +1,6 @@
 [package]
-name = "wild-error"
-description = "Error types and macros for the Wild linker"
+name = "elyld-error"
+description = "Error types and macros for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true

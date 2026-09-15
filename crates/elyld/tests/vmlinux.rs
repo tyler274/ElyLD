@@ -1,34 +1,34 @@
 //! Opt-in x86_64 `vmlinux` link against a prebuilt kernel tree.
 //!
-//! Set `WILD_LINUX_TREE` to a tree that already has `vmlinux.o`, the extra
+//! Set `ELYLD_LINUX_TREE` to a tree that already has `vmlinux.o`, the extra
 //! objects from a `vmlinux` link, `arch/x86/kernel/vmlinux.lds`, and GNU
 //! `vmlinux.unstripped`. Pack those files with `scripts/pack-vmlinux-objects.sh`.
-//! CI job `vmlinux` unpacks `vars.WILD_LINUX_OBJECTS_URL` and sets this variable.
-//! Skipped when `WILD_LINUX_TREE` is unset (a from-scratch kernel build will not
+//! CI job `vmlinux` unpacks `vars.ELYLD_LINUX_OBJECTS_URL` and sets this variable.
+//! Skipped when `ELYLD_LINUX_TREE` is unset (a from-scratch kernel build will not
 //! fit the 10-minute CI timeout). GNU ld is the only oracle. `vmlinux-incremental`
 //! is a separate `--incremental` link of the same objects (section padding, so
 //! not compared to GNU addresses). `vmlinux-incremental-dirty` flips a byte in
 //! `init/version-timestamp.o` and checks that skip_payloads drops.
 //!
-//! Clang ThinLTO: set `WILD_LINUX_LTO_TREE` (pack with
+//! Clang ThinLTO: set `ELYLD_LINUX_LTO_TREE` (pack with
 //! `scripts/pack-vmlinux-lto-objects.sh`). `vmlinux-lto` diffs key symbols against
 //! LLD. `vmlinux-lto-incremental` expects a plugin fallback, not an in-place
-//! update. CI job `vmlinux-lto` unpacks `vars.WILD_LINUX_LTO_OBJECTS_URL`.
+//! update. CI job `vmlinux-lto` unpacks `vars.ELYLD_LINUX_LTO_OBJECTS_URL`.
 
-use crate::{Filter, build_dir, incremental_check, wild_path};
+use crate::{Filter, build_dir, incremental_check, elyld_path};
 use libtest_mimic::Trial;
-use libwild::bail;
-use libwild::error::{Context as _, Result};
+use libelyld::bail;
+use libelyld::error::{Context as _, Result};
 use object::{Object as _, ObjectSection as _, ObjectSymbol as _};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const LINUX_TREE_VAR: &str = "WILD_LINUX_TREE";
+const LINUX_TREE_VAR: &str = "ELYLD_LINUX_TREE";
 const TEST_NAME: &str = "elf/x86_64/vmlinux";
 const INCREMENTAL_TEST: &str = "elf/x86_64/vmlinux-incremental";
 const INCREMENTAL_DIRTY_TEST: &str = "elf/x86_64/vmlinux-incremental-dirty";
-const LTO_TREE_VAR: &str = "WILD_LINUX_LTO_TREE";
+const LTO_TREE_VAR: &str = "ELYLD_LINUX_LTO_TREE";
 const LTO_TEST: &str = "elf/x86_64/vmlinux-lto";
 const LTO_INCREMENTAL_TEST: &str = "elf/x86_64/vmlinux-lto-incremental";
 
@@ -133,7 +133,7 @@ fn require_vmlinux_inputs_in(tree: &Path, var: &str) -> Result<()> {
 
 fn vmlinux_command(tree: &Path, out: &Path, incremental: bool) -> Command {
     let script = tree.join(SCRIPT);
-    let mut cmd = Command::new(wild_path());
+    let mut cmd = Command::new(elyld_path());
     cmd.current_dir(tree).args([
         "-m",
         "elf_x86_64",
@@ -179,7 +179,7 @@ fn run_vmlinux_test() -> Result<libtest_mimic::Completion> {
     let mut cmd = vmlinux_command(&tree, &out, false);
     let status = cmd
         .status()
-        .with_context(|| format!("Failed to spawn {}", wild_path().display()))?;
+        .with_context(|| format!("Failed to spawn {}", elyld_path().display()))?;
     if !status.success() {
         bail!("Wild failed to link vmlinux ({status})");
     }
@@ -285,7 +285,7 @@ fn run_vmlinux_lto_test() -> Result<libtest_mimic::Completion> {
     let mut cmd = vmlinux_command(&tree, &out, false);
     let status = cmd
         .status()
-        .with_context(|| format!("Failed to spawn {}", wild_path().display()))?;
+        .with_context(|| format!("Failed to spawn {}", elyld_path().display()))?;
     if !status.success() {
         bail!("Wild failed to link ThinLTO vmlinux ({status})");
     }
@@ -353,7 +353,7 @@ fn compare_key_symbols(oracle: &Path, wild: &Path, oracle_name: &str) -> Result 
             (Some(_), None) => mismatches.push(format!("{name}: missing in Wild")),
             (Some(g), Some(w)) if g != w => {
                 mismatches.push(format!(
-                    "{name}: {oracle_name} {} @ {:#x} vs Wild {} @ {:#x}",
+                    "{name}: {oracle_name} {} @ {:#x} vs ElyLD {} @ {:#x}",
                     g.section, g.address, w.section, w.address
                 ));
             }

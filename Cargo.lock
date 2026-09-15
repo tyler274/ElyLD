@@ -514,6 +514,261 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "elyld"
+version = "1.0.0"
+dependencies = [
+ "ar",
+ "bitflags",
+ "blake3",
+ "dhat",
+ "diff",
+ "foldhash 0.2.0",
+ "gimli 0.34.0",
+ "hex",
+ "itertools 0.15.0",
+ "libelyld",
+ "libloading",
+ "libtest-mimic",
+ "linker-diff",
+ "linker-layout",
+ "mimalloc",
+ "object 0.40.0",
+ "os_info",
+ "rand",
+ "regex",
+ "serde",
+ "serde-keyvalue",
+ "strum",
+ "tempfile",
+ "toml",
+ "wait-timeout",
+ "wasmparser 0.258.0",
+ "which",
+]
+
+[[package]]
+name = "elyld-args"
+version = "1.0.0"
+dependencies = [
+ "colored",
+ "derive_more",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
+ "hex",
+ "indexmap",
+ "itertools 0.15.0",
+ "jobserver",
+ "object 0.40.0",
+ "rayon",
+ "strum",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "elyld-elf"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "cc",
+ "crossbeam-utils",
+ "derive_more",
+ "elyld-args",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-layout",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "flate2",
+ "foldhash 0.2.0",
+ "gimli 0.34.0",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "itertools 0.15.0",
+ "leb128",
+ "libc",
+ "libloading",
+ "linker-utils",
+ "memchr",
+ "nix",
+ "object 0.40.0",
+ "perfetto-recorder",
+ "rayon",
+ "smallvec",
+ "tracing",
+ "uuid",
+ "zerocopy",
+ "zlib-rs",
+ "zstd",
+]
+
+[[package]]
+name = "elyld-error"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "colored",
+]
+
+[[package]]
+name = "elyld-fs"
+version = "1.0.0"
+dependencies = [
+ "ar",
+ "elyld-error",
+ "libc",
+ "memmap2",
+ "nix",
+ "object 0.40.0",
+]
+
+[[package]]
+name = "elyld-layout"
+version = "1.0.0"
+dependencies = [
+ "atomic-take",
+ "bytesize",
+ "colored",
+ "colosseum",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "derive_more",
+ "elyld-args",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
+ "itertools 0.15.0",
+ "linker-layout",
+ "linker-trace",
+ "linker-utils",
+ "memchr",
+ "object 0.40.0",
+ "perfetto-recorder",
+ "rayon",
+ "sharded-offset-map",
+ "sharded-vec-writer",
+ "smallvec",
+ "symbolic-demangle",
+ "tempfile",
+ "thread_local",
+ "tracing",
+ "winnow",
+]
+
+[[package]]
+name = "elyld-macho"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "derive_more",
+ "elyld-args",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-layout",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "itertools 0.15.0",
+ "linker-utils",
+ "object 0.40.0",
+ "perfetto-recorder",
+ "rayon",
+ "serde",
+ "serde_yaml",
+ "sha2",
+ "tracing",
+ "zerocopy",
+]
+
+[[package]]
+name = "elyld-platform"
+version = "1.0.0"
+dependencies = [
+ "bitflags",
+ "derive_more",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-scripts",
+ "elyld-util",
+ "glob",
+ "hashbrown 0.17.1",
+ "linker-utils",
+ "object 0.40.0",
+ "rayon",
+ "zerocopy",
+]
+
+[[package]]
+name = "elyld-scripts"
+version = "1.0.0"
+dependencies = [
+ "derive_more",
+ "elyld-error",
+ "elyld-util",
+ "glob",
+ "hashbrown 0.17.1",
+ "itertools 0.15.0",
+ "object 0.40.0",
+ "symbolic-common",
+ "symbolic-demangle",
+ "tracing",
+ "winnow",
+]
+
+[[package]]
+name = "elyld-util"
+version = "1.0.0"
+dependencies = [
+ "bumpalo",
+ "derive_more",
+ "elyld-error",
+ "foldhash 0.2.0",
+ "glob",
+ "hashbrown 0.17.1",
+ "itertools 0.15.0",
+ "leb128",
+ "memchr",
+ "object 0.40.0",
+]
+
+[[package]]
+name = "elyld-wasm"
+version = "1.0.0"
+dependencies = [
+ "derive_more",
+ "elyld-args",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-layout",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "hashbrown 0.17.1",
+ "leb128",
+ "linker-utils",
+ "object 0.40.0",
+ "perfetto-recorder",
+ "rayon",
+ "strum",
+ "symbolic-demangle",
+ "tracing",
+ "wasm-encoder 0.258.0",
+ "wasmparser 0.258.0",
+]
+
+[[package]]
 name = "embedded-io"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,6 +1037,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "libelyld"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "colosseum",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "elyld-args",
+ "elyld-elf",
+ "elyld-error",
+ "elyld-fs",
+ "elyld-layout",
+ "elyld-macho",
+ "elyld-platform",
+ "elyld-scripts",
+ "elyld-util",
+ "elyld-wasm",
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
+ "itertools 0.15.0",
+ "libc",
+ "memchr",
+ "object 0.40.0",
+ "perf-event",
+ "perfetto-recorder",
+ "rayon",
+ "tracing",
+ "tracing-subscriber",
+ "zerocopy",
+]
+
+[[package]]
 name = "libloading"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,40 +1100,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "libwild"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "colosseum",
- "crossbeam-queue",
- "crossbeam-utils",
- "foldhash 0.2.0",
- "hashbrown 0.17.1",
- "itertools 0.15.0",
- "libc",
- "memchr",
- "object 0.40.0",
- "perf-event",
- "perfetto-recorder",
- "rayon",
- "tracing",
- "tracing-subscriber",
- "wild-args",
- "wild-elf",
- "wild-error",
- "wild-fs",
- "wild-layout",
- "wild-macho",
- "wild-platform",
- "wild-scripts",
- "wild-util",
- "wild-wasm",
- "zerocopy",
-]
-
-[[package]]
 name = "linker-diff"
-version = "0.10.0"
+version = "1.0.0"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -872,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "linker-layout"
-version = "0.10.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "postcard",
@@ -881,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "linker-trace"
-version = "0.10.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "postcard",
@@ -890,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "linker-utils"
-version = "0.10.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "leb128",
@@ -2114,261 +2369,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bae2f2b2b816647a1cab1acc91f5bd20812d53cb344382635ec2181940c8034f"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "wild-args"
-version = "0.10.0"
-dependencies = [
- "colored",
- "derive_more",
- "foldhash 0.2.0",
- "hashbrown 0.17.1",
- "hex",
- "indexmap",
- "itertools 0.15.0",
- "jobserver",
- "object 0.40.0",
- "rayon",
- "strum",
- "tempfile",
- "tracing",
- "wild-error",
- "wild-fs",
- "wild-platform",
- "wild-scripts",
- "wild-util",
-]
-
-[[package]]
-name = "wild-elf"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "blake3",
- "cc",
- "crossbeam-utils",
- "derive_more",
- "flate2",
- "foldhash 0.2.0",
- "gimli 0.34.0",
- "hashbrown 0.17.1",
- "indexmap",
- "itertools 0.15.0",
- "leb128",
- "libc",
- "libloading",
- "linker-utils",
- "memchr",
- "nix",
- "object 0.40.0",
- "perfetto-recorder",
- "rayon",
- "smallvec",
- "tracing",
- "uuid",
- "wild-args",
- "wild-error",
- "wild-fs",
- "wild-layout",
- "wild-platform",
- "wild-scripts",
- "wild-util",
- "zerocopy",
- "zlib-rs",
- "zstd",
-]
-
-[[package]]
-name = "wild-error"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "colored",
-]
-
-[[package]]
-name = "wild-fs"
-version = "0.10.0"
-dependencies = [
- "ar",
- "libc",
- "memmap2",
- "nix",
- "object 0.40.0",
- "wild-error",
-]
-
-[[package]]
-name = "wild-layout"
-version = "0.10.0"
-dependencies = [
- "atomic-take",
- "bytesize",
- "colored",
- "colosseum",
- "crossbeam-queue",
- "crossbeam-utils",
- "derive_more",
- "foldhash 0.2.0",
- "hashbrown 0.17.1",
- "itertools 0.15.0",
- "linker-layout",
- "linker-trace",
- "linker-utils",
- "memchr",
- "object 0.40.0",
- "perfetto-recorder",
- "rayon",
- "sharded-offset-map",
- "sharded-vec-writer",
- "smallvec",
- "symbolic-demangle",
- "tempfile",
- "thread_local",
- "tracing",
- "wild-args",
- "wild-error",
- "wild-fs",
- "wild-platform",
- "wild-scripts",
- "wild-util",
- "winnow",
-]
-
-[[package]]
-name = "wild-linker"
-version = "0.10.0"
-dependencies = [
- "ar",
- "bitflags",
- "blake3",
- "dhat",
- "diff",
- "foldhash 0.2.0",
- "gimli 0.34.0",
- "hex",
- "itertools 0.15.0",
- "libloading",
- "libtest-mimic",
- "libwild",
- "linker-diff",
- "linker-layout",
- "mimalloc",
- "object 0.40.0",
- "os_info",
- "rand",
- "regex",
- "serde",
- "serde-keyvalue",
- "strum",
- "tempfile",
- "toml",
- "wait-timeout",
- "wasmparser 0.258.0",
- "which",
-]
-
-[[package]]
-name = "wild-macho"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "blake3",
- "derive_more",
- "itertools 0.15.0",
- "linker-utils",
- "object 0.40.0",
- "perfetto-recorder",
- "rayon",
- "serde",
- "serde_yaml",
- "sha2",
- "tracing",
- "wild-args",
- "wild-error",
- "wild-fs",
- "wild-layout",
- "wild-platform",
- "wild-scripts",
- "wild-util",
- "zerocopy",
-]
-
-[[package]]
-name = "wild-platform"
-version = "0.10.0"
-dependencies = [
- "bitflags",
- "derive_more",
- "glob",
- "hashbrown 0.17.1",
- "linker-utils",
- "object 0.40.0",
- "rayon",
- "wild-error",
- "wild-fs",
- "wild-scripts",
- "wild-util",
- "zerocopy",
-]
-
-[[package]]
-name = "wild-scripts"
-version = "0.10.0"
-dependencies = [
- "derive_more",
- "glob",
- "hashbrown 0.17.1",
- "itertools 0.15.0",
- "object 0.40.0",
- "symbolic-common",
- "symbolic-demangle",
- "tracing",
- "wild-error",
- "wild-util",
- "winnow",
-]
-
-[[package]]
-name = "wild-util"
-version = "0.10.0"
-dependencies = [
- "bumpalo",
- "derive_more",
- "foldhash 0.2.0",
- "glob",
- "hashbrown 0.17.1",
- "itertools 0.15.0",
- "leb128",
- "memchr",
- "object 0.40.0",
- "wild-error",
-]
-
-[[package]]
-name = "wild-wasm"
-version = "0.10.0"
-dependencies = [
- "derive_more",
- "hashbrown 0.17.1",
- "leb128",
- "linker-utils",
- "object 0.40.0",
- "perfetto-recorder",
- "rayon",
- "strum",
- "symbolic-demangle",
- "tracing",
- "wasm-encoder 0.258.0",
- "wasmparser 0.258.0",
- "wild-args",
- "wild-error",
- "wild-fs",
- "wild-layout",
- "wild-platform",
- "wild-scripts",
- "wild-util",
 ]
 
 [[package]]

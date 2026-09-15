@@ -9,9 +9,9 @@ use linker_utils::riscv64::{
     JAL_RANGE, RelaxationKind, distance_fits_jal, relocation_type_from_raw,
 };
 use object::elf::{EF_RISCV_RV64ILP32, EF_RISCV_RVE};
-use wild_error::error::{Context as _, Result};
-use wild_error::{ensure, error};
-use wild_platform::{
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{ensure, error};
+use elyld_platform::{
     ObjectFile as _, Platform, PreviousRelocationInfo, RelaxSymbolInfo, Relocation,
 };
 
@@ -34,7 +34,7 @@ macro_rules! rel_info_from_type {
     };
 }
 
-impl wild_platform::Arch for ElfRiscV64 {
+impl elyld_platform::Arch for ElfRiscV64 {
     type Relaxation = Relaxation;
     type Platform = Elf64;
     const DEFAULT_LOAD_ADDRESS: u64 = 0x10000;
@@ -73,7 +73,7 @@ impl wild_platform::Arch for ElfRiscV64 {
         plt_entry: &mut [u8],
         got_address: u64,
         plt_address: u64,
-    ) -> wild_error::error::Result {
+    ) -> elyld_error::error::Result {
         // TODO: For simplicity, we assume now the PLT entry precedes the GOT entry, so we can
         // make the offset calculation in the unsigned type.
         debug_assert!(plt_address < got_address);
@@ -91,7 +91,7 @@ impl wild_platform::Arch for ElfRiscV64 {
         RISCV_TLS_DTV_OFFSET
     }
 
-    fn tp_offset_start(layout: &wild_layout::Layout<Elf64>) -> u64 {
+    fn tp_offset_start(layout: &elyld_layout::Layout<Elf64>) -> u64 {
         layout.tls_start_address_aligned()
     }
 
@@ -178,8 +178,8 @@ impl wild_platform::Arch for ElfRiscV64 {
         relocation_kind: object::elf::RelocationType,
         section_bytes: &[u8],
         offset_in_section: u64,
-        flags: wild_platform::value_flags::ValueFlags,
-        output_kind: wild_platform::OutputKind,
+        flags: elyld_platform::value_flags::ValueFlags,
+        output_kind: elyld_platform::OutputKind,
         section_flags: linker_utils::elf::SectionFlags,
         relax_deltas: Option<&SectionRelaxDeltas>,
         sym_addr: u64,
@@ -328,7 +328,7 @@ impl wild_platform::Arch for ElfRiscV64 {
         relocations: &<Self::Platform as Platform>::RelocationSections,
         section: &<Self::Platform as Platform>::SectionHeader,
         offset_in_section: u64,
-    ) -> Result<wild_platform::SourceInfo> {
+    ) -> Result<elyld_platform::SourceInfo> {
         crate::dwarf_address_info::get_source_info::<crate::Class64, Self>(
             object,
             relocations,
@@ -373,7 +373,7 @@ fn is_jalr_deleted(section_bytes: &[u8], offset: usize) -> bool {
     !is_jalr_with_matching_rs1
 }
 
-impl wild_platform::Relaxation for Relaxation {
+impl elyld_platform::Relaxation for Relaxation {
     fn apply(&self, section_bytes: &mut [u8], offset_in_section: &mut u64, addend: &mut i64) {
         self.kind.apply(section_bytes, offset_in_section, addend);
     }

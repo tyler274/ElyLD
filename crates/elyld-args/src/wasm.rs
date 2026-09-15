@@ -4,11 +4,11 @@ use crate::{
 };
 use std::path::Path;
 use std::sync::Arc;
-use wild_error::bail;
-use wild_error::error::Result;
-use wild_platform as platform;
-use wild_platform::Args as _;
-use wild_util::alignment::Alignment;
+use elyld_error::bail;
+use elyld_error::error::Result;
+use elyld_platform as platform;
+use elyld_platform::Args as _;
+use elyld_util::alignment::Alignment;
 
 /// Loadable segment alignment for wasm. Wasm doesn't really have program
 /// segments in the ELF sense, but we still need to provide a value for the
@@ -145,7 +145,7 @@ impl platform::Args for WasmArgs {
         todo!()
     }
 
-    fn loadable_segment_alignment(&self) -> wild_util::alignment::Alignment {
+    fn loadable_segment_alignment(&self) -> elyld_util::alignment::Alignment {
         WASM_PAGE_ALIGNMENT
     }
 
@@ -336,7 +336,7 @@ fn setup_argument_parser() -> ArgumentParser<WasmArgs> {
             |args, _, value| {
                 let size = parse_number(value)?;
                 args.z_stack_size = u32::try_from(size).map_err(|_| {
-                    wild_error::error!("-z stack-size is too large for Wasm32: {size}")
+                    elyld_error::error!("-z stack-size is too large for Wasm32: {size}")
                 })?;
                 Ok(())
             },
@@ -498,7 +498,7 @@ fn setup_argument_parser() -> ArgumentParser<WasmArgs> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wild_platform::Args;
+    use elyld_platform::Args;
 
     fn parse_args<'a>(args: impl IntoIterator<Item = &'a str>) -> WasmArgs {
         let mut wasm_args = WasmArgs::new().unwrap();

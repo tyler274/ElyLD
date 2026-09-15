@@ -8,11 +8,11 @@ use core::slice;
 use hashbrown::{HashMap, HashSet};
 use itertools::multizip;
 use std::fmt::Display;
-use wild_platform::output_kind::OutputKind;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::{ProgramSegmentId, ProgramSegments};
-use wild_platform::{Platform, ProgramSegmentDef, SectionAttributes as _, SectionType as _};
-use wild_scripts::linker_script;
+use elyld_platform::output_kind::OutputKind;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::{ProgramSegmentId, ProgramSegments};
+use elyld_platform::{Platform, ProgramSegmentDef, SectionAttributes as _, SectionType as _};
+use elyld_scripts::linker_script;
 
 /// Encodes the order of output sections and the start and end of each program segment. This struct
 /// is intended to be used by iterating over it.
@@ -452,7 +452,7 @@ impl<'data> OutputOrder<'data> {
         });
 
         let Some(anchor_index) = self.find_insert_index(output_sections, anchor_name, after) else {
-            wild_error::bail!(
+            elyld_error::bail!(
                 "unable to find insert point `{}`",
                 String::from_utf8_lossy(anchor_name)
             );

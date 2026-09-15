@@ -8,12 +8,12 @@ use crate::symbol::UnversionedSymbolName;
 use crate::symbol_db::SymbolDb;
 use crate::{EnginePlatform, OutputRecordLayout};
 use hashbrown::HashMap;
-use wild_args::InputRef;
-use wild_error::bail;
-use wild_error::error::{Context, Result};
-use wild_platform::Args;
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_scripts::linker_script::Expression;
+use elyld_args::InputRef;
+use elyld_error::bail;
+use elyld_error::error::{Context, Result};
+use elyld_platform::Args;
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_scripts::linker_script::Expression;
 
 /// Compute 1-based line number by counting newlines before `remainder` in `file_bytes`.
 fn line_number(file_bytes: &[u8], remainder: &[u8]) -> u32 {
@@ -156,7 +156,7 @@ fn evaluate_location<'data, P: EnginePlatform>(
         SymbolLoc::FirstSection | SymbolLoc::None => Ok(0),
         SymbolLoc::LocationCounter(idx, _) => {
             let entry = resolved_location_counters.get(*idx).ok_or_else(|| {
-                wild_error::error!(
+                elyld_error::error!(
                     "location counter index {idx} out of range (len: {})",
                     resolved_location_counters.len()
                 )
@@ -437,12 +437,12 @@ fn evaluate_expression_value<'data, P: EnginePlatform>(
         Expression::LogicalNot(e) => Ok(u64::from(eval!(e)? == 0)),
         Expression::BitwiseNot(e) => Ok(!eval!(e)?),
         Expression::Negate(e) => Ok(eval!(e)?.wrapping_neg()),
-        Expression::Log2Ceil(e) => Ok(wild_scripts::const_eval::log2ceil(eval!(e)?)),
+        Expression::Log2Ceil(e) => Ok(elyld_scripts::const_eval::log2ceil(eval!(e)?)),
 
         Expression::Origin(name) => {
             value_kind.contains_absolute = true;
             let region = memory_regions.get(name).ok_or_else(|| {
-                wild_error::error!(
+                elyld_error::error!(
                     "ORIGIN: memory region '{}' not found",
                     String::from_utf8_lossy(name)
                 )
@@ -451,7 +451,7 @@ fn evaluate_expression_value<'data, P: EnginePlatform>(
         }
         Expression::Length(name) => {
             let region = memory_regions.get(name).ok_or_else(|| {
-                wild_error::error!(
+                elyld_error::error!(
                     "LENGTH: memory region '{}' not found",
                     String::from_utf8_lossy(name)
                 )
@@ -564,7 +564,7 @@ fn section_address<'data, P: EnginePlatform>(
     let id = output_sections
         .section_id_by_name(SectionName(name))
         .ok_or_else(|| {
-            wild_error::error!(
+            elyld_error::error!(
                 "ADDR: section '{}' not found",
                 String::from_utf8_lossy(name)
             )
@@ -580,7 +580,7 @@ fn section_load_address<'data, P: EnginePlatform>(
     let id = output_sections
         .section_id_by_name(SectionName(name))
         .ok_or_else(|| {
-            wild_error::error!(
+            elyld_error::error!(
                 "LOADADDR: section '{}' not found",
                 String::from_utf8_lossy(name)
             )

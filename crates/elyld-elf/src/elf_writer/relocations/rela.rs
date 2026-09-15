@@ -12,14 +12,14 @@ use linker_utils::utils::slice_from_all_bytes_mut;
 use object::read::elf::{SectionHeader as _, Sym as _};
 use object::{LittleEndian, SymbolIndex};
 use std::sync::atomic::Ordering::Relaxed;
-use wild_error::error::{Context as _, Result};
-use wild_error::{bail, error};
-use wild_layout::output_section_id::SectionName;
-use wild_layout::output_section_part_map::OutputSectionPartMap;
-use wild_layout::output_trace::TraceOutput;
-use wild_layout::resolution::SectionSlot;
-use wild_layout::{ObjectLayout, Section};
-use wild_platform::{Arch, Args as _, ObjectFile, Relocation, RelocationList, SectionHeader as _};
+use elyld_error::error::{Context as _, Result};
+use elyld_error::{bail, error};
+use elyld_layout::output_section_id::SectionName;
+use elyld_layout::output_section_part_map::OutputSectionPartMap;
+use elyld_layout::output_trace::TraceOutput;
+use elyld_layout::resolution::SectionSlot;
+use elyld_layout::{ObjectLayout, Section};
+use elyld_platform::{Arch, Args as _, ObjectFile, Relocation, RelocationList, SectionHeader as _};
 
 /// A cache for managing ELF relocations and optimization of relocation entries.
 #[derive(Debug)]
@@ -46,7 +46,7 @@ pub(crate) fn write_rela_sections<'data, C: ElfClass>(
         }
 
         let part_id = object.section_part_id(sec_idx, &layout.symbol_db.section_part_ids);
-        if part_id == wild_layout::part_id::UNMAPPED {
+        if part_id == elyld_layout::part_id::UNMAPPED {
             continue;
         }
         if !matches!(

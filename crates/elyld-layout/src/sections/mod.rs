@@ -16,13 +16,13 @@ pub use input_order::*;
 use itertools::Itertools;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use std::mem::take;
-use wild_error::ensure;
-use wild_error::error::{Context, Result};
-use wild_platform::output_section_map::OutputSectionMap;
-use wild_platform::program_segments::{ProgramSegmentId, ProgramSegments};
-use wild_platform::{Args as _, SectionAttributes as _, SectionFlags as _};
-use wild_util::alignment;
-use wild_util::alignment::Alignment;
+use elyld_error::ensure;
+use elyld_error::error::{Context, Result};
+use elyld_platform::output_section_map::OutputSectionMap;
+use elyld_platform::program_segments::{ProgramSegmentId, ProgramSegments};
+use elyld_platform::{Args as _, SectionAttributes as _, SectionFlags as _};
+use elyld_util::alignment;
+use elyld_util::alignment::Alignment;
 
 pub fn layout_section_from_part_layouts<'data, P: EnginePlatform>(
     part: &OutputRecordLayout,

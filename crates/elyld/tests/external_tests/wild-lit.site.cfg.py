@@ -2,10 +2,10 @@ import os
 import lit.llvm
 
 LLVM_TOOLS_DIR = os.environ.get("LLVM_TOOLS_DIR", "/usr/lib/llvm-21/bin")
-FAKES_DIR = os.environ.get("WILD_FAKES_DIR", "")
+FAKES_DIR = os.environ.get("ELYLD_FAKES_DIR", "")
 
 if not FAKES_DIR:
-    raise Exception("WILD_FAKES_DIR must be set. Run tests via cargo test.")
+    raise Exception("ELYLD_FAKES_DIR must be set. Run tests via cargo test.")
 
 lit.llvm.initialize(lit_config, config)
 config.llvm_tools_dir = LLVM_TOOLS_DIR
@@ -27,5 +27,5 @@ config.llvm_shlib_ext = ".so"
 config.host_triple = os.environ.get("HOST_TRIPLE", "x86_64-unknown-linux-gnu")
 config.target_triple = os.environ.get("TARGET_TRIPLE", "aarch64-unknown-linux-gnu")
 
-LIT_CFG = os.environ.get("WILD_LIT_CFG", os.path.join(os.path.dirname(__file__), 'lit.cfg.py'))
+LIT_CFG = os.environ.get("ELYLD_LIT_CFG", os.path.join(os.path.dirname(__file__), 'lit.cfg.py'))
 lit_config.load_config(config, LIT_CFG)

@@ -1,6 +1,6 @@
 [package]
-name = "wild-elf"
-description = "ELF linking support for the Wild linker"
+name = "elyld-elf"
+description = "ELF linking support for ElyLD"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -21,7 +21,7 @@ itertools.workspace = true
 leb128.workspace = true
 libc.workspace = true
 libloading = { workspace = true, optional = true }
-linker-utils = { path = "../linker-utils", version = "0.10.0" }
+linker-utils = { path = "../linker-utils", version = "1.0.0" }
 memchr.workspace = true
 object = { workspace = true, features = ["write_std"] }
 perfetto-recorder.workspace = true
@@ -29,13 +29,13 @@ rayon.workspace = true
 smallvec.workspace = true
 tracing.workspace = true
 uuid.workspace = true
-wild-args = { path = "../wild-args", version = "0.10.0" }
-wild-error = { path = "../wild-error", version = "0.10.0" }
-wild-fs = { path = "../wild-fs", version = "0.10.0" }
-wild-layout = { path = "../wild-layout", version = "0.10.0" }
-wild-platform = { path = "../wild-platform", version = "0.10.0" }
-wild-scripts = { path = "../wild-scripts", version = "0.10.0" }
-wild-util = { path = "../wild-util", version = "0.10.0" }
+elyld-args = { path = "../elyld-args", version = "1.0.0" }
+elyld-error = { path = "../elyld-error", version = "1.0.0" }
+elyld-fs = { path = "../elyld-fs", version = "1.0.0" }
+elyld-layout = { path = "../elyld-layout", version = "1.0.0" }
+elyld-platform = { path = "../elyld-platform", version = "1.0.0" }
+elyld-scripts = { path = "../elyld-scripts", version = "1.0.0" }
+elyld-util = { path = "../elyld-util", version = "1.0.0" }
 zerocopy.workspace = true
 zlib-rs.workspace = true
 zstd = { workspace = true, optional = true }
@@ -47,7 +47,7 @@ nix.workspace = true
 cc.workspace = true
 
 [features]
-plugins = ["libloading", "wild-layout/plugins"]
+plugins = ["libloading", "elyld-layout/plugins"]
 zstd = ["dep:zstd"]
 
 [lints]

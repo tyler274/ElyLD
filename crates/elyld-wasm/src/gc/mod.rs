@@ -8,7 +8,7 @@ pub(crate) use inputs::*;
 #[allow(unused_imports)]
 pub(crate) use units::*;
 use wasmparser::GlobalType;
-use wild_error::error::Result;
+use elyld_error::error::Result;
 
 /// Describes how a single import was resolved during cross-object linking.
 #[derive(Debug, Clone, Copy)]
@@ -102,10 +102,10 @@ impl<'data> SharedUnresolvedImports<'data> {
         for imp in &self.functions {
             let type_index = index_bases
                 .get(imp.first_object)
-                .ok_or_else(|| wild_error::error!("Wasm shared import object index out of range"))?
+                .ok_or_else(|| elyld_error::error!("Wasm shared import object index out of range"))?
                 .type_index_base
                 .checked_add(imp.local_type_index)
-                .ok_or_else(|| wild_error::error!("Wasm type index overflow"))?;
+                .ok_or_else(|| elyld_error::error!("Wasm type index overflow"))?;
             imports.push(OutputImport {
                 module: imp.module,
                 name: imp.name,

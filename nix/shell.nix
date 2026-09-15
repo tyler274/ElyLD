@@ -23,7 +23,7 @@ pkgs.mkShell {
     pkgs.taplo
     lld
     lldb
-    # llvm-config so Wild can auto-discover LLVMgold.so without --plugin.
+    # llvm-config so ElyLD can auto-discover LLVMgold.so without --plugin.
     llvmPkgs.llvm.dev
     pkgs.glibc.out
     pkgs.glibc.static
@@ -43,7 +43,7 @@ pkgs.mkShell {
     pkgs.strace
     pkgs.file
 
-    # BENCHMARKING.md (`hyperfine`) and sampling profiles of Wild itself.
+    # BENCHMARKING.md (`hyperfine`) and sampling profiles of ElyLD itself.
     pkgs.hyperfine
     pkgs.samply
 
@@ -69,8 +69,8 @@ pkgs.mkShell {
     pkgs.mimalloc
   ];
 
-  # Unpack nixpkgs glibc, point WILD_GLIBC_* at it, and provide wild-build-glibc.
-  # Override WILD_GLIBC_TREE / WILD_GLIBC_BUILD before `nix develop` to use another tree.
+  # Unpack nixpkgs glibc, point ELYLD_GLIBC_* at it, and provide wild-build-glibc.
+  # Override ELYLD_GLIBC_TREE / ELYLD_GLIBC_BUILD before `nix develop` to use another tree.
   shellHook = glibcTests.shellHook + ''
     if ! command -v cargo-kani >/dev/null 2>&1; then
       echo "Kani is not in this shell (not packaged in nixpkgs)."

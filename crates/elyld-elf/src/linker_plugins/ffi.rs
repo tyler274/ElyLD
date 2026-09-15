@@ -6,17 +6,17 @@ use std::ops::Not as _;
 use std::os::unix::ffi::OsStrExt;
 use std::panic::AssertUnwindSafe;
 use std::path::Path;
-use wild_args::{Input, Modifiers};
-use wild_error::error::{Error, Result};
-use wild_error::{bail, error};
-use wild_layout::EnginePlatform;
-use wild_layout::grouping::{PluginSymbol, SymbolKind};
-use wild_layout::resolution::{ResolvedFile, ResolvedGroup};
-use wild_layout::symbol::UnversionedSymbolName;
-use wild_layout::symbol_db::{SymbolDb, SymbolIdRange};
-use wild_platform::value_flags::{FlagsForSymbol, PerSymbolFlags, ValueFlags};
-use wild_platform::{Args as _, Platform, RawSymbolName as _};
-use wild_util::arena::Herd;
+use elyld_args::{Input, Modifiers};
+use elyld_error::error::{Error, Result};
+use elyld_error::{bail, error};
+use elyld_layout::EnginePlatform;
+use elyld_layout::grouping::{PluginSymbol, SymbolKind};
+use elyld_layout::resolution::{ResolvedFile, ResolvedGroup};
+use elyld_layout::symbol::UnversionedSymbolName;
+use elyld_layout::symbol_db::{SymbolDb, SymbolIdRange};
+use elyld_platform::value_flags::{FlagsForSymbol, PerSymbolFlags, ValueFlags};
+use elyld_platform::{Args as _, Platform, RawSymbolName as _};
+use elyld_util::arena::Herd;
 
 /// Checks for any errors reported by the linker plugin during a callback. Should be called after
 /// each callback.
@@ -402,7 +402,7 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
         // GOT reloc has no resolution. Undefs may still resolve to dynamics.
         symbol_db
             .get(
-                &wild_layout::symbol::symbol_name_from_raw(&raw_name),
+                &elyld_layout::symbol::symbol_name_from_raw(&raw_name),
                 sym.is_undefined(),
             )
             .map(|id| symbol_db.definition(id))
@@ -423,10 +423,10 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
         let defining_file = symbol_db.file(symbol_db.file_id_for_symbol(symbol_id));
 
         match defining_file {
-            wild_layout::grouping::SequencedInput::LtoInput(_) => {
+            elyld_layout::grouping::SequencedInput::LtoInput(_) => {
                 PluginSymbolResolution::ResolvedIr
             }
-            wild_layout::grouping::SequencedInput::Object(obj) => {
+            elyld_layout::grouping::SequencedInput::Object(obj) => {
                 if obj.is_dynamic() {
                     PluginSymbolResolution::ResolvedDyn
                 } else {
@@ -462,7 +462,7 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
     } else {
         let defining_file = symbol_db.file(symbol_db.file_id_for_symbol(symbol_id));
         match defining_file {
-            wild_layout::grouping::SequencedInput::LtoInput(_) => {
+            elyld_layout::grouping::SequencedInput::LtoInput(_) => {
                 PluginSymbolResolution::PreemptedIr
             }
             _ => PluginSymbolResolution::PreemptedReg,
@@ -531,7 +531,7 @@ pub(crate) extern "C" fn add_input_file(path: *const libc::c_char) -> Status {
         let path = Box::from(Path::new(path));
         PLUGIN_OUTPUTS.with_borrow_mut(|state| {
             state.generated_inputs.push(Input::new(
-                wild_args::InputSpec::File(path),
+                elyld_args::InputSpec::File(path),
                 Modifiers {
                     temporary: true,
                     ..Default::default()
@@ -554,7 +554,7 @@ pub(crate) extern "C" fn add_input_library(lib_name: *const libc::c_char) -> Sta
 
     PLUGIN_OUTPUTS.with_borrow_mut(|state| {
         state.generated_inputs.push(Input::new(
-            wild_args::InputSpec::Lib(Box::from(lib_name)),
+            elyld_args::InputSpec::Lib(Box::from(lib_name)),
             Modifiers {
                 as_needed: true,
                 ..Default::default()

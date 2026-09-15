@@ -3,7 +3,7 @@ use crate::{WasmRelocSection, WasmSymbol};
 use std::borrow::Cow;
 use std::ops::Range;
 use wasmparser::{ConstExpr, DataKind, GlobalType};
-use wild_util::alignment::Alignment;
+use elyld_util::alignment::Alignment;
 
 #[derive(derive_more::Debug)]
 pub struct File<'data> {

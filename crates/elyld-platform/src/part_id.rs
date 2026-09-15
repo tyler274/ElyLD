@@ -1,6 +1,6 @@
 use super::Platform;
 use super::output_section_id::{CommonSinglePartSectionId, OutputSectionId, regular_section_base};
-use wild_util::alignment::NUM_ALIGNMENTS;
+use elyld_util::alignment::NUM_ALIGNMENTS;
 
 /// An ID for a part of an output section. Parts IDs are ordered with generated
 /// single-part-per-section parts first, followed by parts that belong to multi-part sections,
