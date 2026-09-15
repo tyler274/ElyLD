@@ -1,68 +1,77 @@
 # Nix
 
-Wild includes a Nix flake, an overlay, and a derivation for building Wild.
-this allows users to use the latest git revision of ElyLD without having to
-wait for a release to be packaged in Nixpkgs.
+ElyLD ships a Nix flake, overlay, and derivation independent of nixpkgs'
+`wild` package. The wrap and stdenv adapter are derived from Wild's
+(`wrapBintoolsWith` + `useWildLinker`); names and `.comment` identity are ElyLD.
 
-There are two ways of using an unstable Wild, one is with Nix Flakes. Note that
-until NixOS 25.11 is branched, unstable Nixpkgs is required.
+Unstable Nixpkgs is required until NixOS 25.11 is branched.
+
+## NixOS
+
+Add the flake and enable the module. That overlays `elyld` / `elyld-ld` and
+injects ElyLD into `stdenv` / `clangStdenv` via GCC `-B` (GCC 15 has no
+`-fuse-ld=elyld`). Packages can opt out with `dontUseElyldLinker = true`.
 
 ```nix
 {
   inputs = {
-    # Have Nixpkgs
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    elyld.url = "github:tyler274/ElyLD";
+  };
 
-    # Include Wild
-    wild = {
-      url = "github:tyler274/ElyLD";
-      # If using ElyLD Flake (not required)
-      # inputs.nixpkgs.follows = "nixpkgs";
-      #
-      # If not using ElyLD flake, and just using the overlay
-      flake = false;
+  outputs =
+    { nixpkgs, elyld, ... }:
+    {
+      nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          elyld.nixosModules.default
+          {
+            programs.elyld.enable = true;
+          }
+        ];
+      };
     };
+}
+```
+
+This is the same inject path Cyrene uses. Hosts that set `gcc.arch` should keep
+a nested nixpkgs overlay (see Cyrene) instead of `stdenv.override`, which this
+module already avoids.
+
+## Overlay (packages and shells)
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    elyld.url = "github:tyler274/ElyLD";
   };
 
   outputs =
     {
       self,
       nixpkgs,
-      wild,
+      elyld,
     }:
     let
-      # Create an instance of Nixpkgs targeting x64 Linux with the
-      # Wild overlay applied
       pkgs = import nixpkgs {
         system = "x86_64-linux";
-        overlays = [
-          (import wild)
-        ];
+        overlays = [ elyld.overlays.default ];
       };
-
-      # Create a stdenv that uses ElyLD
-      wildStdenv = pkgs.useWildLinker pkgs.stdenv;
+      elyldStdenv = pkgs.useElyldLinker pkgs.stdenv;
     in
     {
-      # Add an output of some very cool package that is linked with ElyLD
-      #
-      # Note that if a Rust package is being linked with `buildRustPackage`, you will
-      # need to create a `rustPlatform` using `makeRustPlatform` with this stdenv. See
-      # below how to do that.
-      packages.x86_64-linux.default = pkgs.callPackage ./package.nix { stdenv = wildStdenv; };
+      packages.x86_64-linux.default = pkgs.callPackage ./package.nix { stdenv = elyldStdenv; };
 
-      # A devShell for the very cool package that uses Wild.
-      #
-      # It also has rust-analyzer in its environment
-      devShell.x86_64-linux.default = pkgs.mkShell.override { stdenv = wildStdenv; } {
+      devShells.x86_64-linux.default = pkgs.mkShell.override { stdenv = elyldStdenv; } {
         inputsFrom = [ self.packages.x86_64-linux.default ];
-        packages = [
-          pkgs.rust-analyzer
-        ];
+        packages = [ pkgs.rust-analyzer ];
       };
     };
 }
 ```
+
 Without flakes (npins shown, but any solution can be used):
 
 Add the dependencies to lockfile with npins: `$ npins add github tyler274 ElyLD -b main`
@@ -72,14 +81,14 @@ let
   sources = import ./npins;
   pkgs = import sources.nixpkgs {
     overlays = [
-      (import sources.wild)
+      (import sources.elyld)
     ];
   };
-  wildStdenv = pkgs.useWildLinker pkgs.stdenv;
+  elyldStdenv = pkgs.useElyldLinker pkgs.stdenv;
 in
 {
   # C Package
-  package = pkgs.callPackage ./package.nix { stdenv = wildStdenv; };
+  package = pkgs.callPackage ./package.nix { stdenv = elyldStdenv; };
 }
 ```
 If building a Rust package with `rustPlatform.buildRustPackage`, a little more
@@ -92,24 +101,24 @@ let
   pkgs = import nixpkgs {
     system = "x86_64-linux";
     overlays = [
-      (import wild)
+      (import elyld)
     ];
   };
 
-  # Create a stdenv that uses Wild as its linker
-  wildStdenv = pkgs.useWildLinker pkgs.stdenv;
+  # Create a stdenv that uses ElyLD as its linker
+  elyldStdenv = pkgs.useElyldLinker pkgs.stdenv;
 
   # Next a custom rustPlatform is required.
   #
   # This uses Nixpkgs rustc and cargo, but uses
-  # the stdenv that has Wild.
-  wildRustPlatform = pkgs.makeRustPlatform {
+  # the stdenv that has ElyLD.
+  elyldRustPlatform = pkgs.makeRustPlatform {
     inherit (pkgs) rustc cargo;
-    stdenv = wildStdenv;
+    stdenv = elyldStdenv;
   };
 in
 # Then create whatever cool package you are building
-callPackage ./package.nix { rustPlatform = wildRustPlatform; }
+callPackage ./package.nix { rustPlatform = elyldRustPlatform; }
 ```
 
 ## Development shell

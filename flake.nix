@@ -33,9 +33,13 @@
       # Which is `import elyld`
       overlays.default = import self;
 
+      nixosModules.default = import ./nix/nixos-module.nix;
+      nixosModules.elyld = self.nixosModules.default;
+
       # Output ElyLD as a stand-alone package.
-      packages = forAllSystems (system: {
-        default = common.${system}.pkgs.elyld;
+      packages = forAllSystems (system: rec {
+        default = elyld;
+        inherit (common.${system}.pkgs) elyld elyld-unwrapped elyld-ld;
       });
 
       # Tests to ensure ElyLD continues working on NixOS
@@ -47,7 +51,7 @@
         in
         {
           # Tests in Nixpkgs to run
-          inherit (pkgs.callPackage "${nixpkgs}/pkgs/by-name/wi/wild-unwrapped/adapterTest.nix" { })
+          inherit (pkgs.callPackage ./nix/adapter-test.nix { })
             adapterGcc
             adapter-llvm
             ;

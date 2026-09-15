@@ -1,9 +1,11 @@
 # ElyLD
 
-![Wild logo - drawing of rusty chain links with vines](/images/wild.png)
+<p align="center">
+  <img src="images/elyld.png" alt="ElyLD logo — Elysia from Honkai Impact 3rd" width="280">
+</p>
 
 ElyLD is a GNU-ld-compatible linker aimed at fast iterative development. It is a fork of
-[Wild](https://github.com/wild-linker/wild).
+[Wild](https://github.com/wild-linker/wild), named after Elysia from Honkai Impact 3rd.
 
 `--incremental` can patch an existing output when inputs change (GC and LTO still fall back to a
 full padded link). It is also used as a drop-in ELF linker for Linux kernels (`vmlinux`), glibc
@@ -216,8 +218,8 @@ strings my-executable | grep 'Linker:'
 
 ### Where did the name come from?
 
-ElyLD is a fork of [Wild](https://github.com/wild-linker/wild). Linkers traditionally end in "ld"
-(GNU ld, gold, lld, mold). ElyLD keeps that suffix.
+The name is after Elysia from Honkai Impact 3rd. Linkers traditionally end in "ld" (GNU ld, gold,
+lld, mold); ElyLD keeps that suffix. It is a fork of [Wild](https://github.com/wild-linker/wild).
 
 ## Benchmarks
 

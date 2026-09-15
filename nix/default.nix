@@ -20,10 +20,15 @@ let
 
   fs = lib.fileset;
 
-  # Only track files checked into git, and then specify files to ignore that
-  # are tracked in git too.
-  # This can reduce rebuilds with Nix.
-  files = fs.difference (fs.gitTracked ../.) (
+  # Only track files checked into git when `.git` is present (local
+  # checkouts). Flake inputs from GitHub have no `.git`, so `gitTracked`
+  # fails there; the fetched tree is already the committed snapshot.
+  files = fs.difference (
+    if builtins.pathExists ../.git then
+      fs.gitTracked ../.
+    else
+      fs.fromSource (lib.cleanSource ../.)
+  ) (
     fs.unions [
       ../.gitignore
       ../flake.lock

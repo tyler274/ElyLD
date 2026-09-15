@@ -6,10 +6,11 @@ This document describes how the Wild project is governed.
 
 ### Maintainers
 
-* [davidlattimore](https://github.com/davidlattimore) (lead maintainer)  
-* [lapla-cogito](https://github.com/lapla-cogito)
-* [marxin](https://github.com/marxin)
-* [mati865](https://github.com/mati865)
+* [tyler274](https://gitub.com/tyler274) (ElyLD fork lead maintainer)
+* [davidlattimore](https://github.com/davidlattimore) (lead maintainer of upstream Wild)  
+* [lapla-cogito](https://github.com/lapla-cogito) (Upstream Wild)
+* [marxin](https://github.com/marxin) (Upstream Wild)
+* [mati865](https://github.com/mati865) (Upstream Wild)
 
 ### Contributors
 
