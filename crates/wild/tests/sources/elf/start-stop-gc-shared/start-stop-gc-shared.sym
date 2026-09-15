@@ -1,0 +1,6 @@
+{
+  global:
+    live_start_stop;
+  local:
+    *;
+};

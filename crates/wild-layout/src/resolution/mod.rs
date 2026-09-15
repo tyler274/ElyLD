@@ -66,10 +66,6 @@ impl<'data, P: EnginePlatform> Resolver<'data, P> {
             output_sections,
         )?;
 
-        let start_stop_sections =
-            P::NEEDS_START_STOP_SECTION_GC.then(|| output_sections.new_section_map());
-        let mut syn = symbol_db.new_synthetic_symbols_group(start_stop_sections);
-
         assign_section_ids(
             &mut self.resolved_groups,
             &mut symbol_db.section_part_ids,
@@ -79,6 +75,14 @@ impl<'data, P: EnginePlatform> Resolver<'data, P> {
 
         // Apply -Ttext/-Tdata/-Tbss (and --section-start) overrides to built-in sections.
         output_sections.apply_section_start_overrides(symbol_db.args);
+
+        // Custom output-section IDs are assigned above. The start/stop GC map must be
+        // sized after that, otherwise `--gc-sections` panics when a `__start_` /
+        // `__stop_` symbol is loaded for a custom section (systemd's
+        // `SYSTEMD_BUS_ERROR_MAP`).
+        let start_stop_sections =
+            P::NEEDS_START_STOP_SECTION_GC.then(|| output_sections.new_section_map());
+        let mut syn = symbol_db.new_synthetic_symbols_group(start_stop_sections);
 
         canonicalise_undefined_symbols(
             self.undefined_symbols,
