@@ -193,6 +193,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
     type SectionIdentityExt = ();
     type GcUnit = SectionGcUnit;
     type Layout<'data> = wild_layout::Layout<'data, Self>;
+    type GroupLayout<'data> = wild_layout::GroupLayout<'data, Self>;
     type SymbolDb<'data> = wild_layout::symbol_db::SymbolDb<'data, Self>;
     type Resolver<'data> = wild_layout::resolution::Resolver<'data, Self>;
     type ResolutionResources<'data, 'scope>
@@ -1058,7 +1059,8 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
     fn create_layout_ext<'data>(
         finalise_sizes_ext: Self::FinaliseSizesExt<'data>,
-        _resolutions: &layout::SymbolResolutions<Self>,
+        _resolutions: &Self::SymbolResolutions,
+        _group_layouts: &[Self::GroupLayout<'data>],
     ) -> Result<Self::LayoutExt<'data>> {
         Ok(finalise_sizes_ext)
     }

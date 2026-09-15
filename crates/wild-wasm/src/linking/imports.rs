@@ -425,7 +425,8 @@ impl LinkerImportAbsorption {
             WasmLinkerSymbol::MemoryBase => self.needs_memory_base = true,
             WasmLinkerSymbol::TableBase => self.needs_table_base = true,
             WasmLinkerSymbol::StackPointer => self.needs_stack_pointer = true,
-            // Single-threaded. Immutable base (no TLS segment yet).
+            // TODO(wasm): Single-threaded and immutable `__tls_base`. Shared-memory TLS is not
+            // implemented yet.
             WasmLinkerSymbol::TlsBase => self.needs_tls_base = true,
             _ => {}
         }

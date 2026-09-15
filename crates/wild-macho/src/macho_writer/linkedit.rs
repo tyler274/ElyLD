@@ -2,8 +2,8 @@ use super::{LE, MachOLayout, take_mut};
 use crate::{
     CHAINED_FIXUP_PAGE_START_SIZE, CS_BLOB_HEADERS_SIZE, CS_BLOCK_SIZE, CS_BLOCK_SIZE_EXP,
     CS_CODE_DIRECTORY_SIZE, CS_HASH_SIZE, CS_HEADERS_SIZE, ChainedFixupsHeader,
-    ChainedStartsInSegment, MAX_SEGMENT_COUNT, SegmentName, UuidCommand, code_signature_identifier,
-    code_signature_padded_identifier_size, output_section_id,
+    ChainedStartsInSegment, MACHO_START_MEM_ADDRESS, MAX_SEGMENT_COUNT, SegmentName, UuidCommand,
+    code_signature_identifier, code_signature_padded_identifier_size, output_section_id,
 };
 use itertools::Itertools;
 use object::macho::{
@@ -111,69 +111,80 @@ pub(crate) fn write_chained_fixup_table(
     let starts_in_segment_len =
         size_of::<ChainedStartsInSegment>() + CHAINED_FIXUP_PAGE_START_SIZE as usize;
     let imports_len = size_of::<u32>() * symbols.len();
-
     let starts_offset = size_of::<ChainedFixupsHeader>();
-    let imports_offset = starts_offset + starts_in_image_len + starts_in_segment_len;
-    let symbols_offset = imports_offset + imports_len;
 
     let (header, rest) = from_bytes_mut::<ChainedFixupsHeader>(chained_fixup_table)
         .map_err(|_| error!("Invalid chained fixups header allocation"))?;
-    let (starts_in_image, rest) = slice_from_bytes_mut::<U32<Endianness>>(rest, segment_count + 1)
-        .map_err(|_| error!("Invalid chained fixups starts allocation"))?;
+    let (starts_in_image, mut rest) =
+        slice_from_bytes_mut::<U32<Endianness>>(rest, segment_count + 1)
+            .map_err(|_| error!("Invalid chained fixups starts allocation"))?;
 
-    // 1) fill up ChainedFixupsHeader
+    // 1) fill up ChainedFixupsHeader. `imports_offset` and `symbols_offset` are written later once
+    //    we know how many DyldChainedStartsInSegment entries have been emitted
     header.fixups_version.set(LE, 0);
     header.starts_offset.set(LE, starts_offset as u32);
-    header.imports_offset.set(LE, imports_offset as u32);
-    header.symbols_offset.set(LE, symbols_offset as u32);
     header.imports_count.set(LE, symbols.len() as u32);
     header.imports_format.set(LE, DYLD_CHAINED_IMPORT);
     header.symbols_format.set(LE, 0);
 
     // 2) fill up dyld_chained_starts_in_image, which is `seg_count` (u32) followed by
-    //    `seg_info_offset` ([u32; seg_count]); only __DATA_CONST,__got segment is covered
+    //    `seg_info_offset` ([u32; seg_count])
     starts_in_image[0].set(LE, segment_count as u32);
     starts_in_image[1..].fill(U32::new(LE, 0));
 
-    // Early exit if we don't have any GOT entry to be encoded.
-    if layout.section_layouts.get(output_section_id::GOT).mem_size == 0 {
-        rest.zero();
-        return Ok(());
+    // 3) fill up DyldChainedStartsInSegment entries
+    let mut starts_in_segment_offset = starts_in_image_len;
+
+    for (i, segment) in active_segments.iter().enumerate() {
+        let segment_addresses =
+            segment.sizes.mem_offset..segment.sizes.mem_offset + segment.sizes.mem_size;
+
+        // TODO: For now, find the first fixup in a page for each segment. Once we support multiple
+        // pages, we should reimplement this so that we have a linear scan through fixups instead.
+        let Some(fixup) = layout
+            .format_specific
+            .fixups
+            .iter()
+            .find(|fixup| segment_addresses.contains(&fixup.fixup_address))
+        else {
+            continue;
+        };
+
+        // Accounts for both seg_count and __PAGEZERO.
+        starts_in_image[i + 2].set(LE, u32::try_from(starts_in_segment_offset)?);
+        let starts_in_segment = take_mut::<ChainedStartsInSegment>(&mut rest)?;
+        let page_starts = take_mut::<U16<Endianness>>(&mut rest)?;
+
+        starts_in_segment.size.set(LE, starts_in_segment_len as u32);
+        starts_in_segment
+            .page_size
+            .set(LE, MACHO_PAGE_ALIGNMENT.value() as u16);
+        starts_in_segment
+            .pointer_format
+            .set(LE, DYLD_CHAINED_PTR_64_OFFSET);
+        starts_in_segment
+            .segment_offset
+            .set(LE, segment.sizes.mem_offset - MACHO_START_MEM_ADDRESS);
+        starts_in_segment.max_valid_pointer.set(LE, 0);
+        // TODO:
+        starts_in_segment.page_count.set(LE, 1);
+        page_starts.set(
+            LE,
+            u16::try_from(
+                (fixup.fixup_address - segment.sizes.mem_offset) % MACHO_PAGE_ALIGNMENT.value(),
+            )?,
+        );
+
+        starts_in_segment_offset += starts_in_segment_len;
     }
 
-    let (data_const_segment_index, data_const_segment) = active_segments
-        .iter()
-        .enumerate()
-        .find(|(_, segment)| {
-            layout.program_segments.segment_def(segment.id).name == SegmentName::DATA_CONST
-        })
-        .ok_or_else(|| error!("non-empty __got requires __DATA_CONST segment"))?;
+    let imports_offset = starts_offset + starts_in_segment_offset;
+    let symbols_offset = imports_offset + imports_len;
+    header.imports_offset.set(LE, imports_offset as u32);
+    header.symbols_offset.set(LE, symbols_offset as u32);
 
-    // Accounts for both seg_count and __PAGEZERO.
-    starts_in_image[data_const_segment_index + 2].set(LE, starts_in_image_len as u32);
-
-    let (starts_in_segment, rest) = from_bytes_mut::<ChainedStartsInSegment>(rest)
-        .map_err(|_| error!("Invalid chained fixups starts in segment allocation"))?;
-    let (page_starts, rest) = slice_from_bytes_mut::<U16<Endianness>>(rest, 1)
-        .map_err(|_| error!("Invalid chained fixups page starts allocation"))?;
     let (imports, string_pool) = slice_from_bytes_mut::<U32<Endianness>>(rest, symbols.len())
         .map_err(|_| error!("Invalid chained fixups imports allocation"))?;
-
-    // 3) fill up DyldChainedStartsInSegment for the __got section
-    starts_in_segment.size.set(LE, starts_in_segment_len as u32);
-    starts_in_segment
-        .page_size
-        .set(LE, MACHO_PAGE_ALIGNMENT.value() as u16);
-    starts_in_segment
-        .pointer_format
-        .set(LE, DYLD_CHAINED_PTR_64_OFFSET);
-    starts_in_segment
-        .segment_offset
-        .set(LE, data_const_segment.sizes.file_offset as u64);
-    starts_in_segment.max_valid_pointer.set(LE, 0);
-    // TODO:
-    starts_in_segment.page_count.set(LE, 1);
-    page_starts[0].set(LE, 0);
 
     // 4) fill up all imported symbols chunked by the pages
     // TODO: support more pages
@@ -212,6 +223,8 @@ pub(crate) fn write_chained_fixup_table(
         };
 
         let lib_ordinal = dynamic.ordinal.get();
+
+        // TODO: support weak import handling
 
         imports[i].set(
             Endianness::Little,

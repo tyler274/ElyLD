@@ -1,11 +1,12 @@
 #[allow(unused_imports)]
 use super::types::BuiltInSectionDetails;
 use super::types::{
-    CS_SECTION_ALIGNMENT_EXP, DEFAULT_DEFS, GOT_ENTRY_SIZE, LE, PLT_ENTRY_SIZE, ProgramSegmentDef,
-    Relocation, SegmentName,
+    CS_SECTION_ALIGNMENT_EXP, DEFAULT_DEFS, GOT_ENTRY_SIZE, LE, PLT_ENTRY_SIZE, PendingFixup,
+    ProgramSegmentDef, Relocation, SegmentName,
 };
 use super::{MachO, output_section_id, part_id};
 use anyhow::Context;
+use linker_utils::elf::{RelocationKind, RelocationSize};
 use object::macho::SEG_LINKEDIT;
 pub use object::macho::SectionFlags;
 use object::{SymbolIndex, macho};
@@ -265,6 +266,7 @@ pub(super) fn add_sections_in_segment<'data>(
 #[inline(always)]
 pub(super) fn process_relocation<'data, 'scope, A: platform::Arch<Platform = MachO>>(
     object: &layout::ObjectLayoutState<'data, MachO>,
+    common: &mut layout::CommonGroupState<'data, MachO>,
     rel: &Relocation,
     section_index: object::SectionIndex,
     resources: &'scope layout::GraphResources<'data, '_, MachO>,
@@ -299,17 +301,28 @@ pub(super) fn process_relocation<'data, 'scope, A: platform::Arch<Platform = Mac
             A::relocation_from_raw(rel_info)?
         };
         let mut flags_to_add = layout::resolution_flags(relocation.kind);
-        if is_dynamic_library(&symbol_db.file(symbol_db.file_id_for_symbol(symbol_id))) {
-            flags_to_add |= ValueFlags::GOT;
+        if is_dynamic_library(&symbol_db.file(symbol_db.file_id_for_symbol(symbol_id)))
+            && rel_info.r_type == object::macho::ARM64_RELOC_BRANCH26
+        {
             // TODO: classify symbols more reliably, likely by checking whether their section is
             // __text.
-            if rel_info.r_type == object::macho::ARM64_RELOC_BRANCH26 {
-                flags_to_add |= ValueFlags::DYNAMIC_FUNCTION | ValueFlags::PLT;
-            }
+            flags_to_add |= ValueFlags::GOT | ValueFlags::DYNAMIC_FUNCTION | ValueFlags::PLT;
         }
 
         let atomic_flags = &resources.per_symbol_flags.get_atomic(symbol_id);
         let previous_flags = atomic_flags.fetch_or(flags_to_add);
+
+        if is_dynamic_library(&symbol_db.file(symbol_db.file_id_for_symbol(symbol_id)))
+            && relocation.kind == RelocationKind::Absolute
+            && relocation.size == RelocationSize::ByteSize(8)
+        {
+            common.format_specific.pending_fixups.push(PendingFixup {
+                file_id: object.file_id,
+                section_index,
+                offset_in_section: u64::from(rel_info.r_address),
+                symbol_id,
+            });
+        }
 
         layout::check_for_undefined::<A>(
             object,

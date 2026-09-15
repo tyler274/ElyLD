@@ -1,5 +1,5 @@
 use super::{LE, MachOLayout, MachOSymbolTableWriter, write_symbols};
-use crate::{GOT_ENTRY_SIZE, MachO, PLT_ENTRY_SIZE, SectionFlags, output_section_id};
+use crate::{MachO, PLT_ENTRY_SIZE, SectionFlags, output_section_id};
 use linker_utils::elf::{RelocationKind, get_page_mask};
 use object::SymbolIndex;
 use object::macho::{
@@ -9,7 +9,7 @@ use object::macho::{
 use std::ops::BitAnd;
 use tracing::debug_span;
 use wild_error::error::{Context, Result};
-use wild_error::{bail, error};
+use wild_error::{bail, ensure, error};
 use wild_layout::output_section_part_map::OutputSectionPartMap;
 use wild_layout::output_trace::HexU64;
 use wild_layout::resolution::SectionSlot;
@@ -17,38 +17,7 @@ use wild_layout::symbol_db::SymbolId;
 use wild_layout::{ObjectLayout, Resolution, Section, verbose_timing_phase};
 use wild_platform::value_flags::ValueFlags;
 use wild_platform::{Arch, ObjectFile as _, Relaxation as _};
-
-pub(crate) fn write_got_entries(layout: &MachOLayout<'_>, got: &mut [u8]) -> Result {
-    let got_layout = layout.section_layouts.get(output_section_id::GOT);
-
-    let sorted_symbols = &layout.format_specific.imported_symbols;
-    for (i, imported_symbol) in sorted_symbols.iter().enumerate() {
-        let offset = imported_symbol
-            .got_address
-            .get()
-            .checked_sub(got_layout.mem_offset)
-            .ok_or_else(|| error!("GOT entry address is before __got"))?
-            as usize;
-        let end = offset + GOT_ENTRY_SIZE as usize;
-
-        /* DYLD_CHAINED_PTR_64 format:
-        uint64_t dyld_chained_ptr_64_bind:
-          ordinal: 24
-          addend: 8 // 0 thru 255
-          reserved: 19 // all zeros
-          next: 12 // 4-byte stride
-          bind: 1 // == 1
-        */
-        let bind = 1u64 << 63;
-        // TODO: when crossing a page boundary, next is equal to zero
-        let next = if i == sorted_symbols.len() - 1 { 0 } else { 2 };
-        let next = next << 51;
-        let ordinal = i as u64;
-        got[offset..end].copy_from_slice(&(bind | next | ordinal).to_le_bytes());
-    }
-
-    Ok(())
-}
+use wild_util::alignment::MACHO_PAGE_ALIGNMENT;
 
 pub(crate) fn write_plt_entries<A: Arch<Platform = MachO>>(
     layout: &MachOLayout<'_>,
@@ -68,13 +37,74 @@ pub(crate) fn write_plt_entries<A: Arch<Platform = MachO>>(
             as usize;
         let end = offset + PLT_ENTRY_SIZE as usize;
 
-        A::write_plt_entry(
-            &mut plt[offset..end],
-            imported_symbol.got_address.get(),
-            stub_address.get(),
-        )?;
+        let got_address = imported_symbol
+            .got_address
+            .ok_or("PLT entries must have corresponding GOT entries")?
+            .get();
+
+        A::write_plt_entry(&mut plt[offset..end], got_address, stub_address.get())?;
     }
 
+    Ok(())
+}
+
+fn write_bind_encoding(ordinal: u64, next: u64) -> [u8; 8] {
+    /* DYLD_CHAINED_PTR_64 format:
+    uint64_t dyld_chained_ptr_64_bind:
+      ordinal: 24
+      addend: 8 // 0 thru 255
+      reserved: 19 // all zeros
+      next: 12 // 4-byte stride
+      bind: 1 // == 1
+    */
+    let bind = 1u64 << 63;
+    let next = next << 51;
+    (bind | next | ordinal).to_le_bytes()
+}
+
+pub(crate) fn write_chained_fixups(layout: &MachOLayout<'_>, out: &mut [u8]) -> Result {
+    let mut fixups = layout.format_specific.fixups.iter().peekable();
+
+    for segment in &layout.segment_layouts.segments {
+        let segment_addresses =
+            segment.sizes.mem_offset..segment.sizes.mem_offset + segment.sizes.mem_size;
+
+        while let Some(fixup) =
+            fixups.next_if(|fixup| segment_addresses.contains(&fixup.fixup_address))
+        {
+            let offset_in_segment = fixup.fixup_address - segment.sizes.mem_offset;
+            let file_offset = segment.sizes.file_offset + usize::try_from(offset_in_segment)?;
+            let page_index = offset_in_segment / MACHO_PAGE_ALIGNMENT.value();
+
+            let next_fixup = fixups
+                .peek()
+                .filter(|next| segment_addresses.contains(&next.fixup_address));
+            let next_offset_in_segment =
+                next_fixup.map(|fixup| fixup.fixup_address - segment.sizes.mem_offset);
+            let next = match next_offset_in_segment {
+                Some(next_offset) if next_offset / MACHO_PAGE_ALIGNMENT.value() == page_index => {
+                    let distance = next_offset - offset_in_segment;
+                    // TODO: Support layouts that don't support divisibility by the four byte
+                    // chained fixup stride (e.g. manual assembly or packed
+                    // structs).
+                    ensure!(
+                        distance % 4 == 0,
+                        "Fixup distances need to be divisible by 4"
+                    );
+                    distance / 4
+                }
+                _ => 0,
+            };
+
+            let encoding = write_bind_encoding(fixup.ordinal, next);
+            out[file_offset..file_offset + encoding.len()].copy_from_slice(&encoding);
+        }
+    }
+
+    ensure!(
+        fixups.next().is_none(),
+        "Fixups are out of bounds for any segment"
+    );
     Ok(())
 }
 

@@ -14,7 +14,8 @@ use linker_utils::utils::slice_from_all_bytes_mut;
 use object::macho::{
     CPU_SUBTYPE_ARM64_ALL, CPU_TYPE_ARM64, LC_BUILD_VERSION, LC_CODE_SIGNATURE,
     LC_DYLD_CHAINED_FIXUPS, LC_DYLD_EXPORTS_TRIE, LC_LOAD_DYLIB, LC_LOAD_DYLINKER, LC_MAIN,
-    LC_SEGMENT_64, LC_SYMTAB, LC_UUID, MH_CIGAM_64, MH_EXECUTE, PLATFORM_MACOS, SegmentFlags,
+    LC_SEGMENT_64, LC_SYMTAB, LC_UUID, MH_CIGAM_64, MH_EXECUTE, PLATFORM_MACOS,
+    S_THREAD_LOCAL_VARIABLES, SegmentFlags,
 };
 use object::{BigEndian, macho, slice_from_bytes_mut};
 use wild_error::error::{Context, Result};
@@ -23,6 +24,7 @@ use wild_layout::output_section_id::SectionName;
 use wild_layout::output_section_part_map::OutputSectionPartMap;
 use wild_layout::{EpilogueLayout, OutputRecordLayout, PreludeLayout, verbose_timing_phase};
 use wild_platform::EntryPoint;
+use wild_platform::SectionAttributes as _;
 use zerocopy::FromZeros;
 
 pub(crate) fn write_prelude<'data>(
@@ -155,10 +157,17 @@ pub(crate) fn populate_file_header(
     header
         .sizeofcmds
         .set(LE, load_commands_info.file_size as u32);
-    header.flags.set(
-        LE,
-        macho::MH_PIE | macho::MH_DYLDLINK | macho::MH_NOUNDEFS | macho::MH_TWOLEVEL,
-    );
+
+    let mut flags = macho::MH_PIE | macho::MH_DYLDLINK | macho::MH_NOUNDEFS | macho::MH_TWOLEVEL;
+    let has_tlv_descriptors = layout.output_sections.ids_with_info().any(|(id, info)| {
+        layout.output_sections.will_emit_section(id)
+            && info.section_attributes.ty() == S_THREAD_LOCAL_VARIABLES
+    });
+    if has_tlv_descriptors {
+        flags |= macho::MH_HAS_TLV_DESCRIPTORS;
+    }
+
+    header.flags.set(LE, flags);
     header.reserved.set(LE, 0);
 }
 
