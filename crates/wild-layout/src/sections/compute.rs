@@ -138,12 +138,12 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
 
     let mut records_out = output_sections.new_part_map();
 
-    // TLS sections without data (like .tbss) overlap normal sections in memory.
-    // This is possible because every thread copies the TLS segments (see TLS PHDR)
-    // to construct thread local data. However, uninitialized TLS data is assumed to be zero
-    // and therefore no copy happens. It would be wasteful to reserve that address in the TLS
-    // template, so we don't do it.
-    let mut tls_memsave: Option<u64> = None;
+    // TLS sections without data (like .tbss) overlap normal sections in both VMA and
+    // file offset (GNU ld). The thread copies only the TLS PHDR template; NOBITS TLS is
+    // zero-filled per thread and must not advance the location counter used by `.init_array`
+    // / `.dynamic`. Save both counters so a high `.tbss` alignment cannot leave later
+    // PROGBITS with `sh_offset` that disagrees with `p_offset ≡ p_vaddr`.
+    let mut tls_memsave: Option<(u64, usize)> = None;
 
     // ALLOC sections not covered by a PT_LOAD (typical: ELF file/program/section headers when
     // the linker script's PHDRS omit FILEHDR) occupy file space only. GNU ld does not put them
@@ -300,13 +300,14 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     .section_attributes
                     .occupies_only_tls_address_space()
                 {
-                    // Save our current mem_offset as we enter our first nobits TLS section
+                    // Save our current VMA and file offset as we enter our first nobits TLS section
                     if tls_memsave.is_none() {
-                        tls_memsave = Some(mem_offset);
+                        tls_memsave = Some((mem_offset, file_offset));
                     }
-                } else if let Some(tls_memsave) = tls_memsave.take() {
+                } else if let Some((saved_mem, saved_file)) = tls_memsave.take() {
                     // Restore offsets when exiting nobits TLS sections
-                    mem_offset = tls_memsave;
+                    mem_offset = saved_mem;
+                    file_offset = saved_file;
                 }
 
                 let part_id_range = section_id.part_id_range::<P>();
