@@ -3,8 +3,8 @@ use crate::external_tests::{
     using_third_party_linker,
 };
 use crate::{Architecture, Result, TestConfig, get_host_architecture, get_wild_test_cross};
-use libtest_mimic::{Failed, Trial};
 use libelyld::error::Context;
+use libtest_mimic::{Failed, Trial};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
