@@ -14,15 +14,25 @@ pub(super) fn collect_tests(
     filter: &Filter,
     test_config: &TestConfig,
 ) -> Result {
-    if cfg!(feature = "mold_tests") {
+    if cfg!(feature = "mold_tests")
+        || env_flag("ELYLD_MOLD_TESTS")
+        || env_flag("ELYLD_EXTERNAL_TESTS")
+    {
         mold_tests::collect_tests(tests, filter, test_config)?;
     }
 
-    if cfg!(feature = "lld_tests") {
+    if cfg!(feature = "lld_tests")
+        || env_flag("ELYLD_LLD_TESTS")
+        || env_flag("ELYLD_EXTERNAL_TESTS")
+    {
         lld_tests::collect_tests(tests, filter, test_config)?;
     }
 
     Ok(())
+}
+
+fn env_flag(name: &str) -> bool {
+    env::var(name).is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 /// Returns whether the user's test-config.toml says to skip a particular test. If this returns

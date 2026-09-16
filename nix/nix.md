@@ -125,9 +125,16 @@ callPackage ./package.nix { rustPlatform = elyldRustPlatform; }
 
 `nix develop` (or `nix-shell nix/shell.nix`) is the local environment for
 building, testing, debugging, and benchmarking Wild. It wraps **LLVM 22** clang /
-LLVMgold / lld / lldb so they match rustup nightly's LLVM, plus GCC with the
+clang++ / LLVMgold / compiler-rt / lld / lldb so they match rustup nightly's LLVM
+(needed for Clang incremental / ThinLTO tests: `clang -flto=thin`, the
+`-fuse-ld=bfd` plugin probe, and rustc `-Clinker=clang`). It also has GCC with the
 LTO plugin search path, mold, glibc (static + source for relink tests), and:
 
+* Native `ld.bfd` built `--with-zstd` (ahead of `binutils-unwrapped-all-targets`)
+  so `RequiresLinkerFlags:--compress-debug-sections=zstd` and the GNU reference
+  links for compressed-debug zstd configs actually run
+* `ELYLD_MOLD_TESTS=1` so `cargo test` collects the mold suite without
+  `--features mold_tests` (same as `ELYLD_EXTERNAL_TESTS=1` / `ELYLD_LLD_TESTS=1`)
 * `mimalloc` + `pkg-config` for `--features mimalloc-dynamic` (default builds use mimalloc-rs)
 * `gdb`, `lldb`, `elfutils`, `valgrind`, `strace` for inspecting links
 * `hyperfine` and `samply` (see [BENCHMARKING.md](../BENCHMARKING.md))

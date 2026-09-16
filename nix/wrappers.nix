@@ -5,6 +5,9 @@
   gcc,
   llvmPackages,
   binutils-unwrapped-all-targets,
+  # Native ld.bfd used first on PATH / -B. The dev shell passes
+  # `binutils-zstd.nix` here so `--compress-debug-sections=zstd` works.
+  binutilsNative ? binutils-unwrapped-all-targets,
 }:
 # https://github.com/NixOS/nixpkgs/blob/86539fa7196facc6f5c1d49394d1509a6f6c2916/pkgs/by-name/wi/wild/adapterTest.nix#L19-L59
 # These wrappers are REQUIRED for ElyLD test suite to pass
@@ -14,8 +17,12 @@
 # instead of the hardcoded wrapper search directory.
 # We pass it last because apparently gcc likes picking ld from the *first* -B,
 # which we want our wild target directory to be if passed.
+#
+# Native bfd is searched before all-targets so a zstd-enabled ld.bfd wins
+# for host links; all-targets still supplies cross gas/ld.
 let
   inherit (llvmPackages) clang;
+  bfdSearch = "${binutilsNative}/bin:${binutils-unwrapped-all-targets}/bin";
   # Split `lib` output when present; otherwise the llvm package root.
   llvmLib = llvmPackages.libllvm.lib or llvmPackages.libllvm;
   gccLib = lib.getLib gcc.cc;
@@ -27,66 +34,70 @@ in
     inherit (gcc) name;
     dontUnpack = true;
     dontConfigure = true;
-    dontInstall = true;
+    dontBuild = true;
 
-    buildInputs = [ makeBinaryWrapper ];
-    buildPhase = ''
-      runHook preBuild
-
+    nativeBuildInputs = [ makeBinaryWrapper ];
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/bin
       makeWrapper ${lib.getExe gcc} $out/bin/gcc \
         --append-flag -B${gccPluginDir} \
         --append-flag -B${gccBfdPlugins} \
         --append-flag -B${gccLib}/lib \
-        --append-flag -B${binutils-unwrapped-all-targets}/bin
-
-      runHook postBuild
+        --append-flag -B${binutilsNative}/bin \
+        --append-flag -B${binutils-unwrapped-all-targets}/bin \
+        --prefix PATH : ${bfdSearch}
+      runHook postInstall
     '';
-
   };
 
   gppWrapper = stdenv.mkDerivation {
+    name = "g++-wrapped";
     dontUnpack = true;
     dontConfigure = true;
-    dontInstall = true;
+    dontBuild = true;
 
-    name = "g++-wrapped";
-    buildInputs = [ makeBinaryWrapper ];
-    buildPhase = ''
-      runHook preBuild
-
+    nativeBuildInputs = [ makeBinaryWrapper ];
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/bin
       makeWrapper ${lib.getExe' gcc "g++"} $out/bin/g++ \
         --append-flag -B${gccPluginDir} \
         --append-flag -B${gccBfdPlugins} \
         --append-flag -B${gccLib}/lib \
-        --append-flag -B${binutils-unwrapped-all-targets}/bin
-
-      runHook postBuild
+        --append-flag -B${binutilsNative}/bin \
+        --append-flag -B${binutils-unwrapped-all-targets}/bin \
+        --prefix PATH : ${bfdSearch}
+      runHook postInstall
     '';
   };
 
   # Nix's clang wrapper does not search LLVM's libdir for LLVMgold.so, so
   # `clang -flto -fuse-ld=bfd` (the LTO plugin probe, plus thin/fat LTO) fails
   # unless we add that directory with -B. Keep clang and the gold plugin on the
-  # same llvmPackages set.
+  # same llvmPackages set. GNU `ld.bfd` must be on PATH for that probe.
   clangWrapper = stdenv.mkDerivation {
     name = "clang-wrapped";
     dontUnpack = true;
     dontConfigure = true;
-    dontInstall = true;
+    dontBuild = true;
 
-    buildInputs = [ makeBinaryWrapper ];
-    buildPhase = ''
-      runHook preBuild
-
+    nativeBuildInputs = [ makeBinaryWrapper ];
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/bin
       makeWrapper ${lib.getExe clang} $out/bin/clang \
         --append-flag -B${llvmLib}/lib \
-        --append-flag -B${binutils-unwrapped-all-targets}/bin
-
+        --append-flag -B${binutilsNative}/bin \
+        --append-flag -B${binutils-unwrapped-all-targets}/bin \
+        --prefix PATH : ${bfdSearch}
       makeWrapper ${lib.getExe' clang "clang++"} $out/bin/clang++ \
         --append-flag -B${llvmLib}/lib \
-        --append-flag -B${binutils-unwrapped-all-targets}/bin
-
-      runHook postBuild
+        --append-flag -B${binutilsNative}/bin \
+        --append-flag -B${binutils-unwrapped-all-targets}/bin \
+        --prefix PATH : ${bfdSearch}
+      runHook postInstall
     '';
+    meta.mainProgram = "clang";
   };
 }

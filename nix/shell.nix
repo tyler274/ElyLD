@@ -6,20 +6,29 @@ let
   # rustup nightly (1.98+) ships LLVM 22. Use the matching clang / LLVMgold /
   # lld / lldb so rustc `-Clinker-plugin-lto` and Clang ThinLTO share a major.
   llvmPkgs = pkgs.llvmPackages_22;
-  inherit (pkgs.callPackage ./wrappers.nix { llvmPackages = llvmPkgs; })
+  binutilsZstd = pkgs.callPackage ./binutils-zstd.nix { };
+  inherit (pkgs.callPackage ./wrappers.nix {
+    llvmPackages = llvmPkgs;
+    binutilsNative = binutilsZstd;
+  })
     gccWrapper
     gppWrapper
     clangWrapper
     ;
-  inherit (llvmPkgs) clang-tools lld lldb;
+  inherit (llvmPkgs) clang-tools lld lldb compiler-rt llvm libllvm;
   glibcTests = pkgs.callPackage ./glibc-tests.nix { };
 in
 pkgs.mkShell {
   packages = [
+    binutilsZstd
     pkgs.binutils-unwrapped-all-targets
     pkgs.cargo-chef
     clangWrapper
     clang-tools
+    compiler-rt
+    # llvm-ar / llvm-as / llvm-nm for Clang ThinLTO objects.
+    llvm
+    libllvm
     pkgs.taplo
     lld
     lldb
@@ -67,7 +76,12 @@ pkgs.mkShell {
   env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib
     pkgs.mimalloc
+    compiler-rt
   ];
+
+  # Collect mold's suite without `--features mold_tests`. `ld.bfd` on PATH is
+  # the zstd-enabled native binutils so compressed-debug zstd configs run.
+  env.ELYLD_MOLD_TESTS = "1";
 
   # Unpack nixpkgs glibc, point ELYLD_GLIBC_* at it, and provide wild-build-glibc.
   # Override ELYLD_GLIBC_TREE / ELYLD_GLIBC_BUILD before `nix develop` to use another tree.

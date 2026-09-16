@@ -195,8 +195,10 @@
 //! met and no tests are skipped.
 //!
 //! RequiresLinkerFlags:{flag} Checks if the system linker supports the specified flag(s) and skips
-//! the test if it doesn't. Set ELYLD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements
-//! are met and no tests are skipped.
+//! the test if it doesn't. `nix develop` puts a zstd-enabled `ld.bfd` on PATH so
+//! `--compress-debug-sections=zstd` is available. Set
+//! ELYLD_VERIFY_PLATFORM_REQUIREMENTS=1 to verify that all requirements are
+//! met and no tests are skipped.
 //!
 //! RequiresRustMusl:{bool} Defaults to false. Set to true to clarify that this test requires the
 //! musl Rust toolchain.
@@ -212,6 +214,11 @@
 //! variable if set, otherwise `/usr` when `/usr/lib/wasm32-wasi/libc.a` exists.
 //!
 //! RequiresZstdCompression:{bool} Requires the ZSTD compression being enabled in ElyLD.
+//!
+//! External suites (mold / lld lit) are collected with `--features mold_tests` /
+//! `lld_tests` / `external_tests`, or at runtime with `ELYLD_MOLD_TESTS=1`,
+//! `ELYLD_LLD_TESTS=1`, or `ELYLD_EXTERNAL_TESTS=1`. `nix develop` sets
+//! `ELYLD_MOLD_TESTS=1`.
 //!
 //! AutoAddObjects:{bool} Whether to automatically add input objects for the test to the command
 //! line. Defaults to true.

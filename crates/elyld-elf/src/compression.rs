@@ -158,16 +158,13 @@ impl SectionCompressor for ZstdCompressor {
 
         #[cfg(feature = "zstd")]
         {
-            let shard_size = shard_size(uncompressed.len());
-            let shards: Vec<&[u8]> = uncompressed.chunks(shard_size).collect();
-
-            shards
-                .par_iter()
-                .map(|shard| -> Result<Vec<u8>> {
-                    verbose_timing_phase!("Compress zstd shard");
-                    zstd::encode_all(*shard, ZSTD_COMPRESSION_LEVEL).map_err(Into::into)
-                })
-                .collect()
+            // One ELFCOMPRESS_ZSTD payload must be a single zstd frame.
+            // Concatenated per-shard frames are a valid zstd *stream*, but
+            // libbacktrace (and gdb's one-shot path) call ZSTD_decompress
+            // with ch_size of the whole section and reject a first-frame-only
+            // result. GNU ld emits one frame.
+            verbose_timing_phase!("Compress zstd section");
+            Ok(vec![zstd::encode_all(uncompressed, ZSTD_COMPRESSION_LEVEL)?])
         }
     }
 
@@ -571,14 +568,16 @@ mod tests {
 
     #[cfg(feature = "zstd")]
     #[test]
-    fn zstd_multi_shard_round_trip() {
+    fn zstd_single_frame_round_trip() {
         let input = pattern_bytes(MIN_CHUNK_SIZE * 3 + 123);
         let chunks = ZstdCompressor::compress_section(&input).unwrap();
-        assert!(chunks.len() > 1);
+        assert_eq!(chunks.len(), 1, "ELFCOMPRESS_ZSTD is one zstd frame");
 
-        // Multi-frame zstd. Frames written sequentially form one valid stream.
-        let stream: Vec<u8> = chunks.into_iter().flatten().collect();
-        let recovered = zstd::decode_all(stream.as_slice()).unwrap();
+        // libbacktrace / gdb one-shot path: ZSTD_decompress, first frame must
+        // equal ch_size. decode_all would also accept concatenated frames.
+        let recovered = zstd::bulk::decompress(&chunks[0], input.len()).expect(
+            "ZSTD_decompress must recover the whole section from a single frame",
+        );
         assert_eq!(recovered, input);
     }
 }
