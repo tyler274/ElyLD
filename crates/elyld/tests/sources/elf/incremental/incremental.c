@@ -61,7 +61,26 @@
 //#CompArgs:-flto -O1
 //#LinkArgs:-flto -O1 -nostdlib -Wl,-z,now
 //#ElyldExtraLinkArgs:-Wl,--incremental
-//#IncrementalAllowFallback:true
+//#SkipArch:ppc64le
+
+//#Config:clang-thin:base
+//#RequiresLinkerPlugin:true
+//#LinkerDriver:clang
+//#Compiler:clang
+//#CompArgs:-flto=thin -O1
+// Keep ThinLTO from importing so each TU keeps cross-module relocs; that is
+// what incremental skip/patch needs. `$OUT_DIR` is the test build directory.
+//#LinkArgs:-flto=thin -O1 -nostdlib -Wl,-z,now -Wl,-plugin-opt=-import-instr-limit=0 -Wl,-plugin-opt=cache-dir=$OUT_DIR/thinlto-cache
+//#ElyldExtraLinkArgs:-Wl,--incremental
+//#SkipArch:ppc64le
+
+//#Config:clang-thin-O0:base
+//#RequiresLinkerPlugin:true
+//#LinkerDriver:clang
+//#Compiler:clang
+//#CompArgs:-flto=thin -O0
+//#LinkArgs:-flto=thin -O0 -nostdlib -Wl,-z,now -Wl,-plugin-opt=-import-instr-limit=0 -Wl,-plugin-opt=cache-dir=$OUT_DIR/thinlto-cache
+//#ElyldExtraLinkArgs:-Wl,--incremental
 //#SkipArch:ppc64le
 
 #include "../common/runtime.h"

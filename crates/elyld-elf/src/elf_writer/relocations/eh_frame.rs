@@ -1,5 +1,7 @@
 use super::super::types::{ElfLayout, TableWriter};
-use super::{RelocationCache, SectionInfo, apply_relocation, display_relocation};
+use super::{
+    RelocationCache, SectionInfo, apply_relocation, display_relocation, maybe_record_reverse_reloc,
+};
 use crate as elf;
 use crate::{EhFrameHdrEntry, ElfClass, output_section_id};
 use hashbrown::HashMap;
@@ -171,18 +173,21 @@ pub(crate) fn write_eh_frame_relocations<
                     // This relocation belongs to the next entry.
                     break;
                 }
+                let offset_in_entry = rel_offset - input_pos as u64;
+                let section_info = SectionInfo {
+                    section_address: output_pos as u64 + table_writer.eh_frame_start_address,
+                    is_writable: false,
+                    section_flags,
+                    // .eh_frame relocations never need thunks; use the eh_frame section's
+                    // base part as a placeholder so the thunk lookup always misses.
+                    part_id: output_section_id::EH_FRAME.base_part_id::<elf::Elf<C>>(),
+                };
+                maybe_record_reverse_reloc(layout, object, rel, section_info, offset_in_entry);
                 apply_relocation::<C, A, R, _>(
                     object,
-                    rel_offset - input_pos as u64,
+                    offset_in_entry,
                     rel,
-                    SectionInfo {
-                        section_address: output_pos as u64 + table_writer.eh_frame_start_address,
-                        is_writable: false,
-                        section_flags,
-                        // .eh_frame relocations never need thunks; use the eh_frame section's
-                        // base part as a placeholder so the thunk lookup always misses.
-                        part_id: output_section_id::EH_FRAME.base_part_id::<elf::Elf<C>>(),
-                    },
+                    section_info,
                     layout,
                     entry_out,
                     table_writer,

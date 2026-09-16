@@ -21,13 +21,14 @@ use elyld_args::{Input, InputRef};
 use elyld_error::error::{Context as _, Result};
 use elyld_error::{bail, env, error};
 use elyld_layout::grouping::{PluginSymbol, UnsequencedLtoInput};
+use elyld_layout::incremental::incremental_state_dir;
 use elyld_layout::layout_rules::LayoutRulesBuilder;
 use elyld_layout::output_section_id::OutputSections;
 use elyld_layout::resolution::Resolver;
 use elyld_layout::symbol_db::{LoadedInputs, SymbolDb};
 use elyld_layout::{timing_phase, verbose_timing_phase};
 use elyld_platform::value_flags::PerSymbolFlags;
-use elyld_platform::{FileId, FileKind};
+use elyld_platform::{Args as _, FileId, FileKind};
 use elyld_util::arena::Herd;
 
 mod discover;
@@ -48,6 +49,7 @@ pub struct LinkerPlugin<'data> {
     herd: &'data Herd,
     wrap_symbols: WrapSymbols<'data>,
     path: PathBuf,
+    claimed_gcc_ir: bool,
 }
 
 enum Store<'data> {
@@ -128,6 +130,7 @@ impl<'data> LinkerPlugin<'data> {
             }),
             herd,
             wrap_symbols,
+            claimed_gcc_ir: false,
         }))
     }
 
@@ -154,6 +157,9 @@ impl<'data> LinkerPlugin<'data> {
         }
 
         if let Some(info) = self.claim_file(input_ref, fd)? {
+            if kind == FileKind::GccIr {
+                self.claimed_gcc_ir = true;
+            }
             Ok(Some(info))
         } else {
             if input_ref.has_archive_semantics() {
@@ -191,7 +197,7 @@ impl<'data> LinkerPlugin<'data> {
         mark_lto_symbols_for_dynamic_export(symbol_db, per_symbol_flags, &resolver.resolved_groups);
 
         let plugin_path = self.path.clone();
-        let plugin_outputs = self
+        let mut plugin_outputs = self
             .store
             .loaded(&plugin_path)?
             .with_callbacks(|callbacks| {
@@ -209,6 +215,10 @@ impl<'data> LinkerPlugin<'data> {
 
         if let Ok(dir_name) = env::var(SAVE_VAR_NAME) {
             plugin_outputs.save_to(Path::new(&dir_name))?;
+        }
+
+        if symbol_db.args.incremental() {
+            plugin_outputs.restage_for_incremental(symbol_db.args.output())?;
         }
 
         Ok(Some(plugin_outputs.generated_inputs))
@@ -326,6 +336,10 @@ impl<'data> LinkerPlugin<'data> {
 
     pub(crate) fn is_initialised(&self) -> bool {
         matches!(self.store, Store::Loaded(_))
+    }
+
+    pub(crate) fn claimed_gcc_ir(&self) -> bool {
+        self.claimed_gcc_ir
     }
 }
 
@@ -555,6 +569,39 @@ impl PluginOutputs {
 
         std::fs::write(&args_path, args)
             .with_context(|| format!("Failed to write `{}`", args_path.display()))?;
+
+        Ok(())
+    }
+
+    /// Copy plugin objects to `{output}.incr/plugin/{i:04}.o` so incremental skip_payloads can
+    /// match stable paths. LLVM ThinLTO temps otherwise get a new path every link.
+    fn restage_for_incremental(&mut self, output: &Path) -> Result {
+        let plugin_dir = incremental_state_dir(output).join("plugin");
+        std::fs::create_dir_all(&plugin_dir).with_context(|| {
+            format!(
+                "Failed to create plugin cache dir `{}`",
+                plugin_dir.display()
+            )
+        })?;
+
+        for (i, input) in self.generated_inputs.iter_mut().enumerate() {
+            let src = match &input.spec {
+                elyld_args::InputSpec::File(path) => path.to_path_buf(),
+                _ => continue,
+            };
+            let dest = plugin_dir.join(format!("{i:04}.o"));
+            if src.as_path() != dest.as_path() {
+                std::fs::copy(&src, &dest).with_context(|| {
+                    format!(
+                        "Failed to restage plugin object `{}` to `{}`",
+                        src.display(),
+                        dest.display()
+                    )
+                })?;
+                input.spec = elyld_args::InputSpec::File(dest.into_boxed_path());
+            }
+            input.modifiers.temporary = false;
+        }
 
         Ok(())
     }

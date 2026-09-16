@@ -145,6 +145,10 @@ impl<C: ElfClass> elyld_layout::EnginePlatform for Elf<C> {
             .map(|info| info.into_unsequenced()))
     }
 
+    fn plugin_blocks_incremental(plugin: &Self::LinkerPlugin<'_>) -> bool {
+        plugin.claimed_gcc_ir()
+    }
+
     fn plugin_lto_codegen<'data>(
         plugin: &mut Self::LinkerPlugin<'data>,
         symbol_db: &mut elyld_layout::symbol_db::SymbolDb<'data, Self>,

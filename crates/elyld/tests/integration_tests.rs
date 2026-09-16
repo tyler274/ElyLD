@@ -242,8 +242,8 @@
 //! Defaults to 43.
 //!
 //! IncrementalAllowFallback:{bool} Defaults to false. When true, an incremental relink may record
-//! a fallback (for example LTO/plugin) instead of an in-place update. The updated binary is still
-//! executed.
+//! a fallback (GCC LTO/WPA, or `--gc-sections`) instead of an in-place update. The updated binary
+//! is still executed. LLVM ThinLTO restages plugin objects and should not need this.
 //!
 //! AssertOutputFileMatches:{filename}:{regex} Verifies that a file in the output directory contains
 //! at least one line matching the specified regex. Such output files are generally written by

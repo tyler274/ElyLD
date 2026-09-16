@@ -8,6 +8,12 @@ This release also merges upstream Wild `main` (Mach-O TLV descriptors and bind f
 single-threaded TLS, ignore unknown GNU property types) and includes ELF/LTO fixes for systemd,
 glibc, `--wrap`, and CRT `main` when a DSO also exports `main`.
 
+`release` / `opt` / `dist` builds use ThinLTO. GNU GitHub dist binaries are two-stage
+self-hosted (ElyLD links itself) and PGO-trained on the full integration test suite
+(`scripts/pgo-build.sh`). LLVM ThinLTO incremental links restage plugin objects; GCC LTO still
+falls back. `__llvm_prf_*`, `__llvm_cov*`, and `__gcov_*` sections are kept under `--gc-sections`
+and `--orphan-handling=error`.
+
 ## 0.10.0
 
 This release comes with a lot of bug fixes. Most of the new features are linker-script related. You

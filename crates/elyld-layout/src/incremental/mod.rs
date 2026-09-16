@@ -230,7 +230,7 @@ impl IncrementalSession {
         };
 
         if plugin_active {
-            kind.push_str(" (LTO/plugin: full link)");
+            kind.push_str(" (GCC LTO/plugin: full link)");
         }
         if has_strict_order_sections {
             kind.push_str(" (strict-order .init/.fini: full link)");
@@ -492,10 +492,10 @@ fn file_inode(meta: &fs::Metadata) -> u64 {
 
 pub fn fallback_for_plugin_or_gc<P: EnginePlatform>(
     args: &P::Args,
-    plugin_active: bool,
+    gcc_lto_plugin: bool,
 ) -> Option<&'static str> {
     elyld_util::incremental::fallback_reason_for_plugin_or_gc(
-        plugin_active,
+        gcc_lto_plugin,
         args.should_gc_sections() && args.incremental(),
     )
 }

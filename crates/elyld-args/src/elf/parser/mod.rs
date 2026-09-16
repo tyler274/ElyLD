@@ -209,7 +209,7 @@ pub(super) fn setup_argument_parser() -> ArgumentParser<ElfArgs> {
     parser
         .declare_with_param()
         .long("plugin-opt")
-        .help("Pass options to the plugin")
+        .help("Pass an option to the LTO plugin (LLVM accepts cache-dir=PATH; do not pass GCC-incompatible opts unconditionally)")
         .execute(|args, _modifier_stack, value| {
             args.plugin_args
                 .push(CString::new(value).context("Invalid --plugin-opt argument")?);

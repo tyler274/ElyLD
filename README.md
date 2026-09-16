@@ -7,9 +7,9 @@
 ElyLD is a GNU-ld-compatible linker aimed at fast iterative development. It is a fork of
 [Wild](https://github.com/wild-linker/wild), named after Elysia from Honkai Impact 3rd.
 
-`--incremental` can patch an existing output when inputs change (GC and LTO still fall back to a
-full padded link). It is also used as a drop-in ELF linker for Linux kernels (`vmlinux`), glibc
-DSOs, and as a NixOS stdenv linker.
+`--incremental` can patch an existing output when inputs change (GC and GCC LTO still fall back to a
+full padded link; LLVM ThinLTO restages plugin objects and can update in place). It is also used as
+a drop-in ELF linker for Linux kernels (`vmlinux`), glibc DSOs, and as a NixOS stdenv linker.
 
 ## Installation
 
@@ -18,6 +18,23 @@ DSOs, and as a NixOS stdenv linker.
 ```sh
 cargo install --locked --bin elyld --git https://github.com/tyler274/ElyLD.git elyld
 ```
+
+`release`, `opt`, and `dist` profiles use ThinLTO. CI (`profile.ci`) and `dev` do not.
+
+To bootstrap (stage1 with the system linker, then relink ElyLD with itself):
+
+```sh
+./scripts/bootstrap.sh --profile release
+./scripts/bootstrap.sh --profile opt
+```
+
+GNU dist releases run a PGO build trained on the full `integration_tests` suite (still self-hosted):
+
+```sh
+./scripts/pgo-build.sh
+```
+
+Needs clang (rustc linker driver) and the rustup `llvm-tools-preview` component.
 
 ### Nix
 
@@ -145,7 +162,7 @@ The following is working with the caveat that there may be bugs:
 
 Here are some of the larger remaining gaps:
 
-* Incremental links with GC or an active LTO plugin still fall back to a full padded link
+* Incremental links with GC or GCC LTO (WPA) still fall back to a full padded link
 * Mach-O and Wasm are experimental (not on by default)
 * Windows / COFF
 * Remaining linker-script gaps listed in [LINKER_SCRIPT_SUPPORT.md](LINKER_SCRIPT_SUPPORT.md)
@@ -157,9 +174,12 @@ directory and pads output sections so a later link can patch in place. Unchanged
 payloads. Custom linker scripts skip section padding so kernel `ASSERT`s keep their sizes; unchanged
 inputs can still skip payloads.
 
-GC (`--gc-sections`) and an active linker plugin fall back to a full padded link. Integration tests
-cover GCC, Clang, and rustc at several `-O` levels, plus unchanged relinks of x86_64 `vmlinux` and
-glibc DSOs. See [DESIGN.md](DESIGN.md) for the atom table and skip-update model.
+GC (`--gc-sections`) and GCC LTO (WPA) fall back to a full padded link. LLVM ThinLTO plugin objects
+are copied to `{output}.incr/plugin/{NNNN}.o` so a later link can skip unchanged payloads. You can
+also pass `--plugin-opt=cache-dir=PATH` for LLVM's own cache; ElyLD does not inject that option
+because GCC rejects unknown plugin opts. Integration tests cover GCC, Clang (including `-flto=thin`),
+and rustc at several `-O` levels, plus unchanged relinks of x86_64 `vmlinux` and glibc DSOs. See
+[DESIGN.md](DESIGN.md) for the atom table and skip-update model.
 
 ### Linux kernel
 
@@ -167,7 +187,7 @@ ElyLD links x86_64 `vmlinux` with the kernel's `vmlinux.lds` (`--no-gc-sections`
 Key symbols (`_stext`, `_etext`, `__init_begin`, `_end`, …) are checked against GNU ld. Clang ThinLTO
 `vmlinux` is checked against LLD. `--incremental` on the same objects is a padded link (not compared
 to GNU addresses); a dirty `init/version-timestamp.o` is expected to drop skip_payloads. ThinLTO
-incremental still falls back because of the plugin.
+incremental restages LLVM plugin objects and expects an in-place update.
 
 Point `ELYLD_LINUX_TREE` at a tree that already has `vmlinux.o` and GNU `vmlinux.unstripped` (pack
 with `scripts/pack-vmlinux-objects.sh`), then:

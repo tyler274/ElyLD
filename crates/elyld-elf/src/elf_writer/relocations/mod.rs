@@ -30,6 +30,7 @@ use elyld_layout::symbol_db::{SymbolDb, SymbolId};
 use elyld_layout::thunks::ThunkBlockId;
 use elyld_layout::{FileLayout, Layout, ObjectLayout, Resolution};
 use elyld_platform as platform;
+use elyld_platform::Args as _;
 use elyld_platform::value_flags::{PerSymbolFlags, ValueFlags};
 use elyld_platform::{Arch, ObjectFile, Platform, Relocation, SectionFlags as _};
 
@@ -109,6 +110,34 @@ pub(crate) fn reloc_file_offset<C: ElfClass, S: platform::SectionFlags>(
     rec.file_offset as u64
         + section_info.section_address.wrapping_sub(rec.mem_offset)
         + offset_in_section
+}
+
+pub(crate) fn maybe_record_reverse_reloc<
+    'data,
+    C: ElfClass,
+    R: Relocation<Platform = elf::Elf<C>>,
+    S: platform::SectionFlags,
+>(
+    layout: &ElfLayout<'data, C>,
+    object: &ObjectLayout<'data, elf::Elf<C>>,
+    rel: &R,
+    section_info: SectionInfo<S>,
+    offset_in_section: u64,
+) {
+    if !layout.args().incremental() {
+        return;
+    }
+    let Some(sym) = rel.symbol() else {
+        return;
+    };
+    layout.record_reverse_reloc(
+        object.symbol_id_range.input_to_id(sym),
+        reloc_file_offset(layout, section_info, offset_in_section),
+        section_info.section_address.wrapping_add(offset_in_section),
+        rel.addend(),
+        rel.raw_type().0,
+        object.file_id,
+    );
 }
 
 pub(crate) fn get_resolution<'data, C: ElfClass, R: Relocation>(

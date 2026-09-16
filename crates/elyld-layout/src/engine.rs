@@ -77,6 +77,12 @@ pub trait EnginePlatform:
         Ok(None)
     }
 
+    /// GCC LTO (WPA) still forces an incremental fallback. LLVM ThinLTO does not: plugin
+    /// objects are restaged into `{output}.incr/plugin/` with stable paths.
+    fn plugin_blocks_incremental(_plugin: &Self::LinkerPlugin<'_>) -> bool {
+        false
+    }
+
     /// Integrate objects produced by linker-plugin codegen after the driver has loaded them.
     fn plugin_integrate_lto_objects<'data>(
         _plugin: &mut Self::LinkerPlugin<'data>,

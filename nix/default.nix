@@ -62,7 +62,16 @@ craneLib.buildPackage (
   commonArgs
   // {
     cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-    cargoBuildCommand = "cargo build --profile release -p elyld";
+    cargoBuildCommand = ''
+      cargo build --profile release -p elyld --offline
+      stage1="$PWD/target/release/elyld"
+      if [[ ! -x "$stage1" ]]; then
+        stage1="$PWD/target/${stdenv.hostPlatform.rust.rustcTarget or stdenv.hostPlatform.config}/release/elyld"
+      fi
+      export RUSTFLAGS="''${RUSTFLAGS-} -C linker=clang -Clink-arg=--ld-path=$stage1"
+      cargo build --profile release -p elyld --offline
+    '';
+    nativeBuildInputs = [ clangWrapper ];
 
     # Do the check in the separate derivation so it can be done
     # in parallel in the dev profile

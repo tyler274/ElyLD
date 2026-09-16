@@ -482,7 +482,9 @@ fn resolve_section<'data, P: EnginePlatform>(
 
     let mut unloaded_section;
     let mut is_debug_info = false;
-    let mut must_load = input_section.should_retain() || input_section.is_note();
+    let mut must_load = input_section.should_retain()
+        || input_section.is_note()
+        || is_profile_or_coverage_section(section_name);
     let mut part_id: PartId;
 
     let file_name = object_match_file_name(obj);
@@ -672,6 +674,14 @@ fn resolve_section<'data, P: EnginePlatform>(
     Ok((slot, part_id))
 }
 
+/// LLVM PGO/coverage and GCC gcov sections must survive `--gc-sections` and
+/// `--orphan-handling=error` so `__start_`/`__stop_` instrumentation works.
+fn is_profile_or_coverage_section(name: &[u8]) -> bool {
+    name.starts_with(b"__llvm_prf_")
+        || name.starts_with(b"__llvm_cov")
+        || name.starts_with(b"__gcov_")
+}
+
 fn apply_orphan_handling<P: EnginePlatform>(
     args: &P::Args,
     outcome: SectionRuleOutcome,
@@ -693,6 +703,9 @@ fn apply_orphan_handling<P: EnginePlatform>(
             Ok(outcome)
         }
         OrphanHandling::Error => {
+            if is_profile_or_coverage_section(section_name) {
+                return Ok(outcome);
+            }
             bail!("orphan section `{name}` from `{file}`")
         }
         OrphanHandling::Discard => Ok(SectionRuleOutcome::Discard),
@@ -801,5 +814,23 @@ pub(super) fn populate_start_stop_sections<'data, P: EnginePlatform>(
                     });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_profile_or_coverage_section;
+
+    #[test]
+    fn profile_and_coverage_section_names() {
+        assert!(is_profile_or_coverage_section(b"__llvm_prf_cnts"));
+        assert!(is_profile_or_coverage_section(b"__llvm_prf_data"));
+        assert!(is_profile_or_coverage_section(b"__llvm_prf_names"));
+        assert!(is_profile_or_coverage_section(b"__llvm_covmap"));
+        assert!(is_profile_or_coverage_section(b"__llvm_covfun"));
+        assert!(is_profile_or_coverage_section(b"__gcov_ctr"));
+        assert!(!is_profile_or_coverage_section(b".text"));
+        assert!(!is_profile_or_coverage_section(b"__llvm_prf"));
+        assert!(!is_profile_or_coverage_section(b"__gcov"));
     }
 }

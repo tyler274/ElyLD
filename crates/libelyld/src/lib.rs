@@ -413,16 +413,17 @@ impl<F: FileSystem> Linker<F> {
         elyld_layout::gc_stats::maybe_write_gc_stats(&layout.group_layouts, &layout.symbol_db)?;
         elyld_layout::map::maybe_write_map(&layout)?;
 
-        let plugin_active = plugin.as_ref().is_some_and(P::plugin_is_initialised);
+        let plugin_blocks_incremental = plugin.as_ref().is_some_and(P::plugin_blocks_incremental);
         let mut incremental_session = if args.incremental() {
             elyld_layout::incremental::IncrementalSession::from_args(args)
         } else {
             None
         };
         if let Some(session) = incremental_session.as_mut() {
-            if let Some(reason) =
-                elyld_layout::incremental::fallback_for_plugin_or_gc::<P>(args, plugin_active)
-            {
+            if let Some(reason) = elyld_layout::incremental::fallback_for_plugin_or_gc::<P>(
+                args,
+                plugin_blocks_incremental,
+            ) {
                 session.record_fallback(reason);
             }
             let (sections, has_strict_order_sections) = incremental_section_snapshot(&layout);
@@ -466,7 +467,7 @@ impl<F: FileSystem> Linker<F> {
                     .iter()
                     .map(|f| f.filename.as_path())
                     .collect::<Vec<_>>(),
-                plugin_active,
+                plugin_blocks_incremental,
                 has_strict_order_sections,
                 &sections,
                 &resolutions,

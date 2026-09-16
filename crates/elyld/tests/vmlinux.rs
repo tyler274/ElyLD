@@ -12,7 +12,7 @@
 //!
 //! Clang ThinLTO: set `ELYLD_LINUX_LTO_TREE` (pack with
 //! `scripts/pack-vmlinux-lto-objects.sh`). `vmlinux-lto` diffs key symbols against
-//! LLD. `vmlinux-lto-incremental` expects a plugin fallback, not an in-place
+//! LLD. `vmlinux-lto-incremental` restages plugin objects and expects an in-place
 //! update. CI job `vmlinux-lto` unpacks `vars.ELYLD_LINUX_LTO_OBJECTS_URL`.
 
 use crate::{Filter, build_dir, incremental_check, elyld_path};
@@ -313,25 +313,28 @@ fn run_vmlinux_lto_incremental_test() -> Result<libtest_mimic::Completion> {
         &mut vmlinux_command(&tree, &out, true),
         "vmlinux-lto initial",
     )?;
-    let first = incremental_check::read_log(&out)?;
     incremental_check::run_wild(
         &mut vmlinux_command(&tree, &out, true),
         "vmlinux-lto second",
     )?;
-    let second = incremental_check::read_log(&out)?;
-    for (label, log) in [("initial", &first), ("second", &second)] {
-        if !log.is_fallback {
-            bail!(
-                "ThinLTO incremental {label} should fall back to a full padded link, got: {}",
-                log.last_line
-            );
-        }
-        if !log.last_line.contains("LTO") && !log.last_line.contains("plugin") {
-            bail!(
-                "ThinLTO incremental {label} fallback should mention LTO/plugin, got: {}",
-                log.last_line
-            );
-        }
+    let log = incremental_check::read_log(&out)?;
+    if log.is_fallback {
+        bail!(
+            "ThinLTO incremental relink fell back to a full padded link: {}",
+            log.last_line
+        );
+    }
+    if !log.is_update {
+        bail!(
+            "Expected incremental-update for ThinLTO vmlinux, got: {}",
+            log.last_line
+        );
+    }
+    if log.skip_payloads == 0 && !log.strict_order {
+        bail!(
+            "ThinLTO incremental relink skipped no payloads: {}",
+            log.last_line
+        );
     }
     Ok(libtest_mimic::Completion::Completed)
 }

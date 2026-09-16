@@ -32,11 +32,13 @@ link). Cross-run identity is a generational atom table in `incremental/`: unchan
 handle, a replaced path reuses a slot with a new generation, and reverse-reloc lists plus
 resolutions are keyed by `(atom, local symbol)` so a neighboring file cannot reshuffle IDs. Skip
 updates merge reverse-reloc lists, replacing sites in rewritten objects and keeping sites in skipped
-ones. GC and LTO still fall back to a full padded link. Custom linker scripts skip section padding
-so kernel `ASSERT`s keep their sizes; unchanged inputs can still skip payloads.
+ones. GC and GCC LTO (WPA) still fall back to a full padded link. LLVM ThinLTO plugin objects are
+restaged into `{output}.incr/plugin/` so skip_payloads can match stable paths. Custom linker scripts
+skip section padding so kernel `ASSERT`s keep their sizes; unchanged inputs can still skip payloads.
 
-Integration tests cover GCC, Clang, and rustc at `-O0`/`-O1`/`-O2`/`-O3`/`-Os` (plus LTO fallback)
-and an unchanged `--incremental` relink of x86_64 `vmlinux` (`ELYLD_LINUX_TREE`). Rust `--emit=obj`
+Integration tests cover GCC, Clang, and rustc at `-O0`/`-O1`/`-O2`/`-O3`/`-Os` (GCC LTO still
+falls back; Clang ThinLTO restages plugin objects) and an unchanged `--incremental` relink of
+x86_64 `vmlinux` (`ELYLD_LINUX_TREE`). Rust `--emit=obj`
 keeps a stable `.o` path; rustc save-dir tests allow fallback because codegen-unit hashes change
 with `--cfg wild_inc`. Unchanged `--incremental` relinks of glibc `ld.so` / `libc.so` / `libm.so`
 (`ELYLD_GLIBC_TREE`) skip object payloads; skip updates still rewrite dynamic reloc tables so
@@ -65,7 +67,9 @@ Compatibility tests live under `linker-plugin-lto`, `lto-comdat` (C++ template C
 `rust-integration` (`-Clinker-plugin-lto` and rustc `-C lto` / `-C lto=thin`), wrap/export-dynamic,
 and the mold external suite. Mold skips that Wild does not copy: no-plugin as a hard error (Wild
 auto-discovers), duplicate IR as a hard error (Wild deduplicates), and `lto-archive4` (asm-invisible
-symbols). Incremental links with an active plugin still fall back to a full padded link.
+symbols). Incremental links with GCC LTO still fall back to a full padded link. LLVM ThinLTO
+restages plugin objects; `--plugin-opt=cache-dir=` is accepted for LLVM's cache and is not
+auto-injected (GCC may error on unknown plugin options).
 
 ## Testing
 
@@ -88,8 +92,8 @@ the 10-minute timeout). `vmlinux-incremental` links the same objects with `--inc
 an unchanged second link records `incremental-update`. `vmlinux-incremental-dirty` flips a byte in
 one extra object (mtime is 1s granularity) and checks that skip_payloads drops. Clang ThinLTO uses
 `ELYLD_LINUX_LTO_TREE` / `scripts/pack-vmlinux-lto-objects.sh` with an LLD-linked oracle; CI job
-`vmlinux-lto` is gated on `ELYLD_LINUX_LTO_OBJECTS_URL`. Incremental + plugin still falls back to a
-full padded link (`vmlinux-lto-incremental`). Follow-up: a small userspace / initramfs also linked
+`vmlinux-lto` is gated on `ELYLD_LINUX_LTO_OBJECTS_URL`. Incremental ThinLTO restages plugin
+objects (`vmlinux-lto-incremental`). Follow-up: a small userspace / initramfs also linked
 with ElyLD.
 
 Glibc's `libc.so` link uses GNU ld's default shared script (`DATA_SEGMENT_*`, `CONSTANT`,

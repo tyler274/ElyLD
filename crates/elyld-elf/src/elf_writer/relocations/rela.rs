@@ -1,6 +1,7 @@
 use super::super::types::{ElfLayout, TableWriter};
 use super::{
-    SectionInfo, apply_debug_relocation, apply_relocation, display_relocation, reloc_file_offset,
+    SectionInfo, apply_debug_relocation, apply_relocation, display_relocation,
+    maybe_record_reverse_reloc,
 };
 use crate as elf;
 use crate::ElfClass;
@@ -19,7 +20,7 @@ use elyld_layout::output_section_part_map::OutputSectionPartMap;
 use elyld_layout::output_trace::TraceOutput;
 use elyld_layout::resolution::SectionSlot;
 use elyld_layout::{ObjectLayout, Section};
-use elyld_platform::{Arch, Args as _, ObjectFile, Relocation, RelocationList, SectionHeader as _};
+use elyld_platform::{Arch, ObjectFile, Relocation, RelocationList, SectionHeader as _};
 
 /// A cache for managing ELF relocations and optimization of relocation entries.
 #[derive(Debug)]
@@ -296,18 +297,7 @@ pub(crate) fn apply_relocations<
             None => rel.offset(),
         };
 
-        if layout.args().incremental()
-            && let Some(sym) = rel.symbol()
-        {
-            layout.record_reverse_reloc(
-                object.symbol_id_range.input_to_id(sym),
-                reloc_file_offset(layout, section_info, offset_in_section),
-                section_address.wrapping_add(offset_in_section),
-                rel.addend(),
-                rel.raw_type().0,
-                object.file_id,
-            );
-        }
+        maybe_record_reverse_reloc(layout, object, &rel, section_info, offset_in_section);
 
         modifier = apply_relocation::<C, A, R, _>(
             object,
@@ -356,6 +346,16 @@ pub(crate) fn apply_debug_relocations<
     layout: &ElfLayout<'data, C>,
 ) -> Result {
     let section_name = object.object.section_name(section_index)?;
+    let object_section = object.object.section(section_index)?;
+    let section_flags = object_section.sh_flags(LittleEndian);
+    let debug_section_info = object.section_resolutions[section_index.0]
+        .address()
+        .map(|section_address| SectionInfo {
+            section_address,
+            is_writable: false,
+            section_flags,
+            part_id: object.section_part_id(section_index, &layout.symbol_db.section_part_ids),
+        });
 
     // TODO: Starting with DWARF 6, the tombstone value will be defined as -1 and -2.
     // However, the change is premature as consumers of the DWARF format don't fully support
@@ -377,6 +377,9 @@ pub(crate) fn apply_debug_relocations<
         relocation_count += 1;
         let rel = rel?;
         let offset_in_section = rel.offset();
+        if let Some(section_info) = debug_section_info {
+            maybe_record_reverse_reloc(layout, object, &rel, section_info, offset_in_section);
+        }
         apply_debug_relocation::<C, A, R>(
             object,
             offset_in_section,

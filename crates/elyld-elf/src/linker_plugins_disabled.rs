@@ -54,6 +54,10 @@ impl<'data> LinkerPlugin<'data> {
         false
     }
 
+    pub(crate) fn claimed_gcc_ir(&self) -> bool {
+        false
+    }
+
     pub(crate) fn lto_codegen<C: ElfClass>(
         &mut self,
         _symbol_db: &mut SymbolDb<'data, Elf<C>>,

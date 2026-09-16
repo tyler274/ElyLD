@@ -4,6 +4,10 @@ ElyLD ships a Nix flake, overlay, and derivation independent of nixpkgs'
 `wild` package. The wrap and stdenv adapter are derived from Wild's
 (`wrapBintoolsWith` + `useWildLinker`); names and `.comment` identity are ElyLD.
 
+The flake package is a two-stage self-host: crane builds ElyLD, then relinks it
+with `clang --ld-path` pointing at that binary (ThinLTO `release`, no PGO). PGO
+dist builds use `scripts/pgo-build.sh` outside Nix.
+
 Unstable Nixpkgs is required until NixOS 25.11 is branched.
 
 ## NixOS

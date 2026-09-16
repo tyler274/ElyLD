@@ -14,13 +14,15 @@ pub fn should_skip_payload(skippable: bool, reused: bool, path_changed: bool) ->
     skippable && reused && !path_changed
 }
 
-/// Incremental + plugin/GC is a full padded link, not an in-place update.
+/// Incremental + GCC LTO (WPA) or GC is a full padded link, not an in-place update.
+/// LLVM ThinLTO plugin objects are restaged under `{output}.incr/plugin/` and do not
+/// take this path.
 pub fn fallback_reason_for_plugin_or_gc(
-    plugin_active: bool,
+    gcc_lto_plugin: bool,
     gc_and_incremental: bool,
 ) -> Option<&'static str> {
-    if plugin_active {
-        return Some("LTO/plugin inputs");
+    if gcc_lto_plugin {
+        return Some("GCC LTO/plugin inputs");
     }
     if gc_and_incremental {
         return Some("--gc-sections is ignored for incremental links");
@@ -51,11 +53,11 @@ mod tests {
     fn plugin_or_gc_forces_fallback() {
         assert_eq!(
             fallback_reason_for_plugin_or_gc(true, false),
-            Some("LTO/plugin inputs")
+            Some("GCC LTO/plugin inputs")
         );
         assert_eq!(
             fallback_reason_for_plugin_or_gc(true, true),
-            Some("LTO/plugin inputs")
+            Some("GCC LTO/plugin inputs")
         );
         assert_eq!(
             fallback_reason_for_plugin_or_gc(false, true),
@@ -92,11 +94,11 @@ mod verify {
 
     #[kani::proof]
     fn plugin_fallback_beats_gc() {
-        let plugin_active: bool = kani::any();
+        let gcc_lto_plugin: bool = kani::any();
         let gc_and_incremental: bool = kani::any();
-        let reason = fallback_reason_for_plugin_or_gc(plugin_active, gc_and_incremental);
-        if plugin_active {
-            assert_eq!(reason, Some("LTO/plugin inputs"));
+        let reason = fallback_reason_for_plugin_or_gc(gcc_lto_plugin, gc_and_incremental);
+        if gcc_lto_plugin {
+            assert_eq!(reason, Some("GCC LTO/plugin inputs"));
         } else if gc_and_incremental {
             assert_eq!(
                 reason,

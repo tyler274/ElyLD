@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang gcc g++
         if: matrix.build != 'zigbuild'
 
       - name: Install musl tools
@@ -55,6 +55,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+          components: llvm-tools-preview
 
       - uses: taiki-e/install-action@cargo-zigbuild
         if: matrix.build == 'zigbuild'
@@ -69,11 +70,16 @@ jobs:
         run: |
           awk "/## ${VERSION_TAG}/{flag=1; next} /^## / && flag{exit} flag" CHANGELOG.md >REL.md
 
+      - name: Build PGO dist (gnu, self-hosted)
+        if: matrix.build != 'zigbuild' && matrix.musl != true
+        run: ./scripts/pgo-build.sh --target ${{ matrix.target }}
+
       - name: Build stage1
+        if: matrix.build == 'zigbuild' || matrix.musl == true
         run: cargo build --release
 
-      - name: Switch to linking with wild
-        if: matrix.build != 'zigbuild' # zigbuild ignores this config
+      - name: Switch to linking with ElyLD
+        if: matrix.build != 'zigbuild' && matrix.musl == true
         run: |
           mkdir -p "$HOME/.cargo"
           ELYLD="${PWD}/target/release/elyld"
@@ -82,6 +88,7 @@ jobs:
           cat "$HOME/.cargo/config.toml"
 
       - name: Build release binary
+        if: matrix.build == 'zigbuild' || matrix.musl == true
         run: cargo ${{matrix.build || 'build' }} ${{matrix.args}} --profile dist --target ${{ matrix.target }}
 
       - name: Create tarballs
