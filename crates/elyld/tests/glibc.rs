@@ -15,15 +15,16 @@
 //! contain the expected objects (a from-scratch glibc build will not fit the
 //! 10-minute CI timeout). GNU ld is the only oracle.
 
-use crate::{Filter, build_dir, incremental_check, elyld_path};
-use libtest_mimic::Trial;
+use crate::{Filter, build_dir, elyld_path, incremental_check};
 use libelyld::bail;
 use libelyld::error::{Context as _, Result};
+use libtest_mimic::Trial;
 use object::{Object as _, ObjectSymbol as _};
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 
 const TREE_VAR: &str = "ELYLD_GLIBC_TREE";
 const BUILD_VAR: &str = "ELYLD_GLIBC_BUILD";
@@ -280,51 +281,66 @@ const PIC_SHLIBS: &[PicShlib] = &[
     },
 ];
 
+/// Dirty incremental tests mutate GNU build objects in place (then restore).
+/// Serialize all glibc links against that tree so parallel tests don't see
+/// `The file was changed while we were running`.
+fn with_glibc_tree_lock<T>(f: impl FnOnce() -> T) -> T {
+    static LOCK: Mutex<()> = Mutex::new(());
+    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    f()
+}
+
+fn glibc_trial(
+    f: impl FnOnce() -> Result<libtest_mimic::Completion> + Send + 'static,
+) -> impl FnOnce() -> std::result::Result<libtest_mimic::Completion, libtest_mimic::Failed> {
+    move || with_glibc_tree_lock(|| f().map_err(|e| libtest_mimic::Failed::from(e.to_string())))
+}
+
 pub(super) fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) {
     if !filter.excludes(LDSO_TEST) {
-        tests.push(Trial::ignorable_test(LDSO_TEST, || {
-            run_ldso_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(LDSO_TEST, glibc_trial(run_ldso_test)));
     }
     if !filter.excludes(LIBC_TEST) {
-        tests.push(Trial::ignorable_test(LIBC_TEST, || {
-            run_libc_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(LIBC_TEST, glibc_trial(run_libc_test)));
     }
     if !filter.excludes(LDSO_INCR_TEST) {
-        tests.push(Trial::ignorable_test(LDSO_INCR_TEST, || {
-            run_ldso_incremental_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LDSO_INCR_TEST,
+            glibc_trial(run_ldso_incremental_test),
+        ));
     }
     if !filter.excludes(LIBC_INCR_TEST) {
-        tests.push(Trial::ignorable_test(LIBC_INCR_TEST, || {
-            run_libc_incremental_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LIBC_INCR_TEST,
+            glibc_trial(run_libc_incremental_test),
+        ));
     }
     if !filter.excludes(LIBC_INCR_DIRTY_TEST) {
-        tests.push(Trial::ignorable_test(LIBC_INCR_DIRTY_TEST, || {
-            run_libc_incremental_dirty_test()
-                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LIBC_INCR_DIRTY_TEST,
+            glibc_trial(run_libc_incremental_dirty_test),
+        ));
     }
     if !filter.excludes(LIBM_INCR_TEST) {
-        tests.push(Trial::ignorable_test(LIBM_INCR_TEST, || {
-            run_libm_incremental_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LIBM_INCR_TEST,
+            glibc_trial(run_libm_incremental_test),
+        ));
     }
     if !filter.excludes(LIBM_INCR_DIRTY_TEST) {
-        tests.push(Trial::ignorable_test(LIBM_INCR_DIRTY_TEST, || {
-            run_libm_incremental_dirty_test()
-                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LIBM_INCR_DIRTY_TEST,
+            glibc_trial(run_libm_incremental_dirty_test),
+        ));
     }
     for spec in PIC_SHLIBS {
         if filter.excludes(spec.test_name) {
             continue;
         }
-        tests.push(Trial::ignorable_test(spec.test_name, move || {
-            run_pic_shlib_test(spec).map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            spec.test_name,
+            glibc_trial(move || run_pic_shlib_test(spec)),
+        ));
     }
 }
 

@@ -139,6 +139,9 @@ LTO plugin search path, mold, glibc (static + source for relink tests), and:
   links for compressed-debug zstd configs actually run
 * `ELYLD_MOLD_TESTS=1` so `cargo test` collects the mold suite without
   `--features mold_tests` (same as `ELYLD_EXTERNAL_TESTS=1` / `ELYLD_LLD_TESTS=1`)
+* `ELYLD_LIBBACKTRACE_TREE` — unpacked nixpkgs `libbacktrace.src`, so
+  `cargo test -p elyld --test integration_tests -- libbacktrace` builds that
+  suite with ElyLD as `ld` and runs `ctestzstd` / `ctestzstd_alloc`
 * `mimalloc` + `pkg-config` for `--features mimalloc-dynamic` (default builds use mimalloc-rs)
 * `gdb`, `lldb`, `elfutils`, `valgrind`, `strace` for inspecting links
 * `hyperfine` and `samply` (see [BENCHMARKING.md](../BENCHMARKING.md))

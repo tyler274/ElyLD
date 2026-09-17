@@ -602,7 +602,7 @@ fn warn_execstack_and_rwx<P: EnginePlatform>(layout: &Layout<P>) {
         return;
     }
 
-    if layout.args().warn_rwx_segments() {
+    if layout.args().warn_rwx_segments() && !layout.program_segments.has_custom_phdrs() {
         for segment in &layout.segment_layouts.segments {
             let def = *layout.program_segments.segment_def(segment.id);
             if def.is_loadable() && def.is_writable() && def.is_executable() {

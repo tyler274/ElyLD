@@ -862,6 +862,23 @@ pub(crate) fn write_section_symbols<C: ElfClass>(
 pub(crate) fn get_symbol_attributes<C: ElfClass>(
     layout: &ElfLayout<C>,
     symbol_id: SymbolId,
+    visiting: &mut Vec<SymbolId>,
+) -> Result<(SymbolSection, object::elf::SymbolType)> {
+    // GNU ld and LLD emit a binary for cyclic script assignments (`first = second;
+    // second = first`) rather than recursing. Treat the cycle as absolute.
+    if visiting.contains(&symbol_id) {
+        return Ok((object::elf::SHN_ABS.into(), object::elf::STT_NOTYPE));
+    }
+    visiting.push(symbol_id);
+    let result = get_symbol_attributes_inner(layout, symbol_id, visiting);
+    visiting.pop();
+    result
+}
+
+fn get_symbol_attributes_inner<C: ElfClass>(
+    layout: &ElfLayout<C>,
+    symbol_id: SymbolId,
+    visiting: &mut Vec<SymbolId>,
 ) -> Result<(SymbolSection, object::elf::SymbolType)> {
     let file_id = layout.symbol_db.file_id_for_symbol(symbol_id);
 
@@ -914,7 +931,7 @@ pub(crate) fn get_symbol_attributes<C: ElfClass>(
             let addr = layout
                 .local_symbol_resolution(symbol_id)
                 .map_or(0, |res| res.value());
-            get_defsym_attributes(layout, def_info, addr)
+            get_defsym_attributes(layout, def_info, addr, visiting)
         }
         FileLayout::Prelude(prelude) => {
             let offset = symbol_id.offset_from(SymbolId::undefined());
@@ -922,7 +939,7 @@ pub(crate) fn get_symbol_attributes<C: ElfClass>(
             let addr = layout
                 .local_symbol_resolution(symbol_id)
                 .map_or(0, |res| res.value());
-            prelude_symbol_section_and_type(layout, def_info, addr)
+            prelude_symbol_section_and_type(layout, def_info, addr, visiting)
         }
         FileLayout::SyntheticSymbols(_) => {
             // For other non-object files (e.g. epilogue), default to ABS
@@ -939,6 +956,7 @@ pub(crate) fn get_defsym_attributes<C: ElfClass>(
     layout: &ElfLayout<C>,
     def_info: &elyld_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
     addr: u64,
+    visiting: &mut Vec<SymbolId>,
 ) -> Result<(SymbolSection, object::elf::SymbolType), error::Error> {
     let elyld_layout::parsing::SymbolPlacement::Redirect(redirect) = &def_info.placement else {
         unreachable!()
@@ -951,7 +969,7 @@ pub(crate) fn get_defsym_attributes<C: ElfClass>(
 
             if let Some(target_id) = target_symbol_id {
                 let canonical_id = layout.symbol_db.definition(target_id);
-                get_symbol_attributes(layout, canonical_id)
+                get_symbol_attributes(layout, canonical_id, visiting)
             } else if def_info.is_provide {
                 Ok((object::elf::SHN_ABS.into(), object::elf::STT_NOTYPE))
             } else {
@@ -1113,12 +1131,13 @@ pub(crate) fn prelude_symbol_section_and_type<C: ElfClass>(
     layout: &ElfLayout<C>,
     def_info: &elyld_layout::parsing::InternalSymDefInfo<elf::Elf<C>>,
     addr: u64,
+    visiting: &mut Vec<SymbolId>,
 ) -> Result<(SymbolSection, object::elf::SymbolType)> {
     if matches!(
         def_info.placement,
         elyld_layout::parsing::SymbolPlacement::Redirect(_)
     ) {
-        return get_defsym_attributes(layout, def_info, addr);
+        return get_defsym_attributes(layout, def_info, addr, visiting);
     }
     if let Some(script_def) = elyld_layout::script_assignment_def(def_info.name, &layout.symbol_db)
         && matches!(
@@ -1126,7 +1145,7 @@ pub(crate) fn prelude_symbol_section_and_type<C: ElfClass>(
             elyld_layout::parsing::SymbolPlacement::Redirect(_)
         )
     {
-        return get_defsym_attributes(layout, script_def, addr);
+        return get_defsym_attributes(layout, script_def, addr, visiting);
     }
 
     let shndx = def_info
@@ -1185,7 +1204,8 @@ pub(crate) fn write_internal_symbols<C: ElfClass>(
         // For Redirect, get attributes from the target symbol. A linker-script assignment
         // of the same name (e.g. `_etext = .`) overrides the prelude section, so `_etext` is
         // in the script `.text` rather than SHN_ABS from the unused builtin.
-        let (mut shndx, st_type) = prelude_symbol_section_and_type(layout, def_info, address)?;
+        let (mut shndx, st_type) =
+            prelude_symbol_section_and_type(layout, def_info, address, &mut Vec::new())?;
 
         // Move symbols that are in our header (section 0) into the first section, otherwise they'll
         // show up as undefined.

@@ -546,6 +546,15 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
             }
             keep_segments
         };
+        if let Some(interp_id) = P::INTERP_SECTION_ID
+            && !*keep_sections.get(interp_id)
+        {
+            for (def, keep) in program_segments.into_iter().zip(keep_segments.iter_mut()) {
+                if def.is_interp() {
+                    *keep = false;
+                }
+            }
+        }
         P::update_segment_keep_list(
             program_segments,
             &mut keep_segments,

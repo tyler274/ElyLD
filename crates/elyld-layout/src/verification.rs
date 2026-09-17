@@ -12,12 +12,16 @@ use elyld_error::error::Result;
 pub struct OffsetVerifier {
     expected: OutputSectionPartMap<u64>,
     sizes: OutputSectionPartMap<u64>,
+    /// Relocatable `-r` and BYTE/SHORT output keep `sh_size` that is not a
+    /// multiple of `sh_addralign` (GNU ld).
+    ignore_unaligned_sizes: bool,
 }
 
 impl OffsetVerifier {
     pub fn new<P: EnginePlatform>(
         starting_offsets: &OutputSectionPartMap<u64>,
         sizes: &OutputSectionPartMap<u64>,
+        ignore_unaligned_sizes: bool,
     ) -> Self {
         let mut expected = starting_offsets.clone();
         expected.merge(sizes);
@@ -25,6 +29,7 @@ impl OffsetVerifier {
         Self {
             expected,
             sizes: sizes.clone(),
+            ignore_unaligned_sizes,
         }
     }
 
@@ -55,7 +60,7 @@ impl OffsetVerifier {
                 ));
             }
             if !size.is_multiple_of(output_sections.part_alignment::<P>(*part_id).value())
-                && !should_ignore_alignment::<P>(*part_id)
+                && !self.should_ignore_alignment::<P>(*part_id, output_sections)
             {
                 problems.push(format!(
                     "Part #{part_id} (section {} alignment: {alignment}) \
@@ -77,14 +82,37 @@ impl OffsetVerifier {
     fn alignments_ok<P: EnginePlatform>(&self, output_sections: &OutputSections<P>) -> bool {
         self.sizes.iter().all(|(part_id, size)| {
             size.is_multiple_of(output_sections.part_alignment::<P>(part_id).value())
-                || should_ignore_alignment::<P>(part_id)
+                || self.should_ignore_alignment::<P>(part_id, output_sections)
         })
+    }
+
+    fn should_ignore_alignment<P: EnginePlatform>(
+        &self,
+        part_id: PartId,
+        output_sections: &OutputSections<P>,
+    ) -> bool {
+        if self.ignore_unaligned_sizes {
+            return true;
+        }
+        should_ignore_alignment::<P>(part_id, output_sections)
     }
 }
 
-fn should_ignore_alignment<P: EnginePlatform>(part_id: PartId) -> bool {
+fn should_ignore_alignment<P: EnginePlatform>(
+    part_id: PartId,
+    output_sections: &OutputSections<P>,
+) -> bool {
     let section_id = part_id.output_section_id::<P>();
-    part_id.should_pack::<P>() || P::VERIFY_IGNORE_ALIGNMENT_SECTION_IDS.contains(&section_id)
+    let primary = output_sections.primary_output_section(section_id);
+    // BYTE/SHORT/LONG/QUAD after input contents are not padded to sh_addralign
+    // (GNU ld relocatable kernel-module / script-byte-reloc).
+    let has_script_output = output_sections
+        .script_output_data
+        .iter()
+        .any(|data| output_sections.primary_output_section(data.section_id) == primary);
+    part_id.should_pack::<P>()
+        || has_script_output
+        || P::VERIFY_IGNORE_ALIGNMENT_SECTION_IDS.contains(&section_id)
 }
 
 /// Clear offsets for sections where we never take the address of a section offset during

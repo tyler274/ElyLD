@@ -8,6 +8,7 @@ let
   llvmLib = llvmPkgs.libllvm.lib or llvmPkgs.libllvm;
   binutilsZstd = pkgs.callPackage ../nix/binutils-zstd.nix { };
   glibcTests = pkgs.callPackage ../nix/glibc-tests.nix { };
+  libbacktraceTests = pkgs.callPackage ../nix/libbacktrace-tests.nix { };
 in
 pkgs.mkShell {
   nativeBuildInputs = [
@@ -43,7 +44,8 @@ pkgs.mkShell {
     pkgs.gdb
     pkgs.elfutils
   ]
-  ++ glibcTests.packages;
+  ++ glibcTests.packages
+  ++ libbacktraceTests.packages;
 
   ELYLD_MOLD_TESTS = "1";
 
@@ -52,5 +54,5 @@ pkgs.mkShell {
     pkgs.mimalloc
   ];
 
-  inherit (glibcTests) shellHook;
+  shellHook = glibcTests.shellHook + libbacktraceTests.shellHook;
 }

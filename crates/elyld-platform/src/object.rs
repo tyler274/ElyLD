@@ -501,6 +501,10 @@ pub trait ProgramSegmentDef: Copy + Send + Sync + Display + 'static {
 
     fn is_tls(self) -> bool;
 
+    fn is_interp(self) -> bool {
+        false
+    }
+
     /// Returns a numeric value that can be used to sort the segments as they should appear in the
     /// program headers table. Segments with lower values will appear first.
     fn order_key(self) -> usize;

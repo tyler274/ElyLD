@@ -23,6 +23,7 @@ use object::{Object as _, ObjectSection as _, ObjectSymbol as _};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 
 const LINUX_TREE_VAR: &str = "ELYLD_LINUX_TREE";
 const TEST_NAME: &str = "elf/x86_64/vmlinux";
@@ -63,33 +64,48 @@ const KEY_SYMBOLS: &[&str] = &[
     "hardirq_stack_ptr",
 ];
 
+/// Dirty incremental tests mutate `version-timestamp.o` in place. Serialize
+/// GNU and ThinLTO vmlinux links against those trees so parallel tests don't
+/// see `The file was changed while we were running`.
+fn with_vmlinux_tree_lock<T>(f: impl FnOnce() -> T) -> T {
+    static LOCK: Mutex<()> = Mutex::new(());
+    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    f()
+}
+
+fn vmlinux_trial(
+    f: impl FnOnce() -> Result<libtest_mimic::Completion> + Send + 'static,
+) -> impl FnOnce() -> std::result::Result<libtest_mimic::Completion, libtest_mimic::Failed> {
+    move || with_vmlinux_tree_lock(|| f().map_err(|e| libtest_mimic::Failed::from(e.to_string())))
+}
+
 pub(super) fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) {
     if !filter.excludes(TEST_NAME) {
-        tests.push(Trial::ignorable_test(TEST_NAME, || {
-            run_vmlinux_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            TEST_NAME,
+            vmlinux_trial(run_vmlinux_test),
+        ));
     }
     if !filter.excludes(INCREMENTAL_TEST) {
-        tests.push(Trial::ignorable_test(INCREMENTAL_TEST, || {
-            run_vmlinux_incremental_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            INCREMENTAL_TEST,
+            vmlinux_trial(run_vmlinux_incremental_test),
+        ));
     }
     if !filter.excludes(INCREMENTAL_DIRTY_TEST) {
-        tests.push(Trial::ignorable_test(INCREMENTAL_DIRTY_TEST, || {
-            run_vmlinux_incremental_dirty_test()
-                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            INCREMENTAL_DIRTY_TEST,
+            vmlinux_trial(run_vmlinux_incremental_dirty_test),
+        ));
     }
     if !filter.excludes(LTO_TEST) {
-        tests.push(Trial::ignorable_test(LTO_TEST, || {
-            run_vmlinux_lto_test().map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(LTO_TEST, vmlinux_trial(run_vmlinux_lto_test)));
     }
     if !filter.excludes(LTO_INCREMENTAL_TEST) {
-        tests.push(Trial::ignorable_test(LTO_INCREMENTAL_TEST, || {
-            run_vmlinux_lto_incremental_test()
-                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-        }));
+        tests.push(Trial::ignorable_test(
+            LTO_INCREMENTAL_TEST,
+            vmlinux_trial(run_vmlinux_lto_incremental_test),
+        ));
     }
 }
 

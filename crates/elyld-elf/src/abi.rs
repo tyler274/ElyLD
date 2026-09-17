@@ -24,18 +24,6 @@ use super::{
 use crate::elf_writer;
 use crate::gdb_index::InputDebugIndexSection;
 use crate::writable_elf::WritableSymbol;
-use hashbrown::HashMap;
-use itertools::Itertools as _;
-use linker_utils::elf::{
-    SectionFlags, SectionType, SegmentFlags, SegmentType, pf, pt, secnames, shf, sht,
-};
-use object::LittleEndian;
-use object::read::elf::{RelocationSections, SectionHeader as _};
-use rayon::Scope;
-use std::marker::PhantomData;
-use std::num::{NonZeroU32, NonZeroU64};
-use std::sync::atomic;
-use std::sync::atomic::AtomicBool;
 use elyld_args::elf::{BuildIdOption, ElfArgs};
 use elyld_args::{BSymbolicKind, RelocationModel};
 use elyld_error::error::{Context as _, Result};
@@ -69,6 +57,18 @@ use elyld_scripts::linker_script;
 use elyld_scripts::version_script::VersionScript;
 use elyld_util::alignment::Alignment;
 use elyld_util::arch::Architecture;
+use hashbrown::HashMap;
+use itertools::Itertools as _;
+use linker_utils::elf::{
+    SectionFlags, SectionType, SegmentFlags, SegmentType, pf, pt, secnames, shf, sht,
+};
+use object::LittleEndian;
+use object::read::elf::{RelocationSections, SectionHeader as _};
+use rayon::Scope;
+use std::marker::PhantomData;
+use std::num::{NonZeroU32, NonZeroU64};
+use std::sync::atomic;
+use std::sync::atomic::AtomicBool;
 
 impl<C: ElfClass> platform::Platform for Elf<C> {
     const NUM_SINGLE_PART_SECTIONS: u32 = ELF_NUM_SINGLE_PART_SECTIONS;
@@ -2129,12 +2129,28 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
         builder.set_script_followers(custom.script_followers.clone());
 
-        builder.add_section(elyld_layout::output_section_id::FILE_HEADER);
-        builder.add_section(output_section_id::PROGRAM_HEADERS);
-        builder.add_section(output_section_id::NOTE_GNU_PROPERTY);
-        builder.add_section(output_section_id::NOTE_GNU_BUILD_ID);
+        if custom.place_after_similar && !output_kind.is_position_independent() {
+            // GNU `-T` ET_EXEC without FILEHDR: ELF/program headers occupy file
+            // space only. `add_section` would open a PT_LOAD and consume the
+            // script VMA, so `. = 0x600000; .text` would start after the
+            // headers. PIE/DSO still map FILEHDR in the first LOAD so ld.so
+            // can read the Ehdr.
+            builder.push_event(OrderEvent::Section(
+                elyld_layout::output_section_id::FILE_HEADER,
+            ));
+            builder.push_event(OrderEvent::Section(output_section_id::PROGRAM_HEADERS));
+        } else {
+            builder.add_section(elyld_layout::output_section_id::FILE_HEADER);
+            builder.add_section(output_section_id::PROGRAM_HEADERS);
+        }
+        if !custom.place_after_similar {
+            builder.add_section(output_section_id::NOTE_GNU_PROPERTY);
+            builder.add_section(output_section_id::NOTE_GNU_BUILD_ID);
+        }
         builder.add_section(output_section_id::INTERP);
-        builder.add_section(output_section_id::NOTE_ABI_TAG);
+        if !custom.place_after_similar {
+            builder.add_section(output_section_id::NOTE_ABI_TAG);
+        }
         builder.add_section(output_section_id::HASH);
         builder.add_section(output_section_id::GNU_HASH);
         builder.add_section(output_section_id::DYNSYM);
@@ -2145,11 +2161,13 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         builder.add_section(output_section_id::RELA_DYN_RELATIVE);
         builder.add_section(output_section_id::RELR_DYN);
         builder.add_section(output_section_id::RELA_PLT);
-        builder.add_section(output_section_id::RODATA);
-        builder.add_section(output_section_id::EH_FRAME_HDR);
-        builder.add_section(output_section_id::EH_FRAME);
-        builder.add_section(output_section_id::SFRAME);
-        builder.add_section(output_section_id::GCC_EXCEPT_TABLE);
+        if !custom.place_after_similar {
+            builder.add_section(output_section_id::RODATA);
+            builder.add_section(output_section_id::EH_FRAME_HDR);
+            builder.add_section(output_section_id::EH_FRAME);
+            builder.add_section(output_section_id::SFRAME);
+            builder.add_section(output_section_id::GCC_EXCEPT_TABLE);
+        }
         builder.add_sections(&custom.ro);
 
         builder.add_section(output_section_id::PLT_GOT);
@@ -2158,11 +2176,18 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         if custom.place_after_similar {
             builder.add_section(output_section_id::TEXT);
             builder.add_sections(&custom.exec);
+            // GNU places leftover notes / .eh_frame after similar ALLOC
+            // content, not before a script `. = addr; .text`.
+            builder.add_section(output_section_id::NOTE_GNU_PROPERTY);
+            builder.add_section(output_section_id::NOTE_GNU_BUILD_ID);
+            builder.add_section(output_section_id::NOTE_ABI_TAG);
+            builder.add_section(output_section_id::RODATA);
+            builder.add_section(output_section_id::EH_FRAME_HDR);
+            builder.add_section(output_section_id::EH_FRAME);
+            builder.add_section(output_section_id::SFRAME);
+            builder.add_section(output_section_id::GCC_EXCEPT_TABLE);
         } else {
             builder.add_sections(&custom.exec);
-            // Thunk generation only supports emitting thunks before the primary
-            // function part, so unnamed exec sections stay before `.text` when
-            // there is no linker script.
             builder.add_section(output_section_id::TEXT);
         }
 
@@ -2444,9 +2469,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                 )
             });
             if this_class != elyld_layout::output_section_id::OrphanClass::NonAlloc
-                && next_class != Some(this_class)
+                && !next_class.is_some_and(|next| this_class.similar_to(next))
             {
-                let orphans = pending.take_class(this_class);
+                let orphans = pending.take_similar(this_class);
                 if !orphans.is_empty() {
                     for phdr in &output_sections.section_infos.get(section_id).phdrs {
                         if let Some(&seg_id) = segments_map.get(phdr) {

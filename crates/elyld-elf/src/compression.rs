@@ -5,9 +5,6 @@ use crate as elf;
 use crate::elf_writer::apply_debug_relocations;
 use crate::writable_elf::WritableCompressionHeader as _;
 use crate::{ElfClass, elf_writer};
-use object::bytes_of;
-use object::elf::CompressionType;
-use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use elyld_error::bail;
 use elyld_error::error::Result;
 use elyld_layout::output_section_id::{OrderEvent, OutputSectionId};
@@ -17,6 +14,9 @@ use elyld_layout::{
 };
 use elyld_platform::{Arch, ObjectFile as _, SectionFlags as _};
 use elyld_util::alignment::Alignment;
+use object::bytes_of;
+use object::elf::CompressionType;
+use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use zlib_rs::adler32::{adler32, adler32_combine};
 use zlib_rs::{Deflate, DeflateError, DeflateFlush, Status};
 
@@ -158,19 +158,42 @@ impl SectionCompressor for ZstdCompressor {
 
         #[cfg(feature = "zstd")]
         {
-            // One ELFCOMPRESS_ZSTD payload must be a single zstd frame.
-            // Concatenated per-shard frames are a valid zstd *stream*, but
-            // libbacktrace (and gdb's one-shot path) call ZSTD_decompress
-            // with ch_size of the whole section and reject a first-frame-only
-            // result. GNU ld emits one frame.
             verbose_timing_phase!("Compress zstd section");
-            Ok(vec![zstd::encode_all(uncompressed, ZSTD_COMPRESSION_LEVEL)?])
+            Ok(vec![compress_zstd_libbacktrace(uncompressed)?])
         }
     }
 
     fn kind() -> CompressionType {
         object::elf::ELFCOMPRESS_ZSTD
     }
+}
+
+/// One-shot zstd frame that libbacktrace's RFC 8878 decoder will accept.
+///
+/// That decoder is not libzstd. It requires Single_Segment_flag (FHD bit 5),
+/// no dictionary, and reserved bit 0. `zstd::encode_all` uses the streaming
+/// API and emits FHD `0x00` (windowed, no content size). GNU ld calls
+/// `ZSTD_compress`, which sets the flag when `pledgedSrcSize <= 1<<windowLog`.
+/// We bump `windowLog` so large `.debug_*` sections still qualify.
+#[cfg(feature = "zstd")]
+fn compress_zstd_libbacktrace(uncompressed: &[u8]) -> std::io::Result<Vec<u8>> {
+    let mut compressor = zstd::bulk::Compressor::new(ZSTD_COMPRESSION_LEVEL)?;
+    compressor.include_checksum(false)?;
+    compressor.include_contentsize(true)?;
+    compressor.include_dictid(false)?;
+    compressor.window_log(zstd_single_segment_window_log(uncompressed.len()))?;
+    compressor.compress(uncompressed)
+}
+
+#[cfg(feature = "zstd")]
+fn zstd_single_segment_window_log(len: usize) -> u32 {
+    const MIN_WINDOW_LOG: u32 = 10;
+    const MAX_WINDOW_LOG: u32 = 31;
+    let mut log = MIN_WINDOW_LOG;
+    while log < MAX_WINDOW_LOG && (1u64 << log) < len as u64 {
+        log += 1;
+    }
+    log
 }
 
 fn zlib_deflate_error(error: DeflateError) -> elyld_error::error::Error {
@@ -573,11 +596,56 @@ mod tests {
         let chunks = ZstdCompressor::compress_section(&input).unwrap();
         assert_eq!(chunks.len(), 1, "ELFCOMPRESS_ZSTD is one zstd frame");
 
+        let frame = &chunks[0];
+        assert!(
+            frame.len() > 5,
+            "zstd frame too short for magic + FHD: {}",
+            frame.len()
+        );
+        assert_eq!(&frame[..4], &[0x28, 0xb5, 0x2f, 0xfd], "zstd magic");
+        let fhd = frame[4];
+        assert_ne!(
+            fhd & (1 << 5),
+            0,
+            "libbacktrace requires Single_Segment_flag (FHD bit 5), hdr={fhd:#04x}"
+        );
+        assert_eq!(fhd & (1 << 3), 0, "zstd reserved bit must be zero");
+        assert_eq!(fhd & 3, 0, "libbacktrace rejects a dictionary ID");
+
         // libbacktrace / gdb one-shot path: ZSTD_decompress, first frame must
         // equal ch_size. decode_all would also accept concatenated frames.
-        let recovered = zstd::bulk::decompress(&chunks[0], input.len()).expect(
-            "ZSTD_decompress must recover the whole section from a single frame",
+        let recovered = zstd::bulk::decompress(frame, input.len())
+            .expect("ZSTD_decompress must recover the whole section from a single frame");
+        assert_eq!(recovered, input);
+    }
+
+    #[cfg(feature = "zstd")]
+    #[test]
+    fn zstd_encode_all_is_not_libbacktrace_compatible() {
+        let input = pattern_bytes(MIN_CHUNK_SIZE * 3 + 123);
+        let streamed = zstd::encode_all(&input[..], ZSTD_COMPRESSION_LEVEL).unwrap();
+        assert_eq!(
+            streamed[4] & (1 << 5),
+            0,
+            "encode_all unexpectedly set Single_Segment_flag; the bulk compressor switch can go"
         );
+    }
+
+    #[cfg(feature = "zstd")]
+    #[test]
+    fn zstd_single_segment_above_default_window() {
+        // Level 3's default windowLog is 21 (2 MiB). `ZSTD_compress` would
+        // then omit Single_Segment_flag; libbacktrace still requires it.
+        let input = pattern_bytes((1 << 21) + 1);
+        let chunks = ZstdCompressor::compress_section(&input).unwrap();
+        assert_eq!(chunks.len(), 1);
+        let fhd = chunks[0][4];
+        assert_ne!(
+            fhd & (1 << 5),
+            0,
+            "Single_Segment_flag must survive >2MiB debug, hdr={fhd:#04x}"
+        );
+        let recovered = zstd::bulk::decompress(&chunks[0], input.len()).unwrap();
         assert_eq!(recovered, input);
     }
 }

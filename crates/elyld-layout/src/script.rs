@@ -97,15 +97,43 @@ pub fn layout_time_symbol_value<'data, P: EnginePlatform>(
     sizeof_headers: u64,
     resolved_lc: &[ResolvedLocationCounter],
     const_script_symbols: &HashMap<&[u8], u64>,
-    recursion_depth: u32,
+    visiting: &mut Vec<Vec<u8>>,
 ) -> Result<u64> {
-    if recursion_depth > 32 {
-        bail!(
-            "cyclic linker-script symbol `{}`",
-            String::from_utf8_lossy(name)
-        );
+    // GNU ld and LLD emit a binary with cyclic assignments (typically 0) rather
+    // than recursing. Unoptimized layout evaluation overflows the stack well
+    // before a numeric depth cap.
+    if visiting.iter().any(|seen| seen.as_slice() == name) {
+        return Ok(0);
     }
+    visiting.push(name.to_vec());
+    let result = layout_time_symbol_value_inner(
+        name,
+        symbol_db,
+        section_layouts,
+        output_sections,
+        memory_regions,
+        loc,
+        sizeof_headers,
+        resolved_lc,
+        const_script_symbols,
+        visiting,
+    );
+    visiting.pop();
+    result
+}
 
+fn layout_time_symbol_value_inner<'data, P: EnginePlatform>(
+    name: &[u8],
+    symbol_db: &SymbolDb<'data, P>,
+    section_layouts: &OutputSectionMap<OutputRecordLayout>,
+    output_sections: &OutputSections<'data, P>,
+    memory_regions: &HashMap<&[u8], MemoryRegion>,
+    loc: &SymbolLoc,
+    sizeof_headers: u64,
+    resolved_lc: &[ResolvedLocationCounter],
+    const_script_symbols: &HashMap<&[u8], u64>,
+    visiting: &mut Vec<Vec<u8>>,
+) -> Result<u64> {
     if let Some(value) = const_script_symbols.get(name) {
         return Ok(*value);
     }
@@ -126,7 +154,7 @@ pub fn layout_time_symbol_value<'data, P: EnginePlatform>(
             sizeof_headers,
             resolved_lc,
             const_script_symbols,
-            recursion_depth,
+            visiting,
         );
     }
 
@@ -166,7 +194,7 @@ pub fn layout_time_symbol_value<'data, P: EnginePlatform>(
             sizeof_headers,
             resolved_lc,
             const_script_symbols,
-            recursion_depth,
+            visiting,
         ),
         SequencedInput::LinkerScript(script) => {
             let offset = definition.to_offset(script.symbol_id_range);
@@ -181,7 +209,7 @@ pub fn layout_time_symbol_value<'data, P: EnginePlatform>(
                 sizeof_headers,
                 resolved_lc,
                 const_script_symbols,
-                recursion_depth,
+                visiting,
             )
         }
         SequencedInput::SyntheticSymbols(_) | SequencedInput::StubLibrary(_) => {
@@ -204,7 +232,7 @@ pub fn script_def_layout_value<'data, P: EnginePlatform>(
     sizeof_headers: u64,
     resolved_lc: &[ResolvedLocationCounter],
     const_script_symbols: &HashMap<&[u8], u64>,
-    recursion_depth: u32,
+    visiting: &mut Vec<Vec<u8>>,
 ) -> Result<u64> {
     match &def.placement {
         SymbolPlacement::Redirect(redirect) => crate::expression_eval::evaluate_expression(
@@ -229,7 +257,7 @@ pub fn script_def_layout_value<'data, P: EnginePlatform>(
                     sizeof_headers,
                     resolved_lc,
                     const_script_symbols,
-                    recursion_depth + 1,
+                    visiting,
                 )?))
             },
         ),
@@ -296,6 +324,11 @@ fn collect_const_candidates<'a, 'data, P: EnginePlatform>(
         let SymbolPlacement::Redirect(redirect) = &def.placement else {
             continue;
         };
+        // GNU: `offset2 = 0x40` inside an output section is a VMA
+        // (`section_start + 0x40`), not a link-time constant.
+        if redirect.loc.relative_section_id().is_some() {
+            continue;
+        }
         candidates.push((def.name, &redirect.expression));
     }
 }

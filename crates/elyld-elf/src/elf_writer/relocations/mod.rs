@@ -31,7 +31,7 @@ use elyld_layout::thunks::ThunkBlockId;
 use elyld_layout::{FileLayout, Layout, ObjectLayout, Resolution};
 use elyld_platform as platform;
 use elyld_platform::Args as _;
-use elyld_platform::value_flags::{PerSymbolFlags, ValueFlags};
+use elyld_platform::value_flags::PerSymbolFlags;
 use elyld_platform::{Arch, ObjectFile, Platform, Relocation, SectionFlags as _};
 
 pub(crate) fn display_relocation<
@@ -163,7 +163,7 @@ pub(crate) fn get_resolution<'data, C: ElfClass, R: Relocation>(
                 Some(Resolution {
                     raw_value: section_address + output_offset,
                     dynamic_symbol_index: None,
-                    flags: ValueFlags::empty(),
+                    flags: layout.flags_for_symbol(local_symbol_id),
                     format_specific: Default::default(),
                 })
             })
@@ -332,8 +332,9 @@ pub(crate) fn apply_debug_relocation<
     let r_type = rel.raw_type();
     let rel_info = A::relocation_from_raw(r_type)?;
 
+    let local_symbol_id = object_layout.symbol_id_range.input_to_id(symbol_index);
     let resolution = layout
-        .merged_symbol_resolution(object_layout.symbol_id_range.input_to_id(symbol_index))
+        .merged_symbol_resolution(local_symbol_id)
         .or_else(|| {
             section_index.and_then(|section_index| {
                 let section_address =
@@ -351,7 +352,7 @@ pub(crate) fn apply_debug_relocation<
                 Some(Resolution {
                     raw_value: section_address + output_offset,
                     dynamic_symbol_index: None,
-                    flags: ValueFlags::empty(),
+                    flags: layout.flags_for_symbol(local_symbol_id),
                     format_specific: Default::default(),
                 })
             })
@@ -470,7 +471,11 @@ pub(crate) fn write_absolute_relocation<'data, C: ElfClass, A: Arch<Platform = e
     {
         // Weak undefined symbol referenced from a read-only section. Fill in as zero.
         Ok(0)
-    } else if resolution.flags.is_interposable() && section_info.is_writable {
+    } else if resolution.flags.is_interposable()
+        && section_info.is_writable
+        && table_writer.output_kind.needs_dynsym()
+        && resolution.dynamic_symbol_index.is_some()
+    {
         table_writer.write_dynamic_symbol_relocation::<A>(
             place,
             addend,

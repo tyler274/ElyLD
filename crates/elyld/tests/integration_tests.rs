@@ -376,6 +376,7 @@
 mod external_tests;
 mod glibc;
 mod incremental_check;
+mod libbacktrace;
 mod packages;
 mod vmlinux;
 
@@ -424,6 +425,7 @@ fn main() -> Result<std::process::ExitCode> {
     external_tests::collect_tests(&mut tests, &filter, &test_config)?;
     vmlinux::collect_tests(&mut tests, &filter);
     glibc::collect_tests(&mut tests, &filter);
+    libbacktrace::collect_tests(&mut tests, &filter);
     packages::collect_tests(&mut tests, &filter);
     Ok(libtest_mimic::run(&args, tests).exit_code())
 }
@@ -1018,6 +1020,16 @@ impl Linker {
         kind: IntermediateKind,
     ) -> Result<LinkerInput> {
         let mut linker_args = config.linker_args.clone();
+        if kind == IntermediateKind::Shared {
+            // Executable-only flags from the final link must not apply to `-shared`.
+            // LLVM 22 LLD rejects `-pie -shared`.
+            linker_args.args.retain(|a| {
+                !matches!(
+                    a.as_str(),
+                    "-pie" | "--pie" | "-static-pie" | "--static-pie"
+                )
+            });
+        }
 
         linker_args
             .args
@@ -1059,6 +1071,13 @@ impl Linker {
 
     fn is_elyld(&self) -> bool {
         *self == Linker::Elyld
+    }
+
+    /// Test directives still say `wild` in a few places after the ElyLD rename.
+    fn matches_name(&self, name: &str) -> bool {
+        self.name() == name
+            || self.gcc_name() == name
+            || (self.is_elyld() && matches!(name, "wild" | "elyld"))
     }
 
     fn name(&self) -> &str {
@@ -1110,6 +1129,174 @@ fn elyld_b_dir() -> &'static Path {
         dir
     })
     .as_path()
+}
+
+fn path_has_static_component(path: &Path) -> bool {
+    path.components()
+        .any(|c| c.as_os_str().to_string_lossy().contains("-static"))
+}
+
+fn link_requests_static_libc(args: &[String]) -> bool {
+    args.iter().any(|arg| {
+        matches!(
+            arg.as_str(),
+            "-static" | "--static" | "-static-pie" | "--static-pie"
+        )
+    })
+}
+
+/// Keep only `-L` from Nix's `NIX_LDFLAGS`. The rest (`-rpath`, wrapped linker
+/// `-B`) must not reach collect2 when tests force ElyLD via `-B`.
+fn nix_ldflags_search_dirs(ldflags: &str) -> String {
+    nix_ldflags_search_dirs_filtered(ldflags, true)
+}
+
+fn nix_ldflags_search_dirs_filtered(ldflags: &str, keep_static: bool) -> String {
+    let mut kept = Vec::new();
+    let mut tokens = ldflags.split_whitespace();
+    while let Some(tok) = tokens.next() {
+        if tok == "-L" {
+            if let Some(path) = tokens.next() {
+                if keep_static || !path_has_static_component(Path::new(path)) {
+                    kept.push(format!("-L{path}"));
+                }
+            }
+        } else if tok.starts_with("-L") && tok.len() > 2 {
+            let path = &tok[2..];
+            if keep_static || !path_has_static_component(Path::new(path)) {
+                kept.push(tok.to_owned());
+            }
+        }
+    }
+    kept.sort();
+    kept.dedup();
+    kept.join(" ")
+}
+
+/// Drop Nix `-B` so collect2 cannot pick a host linker, but keep `-L` so `-lc`
+/// resolves. Static `glibc.static` dirs must not appear on dynamic links or
+/// gcc finds `libc.a` first and the PIE still uses the dynamic loader.
+fn apply_nix_link_search_env(command: &mut Command, linker_args: &[String]) {
+    let keep_static = link_requests_static_libc(linker_args);
+    let mut kept = Vec::new();
+    for var in ["NIX_LDFLAGS", "NIX_CFLAGS_LINK"] {
+        if let Ok(flags) = std::env::var(var) {
+            let piece = nix_ldflags_search_dirs_filtered(&flags, keep_static);
+            if !piece.is_empty() {
+                kept.extend(piece.split_whitespace().map(str::to_owned));
+            }
+        }
+    }
+    kept.sort();
+    kept.dedup();
+    command.env_remove("NIX_CFLAGS_LINK");
+    if kept.is_empty() {
+        command.env_remove("NIX_LDFLAGS");
+    } else {
+        command.env("NIX_LDFLAGS", kept.join(" "));
+    }
+    if let Ok(libpath) = std::env::var("LIBRARY_PATH") {
+        let filtered = libpath
+            .split(':')
+            .filter(|p| keep_static || p.is_empty() || !path_has_static_component(Path::new(p)))
+            .collect::<Vec<_>>();
+        if filtered.iter().all(|p| p.is_empty()) {
+            command.env_remove("LIBRARY_PATH");
+        } else {
+            command.env("LIBRARY_PATH", filtered.join(":"));
+        }
+    }
+}
+
+fn extra_nix_link_search_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Ok(ldflags) = std::env::var("NIX_LDFLAGS") {
+        for tok in nix_ldflags_search_dirs(&ldflags).split_whitespace() {
+            if let Some(path) = tok.strip_prefix("-L") {
+                dirs.push(PathBuf::from(path));
+            }
+        }
+    }
+    if let Ok(libpath) = std::env::var("LIBRARY_PATH") {
+        for path in libpath.split(':').filter(|p| !p.is_empty()) {
+            dirs.push(PathBuf::from(path));
+        }
+    }
+    dirs.sort();
+    dirs.dedup();
+    dirs.retain(|dir| !path_has_static_component(dir));
+    dirs
+}
+
+fn find_named_library(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
+    for dir in dirs {
+        for name in names {
+            let path = dir.join(name);
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+fn command_stdout_trim(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(output.stdout).ok()?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
+/// Locate `LLVMgold.so` so GNU `ld.bfd` can parse rustc `-plugin-opt` from a
+/// clang `--ld-path` save-dir. ElyLD auto-discovers the plugin; BFD does not.
+fn discover_llvm_gold_plugin() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(sysroot) = command_stdout_trim("rustc", &["--print", "sysroot"]) {
+        candidates.push(PathBuf::from(sysroot).join("lib/LLVMgold.so"));
+    }
+    if let Some(libdir) = command_stdout_trim("llvm-config", &["--libdir"]) {
+        candidates.push(PathBuf::from(libdir).join("LLVMgold.so"));
+    }
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// Args inserted into `L` (before saved clang args) when relinking a rust
+/// save-dir with GNU ld.
+fn gnu_ld_run_with_prefix_args(linker: &Linker) -> Vec<String> {
+    if !linker.is_bfd() {
+        return Vec::new();
+    }
+    discover_llvm_gold_plugin()
+        .map(|plugin| vec![format!("--plugin={}", plugin.display())])
+        .unwrap_or_default()
+}
+
+/// Args after `--` so they follow objects. Prefer the `libc.so` linker script
+/// so GNU ld's `AS_NEEDED ( ld-linux )` GROUP satisfies `__tls_get_addr`
+/// without copying IFUNC resolvers into the executable.
+fn gnu_ld_run_with_tail_args(linker: &Linker, _cross_arch: Option<Architecture>) -> Vec<String> {
+    if !linker.is_bfd() {
+        return Vec::new();
+    }
+    let dirs = extra_nix_link_search_dirs();
+    if dirs.is_empty() {
+        return Vec::new();
+    }
+    let mut args: Vec<String> = dirs
+        .iter()
+        .map(|dir| format!("-L{}", dir.display()))
+        .collect();
+    if let Some(libc) = find_named_library(&dirs, &["libc.so"]) {
+        args.push(libc.display().to_string());
+    }
+    args
 }
 
 #[derive(Debug)]
@@ -2488,7 +2675,7 @@ fn process_directive(
             config.so_single_linker = config
                 .available_linkers
                 .iter()
-                .find(|l| l.name() == arg)
+                .find(|l| l.matches_name(arg))
                 .cloned();
         }
         "LinkerDriver" => {
@@ -4185,6 +4372,11 @@ fn add_rustc_compile_args(
         command
             .args(["-C", "linker=clang"])
             .args(["-C", &format!("link-arg=--ld-path={wild}")]);
+        // rustc invokes `ld.bfd` directly for GNU reference links; pass Nix
+        // `-L` so `libgcc_s.so.1` / libc resolve without the gcc driver.
+        for dir in extra_nix_link_search_dirs() {
+            command.args(["-C", &format!("link-arg=-L{}", dir.display())]);
+        }
     }
 
     if let Some(arch) = cross_arch {
@@ -4646,7 +4838,13 @@ impl LinkCommand {
             command.env("OUT", output_path);
             command.arg(script);
             command.arg(linker.path(cross_arch));
+            command.args(gnu_ld_run_with_prefix_args(linker));
             add_inputs_to_command(config, extra_inputs, &mut command);
+            let tail = gnu_ld_run_with_tail_args(linker, cross_arch);
+            if !tail.is_empty() {
+                command.arg("--");
+                command.args(tail);
+            }
             invocation_mode = LinkerInvocationMode::Script;
         } else {
             let linker_path = linker.path(cross_arch);
@@ -4682,6 +4880,9 @@ impl LinkCommand {
                                     .to_str()
                                     .expect("Linker path must be valid UTF-8")
                             ));
+                            if linker.is_elyld() {
+                                apply_nix_link_search_env(&mut command, &linker_args.args);
+                            }
 
                             add_cross_args(&mut command, &[], cross_arch, config.platform);
                         }
@@ -4694,11 +4895,7 @@ impl LinkCommand {
                                     // to want any equivalent to clang's --ld-path. The closest we
                                     // can get is to put a file called "ld" in a directory, then
                                     // pass "-B" and that directory.
-                                    //
-                                    // Drop Nix stdenv `-B` so collect2 cannot pick a host linker
-                                    // before this directory.
-                                    command.env_remove("NIX_CFLAGS_LINK");
-                                    command.env_remove("NIX_LDFLAGS");
+                                    apply_nix_link_search_env(&mut command, &linker_args.args);
                                     command.arg("-B").arg(elyld_b_dir());
                                 }
                                 Linker::ThirdParty(third_party_linker) => {
@@ -5391,6 +5588,9 @@ impl Assertions {
         verify_no_overlapping_sections(&obj)?;
         if !self.skip_overlap_segments_check {
             verify_no_overlapping_segments(&obj)?;
+        }
+        if linker_used.is_elyld() {
+            verify_libbacktrace_zstd_debug_sections(&obj)?;
         }
 
         match obj {
@@ -6321,6 +6521,125 @@ fn gdb_index_section_data(obj: &object::File, directive: &str) -> Result<Vec<u8>
         .section_by_name(".gdb_index")
         .with_context(|| format!("{directive}: .gdb_index section not found"))?;
     Ok(section.data()?.to_vec())
+}
+
+/// libbacktrace's `elf_zstd_decompress_frame` is a hand-rolled RFC 8878
+/// decoder, not libzstd. It rejects windowed/streaming frames
+/// (`Single_Segment_flag` / FHD bit 5) and dictionaries. GNU ld's
+/// `ZSTD_compress` satisfies that contract; `zstd::encode_all` does not.
+fn verify_libbacktrace_zstd_debug_sections(obj: &object::File) -> Result {
+    for section in obj.sections() {
+        let object::SectionFlags::Elf { sh_flags, .. } = section.flags() else {
+            continue;
+        };
+        if sh_flags.0 & object::elf::SHF_COMPRESSED.0 == 0 {
+            continue;
+        }
+        let name = section.name().unwrap_or("<unnamed>");
+        let data = section
+            .data()
+            .with_context(|| format!("Failed to read compressed section `{name}`"))?;
+        let (ch_type, ch_size, payload) = match obj {
+            object::File::Elf64(_) => {
+                ensure!(
+                    data.len() >= 24,
+                    "Section `{name}` is shorter than Elf64_Chdr"
+                );
+                let ch_type = u32::from_le_bytes(data[0..4].try_into().unwrap());
+                let ch_size = u64::from_le_bytes(data[8..16].try_into().unwrap());
+                (ch_type, ch_size, &data[24..])
+            }
+            object::File::Elf32(_) => {
+                ensure!(
+                    data.len() >= 12,
+                    "Section `{name}` is shorter than Elf32_Chdr"
+                );
+                let ch_type = u32::from_le_bytes(data[0..4].try_into().unwrap());
+                let ch_size = u32::from_le_bytes(data[4..8].try_into().unwrap()) as u64;
+                (ch_type, ch_size, &data[12..])
+            }
+            _ => continue,
+        };
+        if ch_type != object::elf::ELFCOMPRESS_ZSTD.0 {
+            continue;
+        }
+        validate_libbacktrace_zstd_frame(name, payload, ch_size)?;
+    }
+    Ok(())
+}
+
+fn validate_libbacktrace_zstd_frame(section: &str, payload: &[u8], ch_size: u64) -> Result {
+    const MAGIC: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
+    ensure!(
+        payload.len() >= 5,
+        "Section `{section}`: ELFCOMPRESS_ZSTD payload too short for magic + FHD"
+    );
+    ensure!(
+        payload[..4] == MAGIC,
+        "Section `{section}`: missing zstd magic, got {:02x?}",
+        &payload[..4]
+    );
+    let hdr = payload[4];
+    ensure!(
+        hdr & (1 << 5) != 0,
+        "Section `{section}`: libbacktrace requires Single_Segment_flag (FHD bit 5), hdr={hdr:#04x}"
+    );
+    ensure!(
+        hdr & (1 << 3) == 0,
+        "Section `{section}`: zstd reserved bit must be zero, hdr={hdr:#04x}"
+    );
+    ensure!(
+        hdr & 3 == 0,
+        "Section `{section}`: libbacktrace rejects a dictionary ID, hdr={hdr:#04x}"
+    );
+
+    // Single_Segment_flag omits Window_Descriptor; Frame_Content_Size is required.
+    let mut pin = 5usize;
+    let content_size = match hdr >> 6 {
+        0 => {
+            ensure!(
+                pin < payload.len(),
+                "Section `{section}`: truncated 1-byte Frame_Content_Size"
+            );
+            let value = payload[pin] as u64;
+            pin += 1;
+            value
+        }
+        1 => {
+            ensure!(
+                pin + 1 < payload.len(),
+                "Section `{section}`: truncated 2-byte Frame_Content_Size"
+            );
+            let value = u16::from_le_bytes(payload[pin..pin + 2].try_into().unwrap()) as u64 + 256;
+            pin += 2;
+            value
+        }
+        2 => {
+            ensure!(
+                pin + 3 < payload.len(),
+                "Section `{section}`: truncated 4-byte Frame_Content_Size"
+            );
+            let value = u32::from_le_bytes(payload[pin..pin + 4].try_into().unwrap()) as u64;
+            pin += 4;
+            value
+        }
+        3 => {
+            ensure!(
+                pin + 7 < payload.len(),
+                "Section `{section}`: truncated 8-byte Frame_Content_Size"
+            );
+            let value = u64::from_le_bytes(payload[pin..pin + 8].try_into().unwrap());
+            pin += 8;
+            value
+        }
+        _ => bail!("Section `{section}`: invalid Frame_Content_Size_flag"),
+    };
+    let _ = pin;
+    ensure!(
+        content_size == ch_size,
+        "Section `{section}`: zstd Frame_Content_Size {content_size} != ch_size {ch_size}"
+    );
+    Ok(())
 }
 
 fn verify_no_overlapping_sections(obj: &object::File) -> Result {

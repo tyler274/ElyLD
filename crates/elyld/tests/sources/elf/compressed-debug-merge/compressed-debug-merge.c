@@ -13,6 +13,7 @@
 //#RequiresLinkerFlags:--compress-debug-sections=zstd
 //#RequiresZstdCompression:true
 //#LinkArgs:--compress-debug-sections=zstd
+//#ExpectSection:.debug_info flags=C
 
 //#Config:none:default
 //#LinkArgs:--compress-debug-sections=none

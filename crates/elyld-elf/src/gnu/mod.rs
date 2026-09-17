@@ -179,7 +179,16 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
             flags_intersection(self.flags, rhs.flags),
             MERGE_STRINGS_FLAGS,
         );
-        self.flags = (self.flags | rhs.flags).without(MERGE_STRINGS_FLAGS) | merge_strings;
+        let mut left = self.flags;
+        let mut right = rhs.flags;
+        // GNU maps mixed `.text` + `.init_array` as RX, not WX. Keep SHF_WRITE
+        // on a WX input such as `.section .wtext,"awx"`.
+        if left.contains(shf::EXECINSTR) && !right.contains(shf::EXECINSTR) {
+            right = right.without(shf::WRITE);
+        } else if right.contains(shf::EXECINSTR) && !left.contains(shf::EXECINSTR) {
+            left = left.without(shf::WRITE);
+        }
+        self.flags = (left | right).without(MERGE_STRINGS_FLAGS) | merge_strings;
 
         // We somewhat arbitrarily tie-break by selecting the maximum type. This means for example
         // that types like SHT_INIT_ARRAY win out over more generic types like SHT_PROGBITS.
@@ -196,12 +205,22 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
     fn apply(&self, output_sections: &mut OutputSections<Elf<C>>, section_id: OutputSectionId) {
         let info = output_sections.section_infos.get_mut(section_id);
 
-        let incoming_merge = flags_intersection(self.flags, MERGE_STRINGS_FLAGS);
-        info.section_attributes.flags |= self.flags.without(
+        let incoming_flags = self.flags.without(
             SECTION_FLAGS_PROPAGATION_MASK
                 | MERGE_STRINGS_FLAGS
                 | info.section_attributes.overrides.avoid_progpogation,
         );
+        let incoming_merge = flags_intersection(self.flags, MERGE_STRINGS_FLAGS);
+        let out_exec = info.section_attributes.flags.contains(shf::EXECINSTR);
+        let in_exec = incoming_flags.contains(shf::EXECINSTR);
+        if out_exec && !in_exec {
+            info.section_attributes.flags |= incoming_flags.without(shf::WRITE);
+        } else if in_exec && !out_exec {
+            info.section_attributes.flags =
+                info.section_attributes.flags.without(shf::WRITE) | incoming_flags;
+        } else {
+            info.section_attributes.flags |= incoming_flags;
+        }
 
         if !info.section_attributes.received_input_flags {
             info.section_attributes.flags =
@@ -484,6 +503,10 @@ impl platform::ProgramSegmentDef for ProgramSegmentDef {
 
     fn is_tls(self) -> bool {
         self.segment_type == pt::TLS
+    }
+
+    fn is_interp(self) -> bool {
+        self.segment_type == pt::INTERP
     }
 
     fn order_key(self) -> usize {

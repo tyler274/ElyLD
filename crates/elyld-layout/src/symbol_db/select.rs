@@ -95,6 +95,19 @@ fn process_alternatives<'data, P: EnginePlatform>(
             Ok(selected) => {
                 maybe_warn_common(symbol_db, first, &alternatives, resolved);
 
+                // Non-IR references and dynamic-export requests may have been
+                // recorded on a non-prevailing alternative. Copy them onto the
+                // selected definition so LTO and dynsym see them.
+                let mut extra = ValueFlags::empty();
+                extra |= per_symbol_flags.flags_for_symbol(first);
+                for &alt in &alternatives {
+                    extra |= per_symbol_flags.flags_for_symbol(alt);
+                }
+                extra &= ValueFlags::HAS_NON_IR_REF | ValueFlags::EXPORT_DYNAMIC;
+                if !extra.is_empty() {
+                    per_symbol_flags.get_atomic(selected).or_assign(extra);
+                }
+
                 symbol_db.update_definition(first, selected);
 
                 for &alt in &alternatives {

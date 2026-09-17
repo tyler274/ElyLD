@@ -82,13 +82,15 @@ pub fn merge_secondary_parts<P: EnginePlatform>(
                 // An empty primary is an artifact of splitting on `. = ALIGN(...)`
                 // before the first matcher (kernel `.data_nosave`). Keep its VMA
                 // but take the file offset of the first file-backed secondary so
-                // `sh_offset` matches `p_offset ≡ p_vaddr` (GNU ld). Do not adopt
-                // a trailing empty ALIGN secondary, which sits at the hole's end.
-                // A fill pattern (`=fillexp` / `FILL`) must keep a leading
-                // `. += N` hole in the file so the pattern is written there.
+                // `sh_offset` matches `p_offset ≡ p_vaddr` (GNU ld) **only when
+                // the primary was never placed in the file** (offset 0). A
+                // leading `. = N` hole in PROGBITS must stay in the file;
+                // adopting the content's `sh_offset` while `sh_size` still
+                // covers the hole overlaps the next section.
                 if primary.file_size == 0
                     && primary.mem_size == 0
                     && secondary_layout.file_size > 0
+                    && primary.file_offset == 0
                     && secondary_layout.file_offset > primary.file_offset
                     && output_sections.output_info(primary_id).fill.is_none()
                 {
@@ -154,6 +156,7 @@ pub fn compute_symbols_and_layouts<'data, P: EnginePlatform>(
                     let offset_verifier = crate::verification::OffsetVerifier::new::<P>(
                         &memory_offsets,
                         &state.common.mem_sizes,
+                        resources.symbol_db.args.should_output_partial_object(),
                     );
 
                     // Make sure that ignored offsets really aren't used by `finalise_layout` by
@@ -264,7 +267,10 @@ pub fn compute_segment_layout<'data, P: EnginePlatform>(
                 let section_info = output_sections.output_info(section_id);
 
                 if active_segments.iter().all(|s| s.is_none()) {
-                    if output_order.has_custom_phdrs() {
+                    if output_order.has_custom_phdrs()
+                        || merge_target == crate::output_section_id::FILE_HEADER
+                        || P::CUSTOM_PHDR_EXCLUDED_SECTION_IDS.contains(&merge_target)
+                    {
                         continue;
                     }
                     ensure!(

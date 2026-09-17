@@ -46,11 +46,16 @@ fn evaluate_symbol_value<P: EnginePlatform>(
     output_sections: &OutputSections<'_, P>,
     section_layouts: &OutputSectionMap<OutputRecordLayout>,
     laid_out_mem_offsets: &OutputSectionPartMap<Option<u64>>,
+    resolved_location_counters: &[ResolvedLocationCounter],
     value_kind: &mut ExpressionValueKind,
     name: &[u8],
 ) -> Result<u64> {
-    let current_section = loc
-        .relative_section_id()
+    // Top-level `. = foo + N` is tagged with the previous section so `_end = .`
+    // is not SHN_ABS, but `.` is still an absolute VMA. Only convert object
+    // symbols to section offsets when `.` is actually inside a section.
+    let current_section = location_is_section_relative(loc, resolved_location_counters)
+        .then(|| loc.relative_section_id())
+        .flatten()
         .map(|id| output_sections.primary_output_section(id));
     match symbol_value {
         SymbolValue::Absolute(value) => {
@@ -73,6 +78,9 @@ fn evaluate_symbol_value<P: EnginePlatform>(
                 })?;
                 Ok(offset)
             } else if let Some(section) = current_section {
+                // GNU: a symbol assigned in another section is still relocatable.
+                // Inside `.data`, `. += offset2` (defined in `.custom`) adds both
+                // `offset2`'s VMA and `.data`'s VMA.
                 value_kind.contains_absolute = true;
                 let section_base = section_layouts.get(section).mem_offset;
                 Ok(address + section_base)
@@ -339,6 +347,7 @@ fn evaluate_expression_value<'data, P: EnginePlatform>(
                 output_sections,
                 section_layouts,
                 laid_out_mem_offsets,
+                resolved_location_counters,
                 value_kind,
                 name,
             )

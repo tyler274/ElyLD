@@ -21,15 +21,29 @@ pub struct CustomSectionIds {
     pub nonalloc: Vec<OutputSectionId>,
     pub tdata: Vec<OutputSectionId>,
     pub tbss: Vec<OutputSectionId>,
-    /// When a replacing linker script is present, place unnamed (orphan) output
+    /// When a replacing `-T` script is present, place unnamed (orphan) output
     /// sections after the last section with the same flags, matching GNU ld.
-    /// `INSERT` fragments splice into the default layout and do not set this.
+    /// `INSERT` fragments and GROUP/OUTPUT_FORMAT scripts (e.g. `libc.so`)
+    /// splice into or keep the default layout and do not set this.
     pub place_after_similar: bool,
     /// Script-mentioned custom sections emitted immediately after the previous
     /// builtin named in `SECTIONS`. Without this, those sections are grouped
     /// with orphans (e.g. RO customs before `.text`) and GNU `AT>` LMA
     /// continuation never sees them.
     pub script_followers: Vec<(OutputSectionId, OutputSectionId)>,
+}
+
+impl OrphanClass {
+    /// GNU places orphans after the last section with similar flags, not between
+    /// `.data` and `.bss` (both writable ALLOC) or `.tdata` and `.tbss`.
+    pub fn similar_to(self, other: OrphanClass) -> bool {
+        use OrphanClass::*;
+        match (self, other) {
+            (Data | Bss, Data | Bss) => true,
+            (Tdata | Tbss, Tdata | Tbss) => true,
+            (a, b) => a == b,
+        }
+    }
 }
 
 impl CustomSectionIds {
@@ -64,6 +78,25 @@ impl CustomSectionIds {
             OrphanClass::Tdata => core::mem::take(&mut self.tdata),
             OrphanClass::Tbss => core::mem::take(&mut self.tbss),
             OrphanClass::NonAlloc => core::mem::take(&mut self.nonalloc),
+        }
+    }
+
+    /// Flush every orphan class that is similar to `class`, keeping PROGBITS
+    /// before NOBITS so `.data` orphans still precede `.bss` orphans.
+    pub fn take_similar(&mut self, class: OrphanClass) -> Vec<OutputSectionId> {
+        use OrphanClass::*;
+        match class {
+            Data | Bss => {
+                let mut ids = core::mem::take(&mut self.data);
+                ids.append(&mut self.bss);
+                ids
+            }
+            Tdata | Tbss => {
+                let mut ids = core::mem::take(&mut self.tdata);
+                ids.append(&mut self.tbss);
+                ids
+            }
+            other => self.take_class(other),
         }
     }
 }

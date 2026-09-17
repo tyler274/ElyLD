@@ -227,7 +227,7 @@ pub(crate) fn write_defsym_dynsym<C: ElfClass>(
         .local_symbol_resolution(symbol_id)
         .with_context(|| format!("Missing resolution for {}", layout.symbol_debug(symbol_id)))?;
     let address = resolution.raw_value;
-    let (shndx, st_type) = get_defsym_attributes(layout, def_info, address)?;
+    let (shndx, st_type) = get_defsym_attributes(layout, def_info, address, &mut Vec::new())?;
     let name = layout.symbol_db.symbol_name(symbol_id)?;
 
     let entry = dynsym_writer

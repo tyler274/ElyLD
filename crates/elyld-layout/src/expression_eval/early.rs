@@ -53,6 +53,7 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
     section_positions: &OnceCell<InputSectionPositions>,
     visited_nodes: &mut HashSet<SymbolId>,
     const_script_symbols: &HashMap<&[u8], u64>,
+    visiting: &mut Vec<Vec<u8>>,
 ) -> Result<u64> {
     crate::expression_eval::evaluate_expression(
         expr,
@@ -70,6 +71,10 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
                 return Ok(SymbolValue::Absolute(value));
             }
 
+            if visiting.iter().any(|seen| seen.as_slice() == name) {
+                return Ok(SymbolValue::Absolute(0));
+            }
+
             let Some(symbol_id) =
                 symbol_db.get_unversioned(&UnversionedSymbolName::prehashed(name))
             else {
@@ -85,19 +90,34 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
                 .get(file_id.group())
                 .and_then(|group| group.files.get(file_id.file()));
             match file {
-                Some(FileLayoutState::Object(obj)) => layout::resolve_early_object_symbol(
-                    canonical_id,
-                    obj,
-                    section_positions.get_or_init(|| {
-                        layout::compute_input_section_positions(
-                            group_states,
-                            sizes.new_empty_like(),
-                            symbol_db,
-                            output_sections,
-                        )
-                    }),
-                    symbol_db,
-                ),
+                Some(FileLayoutState::Object(obj)) => {
+                    let value = layout::resolve_early_object_symbol(
+                        canonical_id,
+                        obj,
+                        section_positions.get_or_init(|| {
+                            // Start from current part VMAs so input-section alignment is
+                            // applied to the output address, matching GNU ld and the
+                            // post-layout symbol assignment pass.
+                            layout::compute_input_section_positions(
+                                group_states,
+                                laid_out_mem_offsets.map(|_, vma| vma.unwrap_or(0)),
+                                symbol_db,
+                                output_sections,
+                            )
+                        }),
+                        symbol_db,
+                    )?;
+                    // Those positions are already output VMAs when the part has been laid
+                    // out; `PartRelative` would add the part start a second time.
+                    Ok(match value {
+                        SymbolValue::PartRelative { part_id, offset }
+                            if laid_out_mem_offsets.get(part_id).is_some() =>
+                        {
+                            SymbolValue::Absolute(offset)
+                        }
+                        other => other,
+                    })
+                }
                 Some(FileLayoutState::LinkerScript(ls))
                     if let Group::LinkerScripts(scripts) = &symbol_db.groups[file_id.group()] =>
                 {
@@ -105,7 +125,8 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
                     let symbol_offset = ls.symbol_id_range.id_to_offset(canonical_id);
 
                     let def_info = &script.parsed.symbol_defs[symbol_offset];
-                    evaluate_early_expression_internal_symbol(
+                    visiting.push(name.to_vec());
+                    let result = evaluate_early_expression_internal_symbol(
                         memory_regions,
                         section_layouts,
                         resolved_lc,
@@ -118,9 +139,12 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
                         section_positions,
                         visited_nodes,
                         const_script_symbols,
+                        visiting,
                         canonical_id,
                         def_info,
-                    )
+                    );
+                    visiting.pop();
+                    result
                 }
                 _ => Ok(SymbolValue::Absolute(layout::layout_time_symbol_value(
                     name,
@@ -132,7 +156,7 @@ pub fn evaluate_early_expression<'data, P: EnginePlatform>(
                     sizeof_headers,
                     resolved_lc,
                     const_script_symbols,
-                    0,
+                    visiting,
                 )?)),
             }
         },
@@ -152,6 +176,7 @@ fn evaluate_early_expression_internal_symbol<'data, P: EnginePlatform>(
     section_positions: &OnceCell<InputSectionPositions>,
     visited_nodes: &mut HashSet<SymbolId>,
     const_script_symbols: &HashMap<&[u8], u64>,
+    visiting: &mut Vec<Vec<u8>>,
     canonical_id: SymbolId,
     def_info: &crate::parsing::InternalSymDefInfo<'data, P>,
 ) -> Result<SymbolValue> {
@@ -175,6 +200,7 @@ fn evaluate_early_expression_internal_symbol<'data, P: EnginePlatform>(
                 section_positions,
                 visited_nodes,
                 const_script_symbols,
+                visiting,
             );
             visited_nodes.remove(&canonical_id);
             let value = value?;

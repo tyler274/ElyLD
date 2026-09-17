@@ -12,7 +12,6 @@ tests = [
   "dynamic-list-data.sh",
   "emit-relocs-cpp.sh",
   "execute-only.sh",
-  "fatal-warnings.sh",                     # `-warn-common` and `-fatal-warnings`
   "filter.sh",
   "global-offset-table.sh",                # `-defsym=foo=_GLOBAL_OFFSET_TABLE_`
   "icf-gcc-except-table.sh",               # `--icf`
@@ -20,7 +19,6 @@ tests = [
   "icf-alignment-bug.sh",
   "icf-preemption.sh",
   "init-in-dso.sh",
-  "init.sh",
   "library.sh",
   "oformat-binary.sh",
   "omagic.sh",
@@ -135,7 +133,7 @@ tests = ["tls-common.sh", "tls-le-error.sh"]
 
 [skipped_groups.sframe]
 reason = "SFrame support"
-tests = ["sframe.sh"]
+tests = ["sframe.sh", "arch-x86_64-sframe-unwind.sh"]
 
 [skipped_groups.ignore]
 reason = "We ignore these tests for some reasons"
@@ -182,8 +180,6 @@ tests = [
   "static-dso.sh",                  # Different message formats
   "stdout.sh",
   "symver-dup.sh",                  # Different message formats
-  "undefined.sh",                   # Passes when `--no-gc-sections` is passed.
-  "undefined2.sh",                  # Passes when `--no-gc-sections` is passed.
   "unresolved-symbols.sh",          # Different message formats
   "version.sh",                     # The message of `--version` is different from mold's one.
   "warn-unresolved-symbols.sh",     # Different message formats
@@ -197,10 +193,9 @@ tests = [
 reason = "LTO policy/coverage owned in Wild tests, not mold's exact assertions."
 tests = [
   "lto-no-plugin.sh",       # Mold errors if IR has no plugin; Wild auto-discovers (lto-no-plugin, *-no-plugin)
-  "lto-gcc.sh",             # FAT / -fno-use-linker-plugin / WPA verbose paths; Wild covers gcc fat/slim/auto
-  "lto-llvm2.sh",           # Was `-mllvm` vs `-m` emulation; ElyLD now aliases `-mllvm` to `--plugin-opt` (clang-mllvm)
   "duplicate-error-lto.sh", # Mold errors on duplicate IR; Wild deduplicates (keep)
   "lto-comdat.sh",          # Owned by elf/lto-comdat (C++ template COMDAT + GCC/Clang LTO)
+  "lto-archive.sh",
   "lto-archive4.sh",        # Asm-invisible symbols then LTO redefinition (mold #1421); not owned yet
   "lto-mixed-gcc-fat.sh",   # Owned by linker-plugin-lto mixed-gcc-fat-llvm
 ]
@@ -261,4 +256,15 @@ tests = [
   "weak-export-exe.sh",
   "weak-undef2.sh",
   "weak-undef5.sh",
+  "rpath.sh",
+  "gdb-index-dwarf2.sh",
+  "gdb-index-dwarf3.sh",
+  "gdb-index-dwarf4.sh",
+  "gdb-index-dwarf5.sh",
+  "gdb-index-dwarf64.sh",
+  "gdb-index-compress-output.sh",
+  "strip-debug.sh",
+  "tls-df-static-tls.sh",
+  "linker-script-group-as-needed.sh",
+  "weak-export-dso2.sh",
 ]

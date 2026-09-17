@@ -7,16 +7,25 @@ let
   # lld / lldb so rustc `-Clinker-plugin-lto` and Clang ThinLTO share a major.
   llvmPkgs = pkgs.llvmPackages_22;
   binutilsZstd = pkgs.callPackage ./binutils-zstd.nix { };
-  inherit (pkgs.callPackage ./wrappers.nix {
-    llvmPackages = llvmPkgs;
-    binutilsNative = binutilsZstd;
-  })
+  inherit
+    (pkgs.callPackage ./wrappers.nix {
+      llvmPackages = llvmPkgs;
+      binutilsNative = binutilsZstd;
+    })
     gccWrapper
     gppWrapper
     clangWrapper
     ;
-  inherit (llvmPkgs) clang-tools lld lldb compiler-rt llvm libllvm;
+  inherit (llvmPkgs)
+    clang-tools
+    lld
+    lldb
+    compiler-rt
+    llvm
+    libllvm
+    ;
   glibcTests = pkgs.callPackage ./glibc-tests.nix { };
+  libbacktraceTests = pkgs.callPackage ./libbacktrace-tests.nix { };
 in
 pkgs.mkShell {
   packages = [
@@ -71,7 +80,8 @@ pkgs.mkShell {
     pkgs.ninja
     pkgs.git
   ]
-  ++ glibcTests.packages;
+  ++ glibcTests.packages
+  ++ libbacktraceTests.packages;
 
   env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib
@@ -85,11 +95,17 @@ pkgs.mkShell {
 
   # Unpack nixpkgs glibc, point ELYLD_GLIBC_* at it, and provide wild-build-glibc.
   # Override ELYLD_GLIBC_TREE / ELYLD_GLIBC_BUILD before `nix develop` to use another tree.
-  shellHook = glibcTests.shellHook + ''
-    if ! command -v cargo-kani >/dev/null 2>&1; then
-      echo "Kani is not in this shell (not packaged in nixpkgs)."
-      echo "  cargo install --locked kani-verifier && cargo kani setup"
-      echo "  ./scripts/kani.sh   # no-ops locally if cargo-kani is missing"
-    fi
-  '';
+  # Unpack nixpkgs libbacktrace.src into ELYLD_LIBBACKTRACE_TREE so
+  # `cargo test -p elyld --test integration_tests -- libbacktrace` runs
+  # ctestzstd / ctestzstd_alloc linked by ElyLD.
+  shellHook =
+    glibcTests.shellHook
+    + libbacktraceTests.shellHook
+    + ''
+      if ! command -v cargo-kani >/dev/null 2>&1; then
+        echo "Kani is not in this shell (not packaged in nixpkgs)."
+        echo "  cargo install --locked kani-verifier && cargo kani setup"
+        echo "  ./scripts/kani.sh   # no-ops locally if cargo-kani is missing"
+      fi
+    '';
 }

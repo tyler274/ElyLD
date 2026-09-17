@@ -11,8 +11,6 @@ use crate::layout_rules::SectionKind;
 use crate::output_section_part_map::OutputSectionPartMap;
 use crate::part_id::PartId;
 use crate::{EnginePlatform, Result, timing_phase};
-use hashbrown::{HashMap, HashSet};
-use std::fmt::Display;
 use elyld_args::RelocationModel;
 use elyld_platform::output_section_map::OutputSectionMap;
 use elyld_platform::program_segments::ProgramSegments;
@@ -21,6 +19,8 @@ use elyld_scripts::linker_script;
 use elyld_scripts::linker_script::{Expression, OnlyIf};
 use elyld_util::alignment;
 use elyld_util::alignment::{Alignment, NUM_ALIGNMENTS};
+use hashbrown::{HashMap, HashSet};
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct OutputSections<'data, P: Platform> {
@@ -522,11 +522,10 @@ impl<'data, P: Platform> OutputSections<'data, P> {
         let replacing_script = linker_scripts
             .iter()
             .any(|script| script.parsed.replaces_default_layout());
-        // `INSERT` fragments splice into the default layout, so orphans keep builtin
-        // placement. Any non-INSERT script still uses GNU "after similar" orphans.
-        let place_after_similar = linker_scripts
-            .iter()
-            .any(|script| script.parsed.insert.is_none());
+        // `INSERT` fragments splice into the default layout. GROUP/OUTPUT_FORMAT
+        // scripts such as `libc.so` do not replace it either. Only a `-T`
+        // script with `SECTIONS` uses GNU "after similar" orphan placement.
+        let place_after_similar = replacing_script;
 
         let mut custom = CustomSectionIds {
             place_after_similar,

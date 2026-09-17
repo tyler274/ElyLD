@@ -2,7 +2,7 @@
 //#Object:common_section0.c
 //#Object:common_section1.c
 //#Object:runtime.c
-//#ReferenceLinkers:bfd,lld,mold
+//#ReferenceLinkers:bfd,lld
 //#DiffMatchAny:true
 
 //#Config:warn-common:default

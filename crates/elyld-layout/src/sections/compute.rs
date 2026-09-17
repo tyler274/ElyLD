@@ -1,4 +1,6 @@
-use crate::expression_eval::{ResolvedLocationCounter, evaluate_early_expression};
+use crate::expression_eval::{
+    ResolvedLocationCounter, evaluate_early_expression, section_mem_end,
+};
 use crate::output_section_id::{OrderEvent, OutputOrder, OutputSectionId, OutputSections};
 use crate::output_section_part_map::OutputSectionPartMap;
 use crate::parsing::SymbolLoc;
@@ -47,7 +49,6 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
     timing_phase!("Layout sections");
 
     let mut section_layouts = OutputSectionMap::with_size(output_sections.num_sections());
-    let section_positions = OnceCell::new();
 
     let const_script_symbols = collect_const_script_symbols(symbol_db);
 
@@ -90,6 +91,10 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
             expr
         };
         let mut visited_nodes = HashSet::new();
+        let mut visiting = Vec::new();
+        // Recompute per location-counter so object-symbol alignment sees the
+        // part VMAs from sections already laid out.
+        let section_positions = OnceCell::new();
         evaluate_early_expression(
             expr,
             loc,
@@ -105,6 +110,7 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
             &section_positions,
             &mut visited_nodes,
             &const_script_symbols,
+            &mut visiting,
         )
     };
 
@@ -178,9 +184,27 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     section_offset: None,
                 };
             }
-            OrderEvent::SetLocationRelative(expr, section_id, loc, idx) => {
+            OrderEvent::SetLocationRelative(expr, section_id, mut loc, idx) => {
                 let primary_id = output_sections.primary_output_section(section_id);
                 let section_base = section_layouts.get(primary_id).mem_offset;
+                // Seed `.` as a section offset before evaluating `. += N`. The
+                // counter is overwritten with the result below. `SectionEndRelative`
+                // of a not-yet-placed section is 0, so retarget `.` at this LC.
+                let current = mem_offset.max(section_mem_end(
+                    primary_id,
+                    &section_layouts,
+                    output_sections,
+                ));
+                resolved_lc[idx] = ResolvedLocationCounter {
+                    value: current,
+                    section_offset: Some(current.saturating_sub(section_base)),
+                };
+                if matches!(
+                    loc,
+                    SymbolLoc::SectionStartRelative(_) | SymbolLoc::SectionEndRelative(_)
+                ) {
+                    loc = SymbolLoc::LocationCounter(idx, Some(primary_id));
+                }
                 let value = expression_eval(
                     &expr,
                     &loc,
@@ -199,6 +223,18 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                 } else {
                     section_base.wrapping_add(value)
                 };
+                // Inputs live on secondaries when `. = N` precedes `*(.text)`, so
+                // the primary's mem_size can still be 0 here.
+                let current = mem_offset.max(section_mem_end(
+                    primary_id,
+                    &section_layouts,
+                    output_sections,
+                ));
+                if value < current {
+                    bail!(
+                        "cannot move location counter backwards from 0x{current:x} to 0x{value:x}"
+                    );
+                }
                 let offset = value - section_base;
                 pending_location = Some(value);
                 resolved_lc[idx] = ResolvedLocationCounter {
@@ -711,6 +747,22 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         region.last_section_lma = Some(layout.lma_offset);
                         region.last_lma_end = Some(lma_offset);
                     }
+                }
+
+                // `. = N` holes grow the section's VMA; keep the running file
+                // offset in lockstep so the next section cannot overlap it.
+                if load_segment_depth > 0
+                    && (section_flags.is_alloc() || follow_location_counter)
+                    && output_sections.has_data_in_file(merge_target)
+                {
+                    let layout = section_layouts.get(section_id);
+                    file_offset = file_offset.max(layout.file_end());
+                    if layout.mem_size as usize > layout.file_size {
+                        file_offset = file_offset
+                            .max(layout.file_offset.saturating_add(layout.mem_size as usize));
+                    }
+                    mem_offset = mem_offset.max(layout.mem_end());
+                    lma_offset = lma_offset.max(layout.lma_offset.saturating_add(layout.mem_size));
                 }
             }
         }

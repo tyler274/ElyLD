@@ -14,7 +14,7 @@ use elyld_layout::grouping::{PluginSymbol, SymbolKind};
 use elyld_layout::resolution::{ResolvedFile, ResolvedGroup};
 use elyld_layout::symbol::UnversionedSymbolName;
 use elyld_layout::symbol_db::{SymbolDb, SymbolIdRange};
-use elyld_platform::value_flags::{FlagsForSymbol, PerSymbolFlags, ValueFlags};
+use elyld_platform::value_flags::{PerSymbolFlags, ValueFlags};
 use elyld_platform::{Args as _, Platform, RawSymbolName as _};
 use elyld_util::arena::Herd;
 
@@ -390,27 +390,24 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
     let wrap_names = symbol_db.args.symbol_names_to_wrap();
     let is_wrapped = wrap_names.iter().any(|w| w.as_bytes() == raw_name.name);
 
-    let symbol_id = if is_wrapped {
+    let looked_up = if is_wrapped {
         let real_name = format!("__real_{}", String::from_utf8_lossy(raw_name.name));
-        symbol_db
-            .get_unversioned(&UnversionedSymbolName::prehashed(real_name.as_bytes()))
-            .map(|id| symbol_db.definition(id))
+        symbol_db.get_unversioned(&UnversionedSymbolName::prehashed(real_name.as_bytes()))
     } else {
         // IR definitions must not be treated as preempted by a DSO with the same name.
         // nix-store-tests links libgtest_main.so (which exports `main`) alongside an LTO
         // `main`; reporting the DSO as prevailing makes GCC drop the IR `main` and CRT's
         // GOT reloc has no resolution. Undefs may still resolve to dynamics.
-        symbol_db
-            .get(
-                &elyld_layout::symbol::symbol_name_from_raw(&raw_name),
-                sym.is_undefined(),
-            )
-            .map(|id| symbol_db.definition(id))
+        symbol_db.get(
+            &elyld_layout::symbol::symbol_name_from_raw(&raw_name),
+            sym.is_undefined(),
+        )
     };
 
-    let Some(symbol_id) = symbol_id else {
+    let Some(looked_up) = looked_up else {
         return PluginSymbolResolution::Undef;
     };
+    let symbol_id = symbol_db.definition(looked_up);
 
     if symbol_id.is_undefined() {
         PluginSymbolResolution::Undef
@@ -436,7 +433,11 @@ pub(crate) fn get_symbol_resolution<'data, C: ElfClass>(
             _ => PluginSymbolResolution::ResolvedExec,
         }
     } else if symbol_id_range.contains(symbol_id) {
-        let flags = per_symbol_flags.flags_for_symbol(symbol_id);
+        // `HAS_NON_IR_REF` is recorded on the name-table ID (often a weak
+        // earlier IR def). Alternative resolution then selects a different
+        // prevailing ID; merge both so ThinLTO cannot internalise a symbol
+        // still referenced from a native object (vmlinux `__ksymtab`).
+        let flags = symbol_db.flags_for_symbol(per_symbol_flags, looked_up);
         let is_wrap_impl = wrap_names.iter().any(|w| {
             let wrap = format!("__wrap_{w}");
             let real = format!("__real_{w}");

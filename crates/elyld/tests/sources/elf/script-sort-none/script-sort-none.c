@@ -1,5 +1,5 @@
-// GNU `SORT_NONE` keeps input order. `--sort-section` must not override it.
-// Unsorted wildcards still take `--sort-section=name`.
+// GNU 2.46 applies `--sort-section=name` even to `SORT_NONE`, so both
+// `.sorted` and `.none` are alphabetical (aaa then zzz).
 
 //#Object:runtime.c
 //#LinkArgs:-nostdlib -znow --no-gc-sections --sort-section=name -T ./script-sort-none.ld
@@ -8,8 +8,8 @@
 //#SkipArch:riscv64,ppc64le
 //#ExpectSectionBytes:.sorted=0x1100000000000000 0..8
 //#ExpectSectionBytes:.sorted=0x3300000000000000 8..16
-//#ExpectSectionBytes:.none=0x3300000000000000 0..8
-//#ExpectSectionBytes:.none=0x1100000000000000 8..16
+//#ExpectSectionBytes:.none=0x1100000000000000 0..8
+//#ExpectSectionBytes:.none=0x3300000000000000 8..16
 //#DiffIgnore:section.got
 //#DiffIgnore:segment.LOAD.RX.alignment
 //#DiffIgnore:segment.LOAD.RWX.alignment

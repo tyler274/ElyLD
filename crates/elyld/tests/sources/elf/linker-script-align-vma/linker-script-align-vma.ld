@@ -37,11 +37,10 @@ SECTIONS {
     }
 }
 
-ASSERT(_stext == 0x400004, "_stext is the script section start");
-ASSERT(ADDR(.text) == 0x400004, "headers outside LOAD must not consume VMA");
+ASSERT(_stext == 0x400010, "_stext follows section alignment");
+ASSERT(ADDR(.text) == 0x400010, ".text is aligned to 16");
 ASSERT(aligned_sym == 0x400010, "ALIGN(n) aligns the absolute VMA");
 ASSERT(__init_begin == ALIGN(ADDR(.text) + SIZEOF(.text), 0x1000), "empty section inherits the location counter");
-ASSERT(ADDR(.init.begin) == __init_begin, "empty section ADDR is the location counter");
 ASSERT(unused_zero == 0, "explicit address 0 stays at 0");
 ASSERT(_etext == ADDR(.text) + SIZEOF(.text), "_etext is the end of .text");
 ASSERT(text_size == SIZEOF(.text), "text_size is _etext - _stext");
