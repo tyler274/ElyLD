@@ -1,13 +1,5 @@
 use super::{LE, MachOLayout, MachOSymbolTableWriter, write_symbols};
 use crate::{MachO, PLT_ENTRY_SIZE, SectionFlags, output_section_id};
-use linker_utils::elf::{RelocationKind, get_page_mask};
-use object::SymbolIndex;
-use object::macho::{
-    ARM64_RELOC_TLVP_LOAD_PAGEOFF12, RelocationInfo, S_THREAD_LOCAL_REGULAR,
-    S_THREAD_LOCAL_VARIABLES, S_THREAD_LOCAL_ZEROFILL,
-};
-use std::ops::BitAnd;
-use tracing::debug_span;
 use elyld_error::error::{Context, Result};
 use elyld_error::{bail, ensure, error};
 use elyld_layout::output_section_part_map::OutputSectionPartMap;
@@ -18,6 +10,15 @@ use elyld_layout::{ObjectLayout, Resolution, Section, verbose_timing_phase};
 use elyld_platform::value_flags::ValueFlags;
 use elyld_platform::{Arch, ObjectFile as _, Relaxation as _};
 use elyld_util::alignment::MACHO_PAGE_ALIGNMENT;
+use linker_utils::bit_misc::BitExtraction;
+use linker_utils::elf::{RelocationKind, get_page_mask};
+use object::SymbolIndex;
+use object::macho::{
+    ARM64_RELOC_TLVP_LOAD_PAGEOFF12, RelocationInfo, S_THREAD_LOCAL_REGULAR,
+    S_THREAD_LOCAL_VARIABLES, S_THREAD_LOCAL_ZEROFILL,
+};
+use std::ops::BitAnd;
+use tracing::debug_span;
 
 pub(crate) fn write_plt_entries<A: Arch<Platform = MachO>>(
     layout: &MachOLayout<'_>,
@@ -147,15 +148,19 @@ pub(crate) fn write_object_section<'data, A: Arch<Platform = MachO>>(
 
     let section_flags = object_layout.object.section(section_index)?.flags.get(LE);
 
+    let mut previous = None;
     for rel in object_layout.relocations(section_index)?.relocations {
+        let rel_info = rel.info(LE);
         apply_relocation::<A>(
             object_layout,
             section_address,
             section_flags,
-            rel.info(LE),
+            rel_info,
             layout,
             out,
+            previous,
         )?;
+        previous = Some(rel_info);
     }
 
     Ok(())
@@ -169,6 +174,7 @@ pub(crate) fn apply_relocation<'data, A: Arch<Platform = MachO>>(
     rel: RelocationInfo,
     layout: &MachOLayout<'data>,
     out: &mut [u8],
+    previous_rel: Option<RelocationInfo>,
 ) -> Result {
     let mut offset_in_section = u64::from(rel.r_address);
     let place = section_address + offset_in_section;
@@ -180,11 +186,15 @@ pub(crate) fn apply_relocation<'data, A: Arch<Platform = MachO>>(
     )
     .entered();
 
+    let rel_info = A::relocation_from_raw(rel)?;
+    if matches!(rel_info.kind, RelocationKind::MachoAddition) {
+        return Ok(());
+    }
+
     let (resolution, _symbol_index, local_symbol_id) = get_resolution(rel, object_layout, layout)?;
     let flags = layout.flags_for_symbol(local_symbol_id);
     let output_kind = layout.symbol_db.output_kind;
 
-    // TODO: We don't support addends, relaxation deltas, or previous relocations yet.
     let relaxation = A::new_relaxation(
         rel,
         out,
@@ -210,8 +220,19 @@ pub(crate) fn apply_relocation<'data, A: Arch<Platform = MachO>>(
                 non-interposable symbols in executables"
             )
         }
-        None => A::relocation_from_raw(rel)?,
+        None => rel_info,
     };
+
+    let mut addend = 0;
+    if let Some(previous_rel) = previous_rel {
+        match A::relocation_from_raw(previous_rel)?.kind {
+            RelocationKind::MachoAddition => {
+                // lld treats the value as signed 24-bit integral type
+                addend = u64::from(previous_rel.r_symbolnum).sign_extend(23);
+            }
+            _ => {}
+        }
+    }
 
     let mask = get_page_mask(rel_info.mask);
     let value = match rel_info.kind {
@@ -220,23 +241,33 @@ pub(crate) fn apply_relocation<'data, A: Arch<Platform = MachO>>(
                 && flags.has_link_time_address()
                 && is_tlv_template_referent(layout, local_symbol_id) =>
         {
-            // TODO: Once addends are supported, remember to change this to S + A -
-            // tlv_data_start_address().
             resolution
                 .raw_value
+                .wrapping_add(addend)
                 .wrapping_sub(layout.tlv_data_start_address())
         }
-        RelocationKind::Absolute => resolution.raw_value.bitand(mask.symbol_plus_addend),
-        RelocationKind::AbsoluteLowPart => resolution.raw_value.bitand(mask.symbol_plus_addend),
+        RelocationKind::Absolute => resolution
+            .raw_value
+            .wrapping_add(addend)
+            .bitand(mask.symbol_plus_addend),
+        RelocationKind::AbsoluteLowPart => resolution
+            .raw_value
+            .wrapping_add(addend)
+            .bitand(mask.symbol_plus_addend),
         RelocationKind::Relative => resolution
             .raw_value
+            .wrapping_add(addend)
             .bitand(mask.symbol_plus_addend)
             .wrapping_sub(place.bitand(mask.place)),
         RelocationKind::GotRelative => resolution
             .raw_value
+            .wrapping_add(addend)
             .bitand(mask.symbol_plus_addend)
             .wrapping_sub(place.bitand(mask.place)),
-        RelocationKind::Got => resolution.raw_value.bitand(mask.symbol_plus_addend),
+        RelocationKind::Got => resolution
+            .raw_value
+            .wrapping_add(addend)
+            .bitand(mask.symbol_plus_addend),
         _ => todo!(),
     };
 
@@ -246,6 +277,7 @@ pub(crate) fn apply_relocation<'data, A: Arch<Platform = MachO>>(
             %rel_info.size,
             value,
             value_hex = %HexU64::new(value),
+            addend,
             symbol_name = %layout.symbol_db.symbol_name_for_display(local_symbol_id),
             "relocation applied");
 

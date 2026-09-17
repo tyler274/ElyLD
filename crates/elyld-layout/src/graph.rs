@@ -11,12 +11,6 @@ use crate::symbol::UnversionedSymbolName;
 use crate::symbol_db::{SymbolDb, SymbolId, Visibility};
 use crate::thunks::ThunkBlockId;
 use crate::{EnginePlatform, resolution, thunks, timing_phase, verbose_timing_phase};
-use linker_utils::elf::RelocationKind;
-use linker_utils::relaxation::RelaxDeltaMap;
-use rayon::Scope;
-use std::mem::take;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Mutex, atomic};
 use elyld_args::{InputRef, UnresolvedSymbols};
 use elyld_error::error;
 use elyld_error::error::{Context, Error, Result};
@@ -25,6 +19,12 @@ use elyld_platform::{
     Arch, Args as _, ObjectFile, OutputKind, Platform, ProgramSegmentDef as _, Symbol as _,
 };
 use elyld_scripts::linker_script::Expression;
+use linker_utils::elf::RelocationKind;
+use linker_utils::relaxation::RelaxDeltaMap;
+use rayon::Scope;
+use std::mem::take;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Mutex, atomic};
 
 pub fn export_dynamic<'data, P: EnginePlatform>(
     common: &mut CommonGroupState<'data, P>,
@@ -215,9 +215,10 @@ pub fn resolution_flags(rel_kind: RelocationKind) -> ValueFlags {
         | RelocationKind::TpOff
         | RelocationKind::SymRelGotBase
         | RelocationKind::PairSubtractionULEB128(..) => ValueFlags::DIRECT,
-        RelocationKind::None | RelocationKind::AbsoluteLowPart | RelocationKind::Alignment => {
-            ValueFlags::empty()
-        }
+        RelocationKind::None
+        | RelocationKind::AbsoluteLowPart
+        | RelocationKind::Alignment
+        | RelocationKind::MachoAddition => ValueFlags::empty(),
     }
 }
 
