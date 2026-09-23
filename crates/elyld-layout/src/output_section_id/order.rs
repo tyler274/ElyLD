@@ -170,12 +170,10 @@ impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
             "Attempted to directly emit secondary section {section_id}"
         );
 
-        // Only emit SetSectionAddress if the section has ALLOC flag, meaning it can be placed in a
-        // segment. Sections without ALLOC (like custom sections before their flags are propagated)
-        // will have their location handled directly in compute_layout_sections.
+        // Emit the script VMA even when the section is not SHF_ALLOC. An empty
+        // `.text` loses ALLOC after GC, and `ADDR` still has to see `0x2000`.
         if let Some(ref loc_info) = section_info.location_info
             && let Some(ref location) = loc_info.location
-            && section_info.section_attributes.is_alloc()
         {
             self.events
                 .push(OrderEvent::SetSectionAddress(location.clone()));

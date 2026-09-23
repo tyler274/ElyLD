@@ -273,11 +273,18 @@ pub fn compute_segment_layout<'data, P: EnginePlatform>(
                     {
                         continue;
                     }
-                    ensure!(
-                        section_layout.mem_offset == 0,
-                        "Expected zero address for section {} not present in any program segment.",
-                        output_sections.section_debug(section_id)
-                    );
+                    let explicit_empty = section_layout.mem_size == 0
+                        && section_info
+                            .location_info
+                            .as_ref()
+                            .is_some_and(|info| info.location.is_some());
+                    if !explicit_empty {
+                        ensure!(
+                            section_layout.mem_offset == 0,
+                            "Expected zero address for section {} not present in any program segment.",
+                            output_sections.section_debug(section_id)
+                        );
+                    }
                     ensure!(
                         !section_flags.is_alloc(),
                         "Alloc section {} not present in any program segment.",

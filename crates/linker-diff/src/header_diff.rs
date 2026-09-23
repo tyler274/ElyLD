@@ -24,6 +24,9 @@ const MACHO_CODE_SIGNATURE_ALIGNMENT: u32 = 16;
 pub(crate) enum Converter {
     None,
     SectionAddress,
+    /// Prefer a symbol at the address (`DT_INIT` / `DT_FINI` point at a
+    /// function inside `.text`, whose start address differs per linker).
+    SymbolOrSection,
     DynStrOffset,
     SymAddress,
     SectionIndex,
@@ -88,6 +91,14 @@ impl Converter {
                     return Ok(ConvertedValue::Single(name));
                 }
                 bail!("No section at 0x{value:x}");
+            }
+            Converter::SymbolOrSection => {
+                if let Some(name) = symbol_with_address(obj, value, false)
+                    .or_else(|| symbol_with_address(obj, value, true))
+                {
+                    return Ok(ConvertedValue::Single(name));
+                }
+                Converter::SectionAddress.try_convert(value, obj)
             }
             Converter::DynStrOffset => {
                 let dynstr = obj
@@ -612,8 +623,8 @@ fn read_dynamic_fields(obj: &Binary) -> Result<FieldValues> {
                 //(Cow::Borrowed("DT_STRSZ"), Converter::None)
             }
             DT_SYMENT => (Cow::Borrowed("DT_SYMENT"), Converter::None),
-            DT_INIT => (Cow::Borrowed("DT_INIT"), Converter::SectionAddress),
-            DT_FINI => (Cow::Borrowed("DT_FINI"), Converter::SectionAddress),
+            DT_INIT => (Cow::Borrowed("DT_INIT"), Converter::SymbolOrSection),
+            DT_FINI => (Cow::Borrowed("DT_FINI"), Converter::SymbolOrSection),
             DT_SONAME => (Cow::Borrowed("DT_SONAME"), Converter::DynStrOffset),
             DT_RPATH => (Cow::Borrowed("DT_RPATH"), Converter::None),
             DT_SYMBOLIC => (Cow::Borrowed("DT_SYMBOLIC"), Converter::None),

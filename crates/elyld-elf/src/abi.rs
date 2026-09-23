@@ -1442,7 +1442,15 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         format_specific: &Self::FinaliseSizesExt<'_>,
         args: &ElfArgs,
     ) -> Result {
-        if format_specific.has_eh_frame_input || current_sizes.get(part_id::EH_FRAME) != 0 {
+        // GNU ld copies `.eh_frame` as-is. A terminator is written only to put
+        // back one the input already had (omitted from the copied size) or when
+        // `--eh-frame-hdr` needs a list end. Adding one otherwise shifts every
+        // section packed after `.eh_frame`.
+        let has_eh_frame =
+            format_specific.has_eh_frame_input || current_sizes.get(part_id::EH_FRAME) != 0;
+        if format_specific.omitted_eh_frame_terminator
+            || (args.should_write_eh_frame_hdr && has_eh_frame)
+        {
             extra_sizes.increment(part_id::EH_FRAME, size_of::<u32>() as u64);
             state.needs_eh_frame_terminator = true;
         }

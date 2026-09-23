@@ -2048,7 +2048,10 @@ impl<'data> RelaxationTester<'data> {
                             indirection: Indirection::Direct,
                         });
                     }
-                    _ => {
+                    // `--emit-relocs` keeps a static `R_*_64` (Absolute) with no
+                    // dynamic symbol. Compare the applied bytes.
+                    Some(DynamicRelocationKind::Absolute) | None => {}
+                    Some(_) => {
                         bail!("Unhandled dynamic relocation {r_type}");
                     }
                 }

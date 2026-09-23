@@ -11,6 +11,10 @@
 
 //#Config:x86_64:default
 //#Arch:x86_64
+// Each linker emits the canonical PLT at a different address. The dynsym
+// expectations below still check that the entries exist.
+//#DiffIgnore:rel.R_X86_64_32S*
+//#DiffIgnore:rel.R_X86_64_PLT32*
 //#ExpectDynSym:called_only address=0
 //#ExpectDynSym:called_ifunc_only address=0,type=func
 //#ExpectDynSym:imported_ifunc type=func

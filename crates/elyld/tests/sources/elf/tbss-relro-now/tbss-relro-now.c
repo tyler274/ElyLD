@@ -7,7 +7,10 @@
 //#SkipArch: ppc64le
 //#Object:runtime.c
 //#Shared:tbss-relro-now-lib.c
-//#CompSoArgs:-g -fPIC
+// General-dynamic emits a call to `__tls_get_addr`. The shared object is
+// linked without libc, so bfd cannot resolve that symbol. Initial-exec is
+// valid here: the object is linked into the executable, not dlopened.
+//#CompSoArgs:-g -fPIC -ftls-model=initial-exec
 //#LinkSoArgs:-z now -z relro --no-rosegment --compress-debug-sections=zlib
 //#LinkArgs:-z now -z relro
 //#Mode:dynamic

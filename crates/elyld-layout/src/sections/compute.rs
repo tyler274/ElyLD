@@ -134,6 +134,9 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
         OutputSectionMap::with_size(output_sections.num_sections());
 
     let mut pending_location = None;
+    // VMA from `.text 0x2000 :`, kept separate from `. = expr` so a non-ALLOC
+    // section can record ADDR without swallowing the next section's assignment.
+    let mut pending_section_address = None;
     let mut resolved_lc = vec![Default::default(); output_order.num_location_counters()];
     if !resolved_lc.is_empty() {
         resolved_lc[0] = ResolvedLocationCounter {
@@ -263,7 +266,23 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     &events[i + 1..],
                 );
                 resolved_lc.pop();
-                pending_location = Some(result?);
+                let addr = result?;
+                pending_section_address = Some(addr);
+                // ALLOC sections also need this as `. = addr` so the file offset
+                // tracks the VMA. A non-ALLOC section (empty `.text` after GC,
+                // `.comment 0`) must not swallow a pending `. = ALIGN(...)`.
+                let next_is_nonalloc = events[i + 1..].iter().find_map(|event| match event {
+                    OrderEvent::Section(id) => Some(
+                        !output_sections
+                            .output_info(*id)
+                            .section_attributes
+                            .is_alloc(),
+                    ),
+                    _ => None,
+                });
+                if next_is_nonalloc != Some(true) {
+                    pending_location = Some(addr);
+                }
             }
             OrderEvent::SegmentStart(segment_id) => {
                 if program_segments.is_load_segment(segment_id) {
@@ -412,6 +431,13 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     }
                 }
 
+                if has_explicit_nonalloc_vma
+                    && let Some(addr) = pending_section_address.take()
+                {
+                    mem_offset = addr;
+                } else {
+                    pending_section_address = None;
+                }
                 if let Some(offset) = section_offset {
                     let merge_target = output_sections.primary_output_section(section_id);
                     let is_top_level = section_info
@@ -447,7 +473,10 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                                 }
                             }
                         }
-                        if load_segment_depth > 0 {
+                        if load_segment_depth > 0 || is_top_level {
+                            // A replacing script can give `.text` an address and then
+                            // GC its contents. The section may no longer be SHF_ALLOC,
+                            // but `ADDR` / `LOADADDR` still see that address.
                             mem_offset = offset;
                         }
                     } else {
@@ -606,13 +635,18 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         } else {
                             0
                         };
+                        let placed = if has_explicit_section_addr {
+                            mem_offset
+                        } else {
+                            0
+                        };
                         *part_layout = OutputRecordLayout {
                             file_size,
                             mem_size,
                             alignment,
                             file_offset,
-                            mem_offset: 0,
-                            lma_offset: 0,
+                            mem_offset: placed,
+                            lma_offset: placed,
                         };
                         file_offset += file_size;
                     } else if section_flags.is_alloc() || follow_location_counter {
@@ -666,9 +700,14 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         lma_offset += mem_size;
                     } else {
                         let section_id = part_id.output_section_id::<P>();
-                        let mem_offset = alignment.align_up(*nonalloc_mem_offsets.get(section_id));
-
-                        *nonalloc_mem_offsets.get_mut(section_id) += mem_size;
+                        let mem_offset = if has_explicit_section_addr {
+                            mem_offset
+                        } else {
+                            let aligned =
+                                alignment.align_up(*nonalloc_mem_offsets.get(section_id));
+                            *nonalloc_mem_offsets.get_mut(section_id) += mem_size;
+                            aligned
+                        };
 
                         *part_layout = OutputRecordLayout {
                             file_size: mem_size as usize,
@@ -708,6 +747,11 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         part_layout.lma_offset = lma_offset;
                         let section_layout = section_layouts.get_mut(section_id);
                         section_layout.lma_offset = lma_offset;
+                        // An empty `AT()` section still has `LOADADDR`, but GNU ld does
+                        // not carry that delta onto the next orphan.
+                        if section_layout.mem_size == 0 {
+                            lma_offset = section_layout.mem_offset;
+                        }
                     }
 
                     is_first_part = false;

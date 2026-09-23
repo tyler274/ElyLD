@@ -9,6 +9,9 @@
 //#DiffIgnore:segment.LOAD.RWX.alignment
 
 //#Config:basic:default
+// GNU ld's default script places `.text.hot` before `.text` and starts the
+// executable at a different VMA. The rela sections are still checked.
+//#DiffIgnore:rel.*
 
 //#Config:script:default
 //#LinkerScript:emit-relocs.ld

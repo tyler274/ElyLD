@@ -738,7 +738,9 @@ pub(super) fn process_eh_frame_relocations<
     // Allocate space for any remaining bytes in .eh_frame that aren't large enough to constitute an
     // actual entry. crtend.o has a single u32 equal to 0 as an end marker.
     let remaining = &data[offset..];
-    if !is_eh_frame_terminator(remaining) {
+    if is_eh_frame_terminator(remaining) {
+        object.format_specific.omitted_eh_frame_terminator = true;
+    } else {
         object.format_specific.eh_frame_size += remaining.len() as u64;
     }
 

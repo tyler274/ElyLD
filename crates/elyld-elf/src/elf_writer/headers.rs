@@ -137,7 +137,7 @@ pub(crate) fn elf_entry_address<C: ElfClass>(layout: &ElfLayout<C>) -> Result<u6
     }
 
     let entry_name = match layout.symbol_db.entry_point() {
-        EntryPoint::None => return Ok(0),
+        EntryPoint::None => return script_text_entry(layout),
         EntryPoint::Address(address) => return Ok(address),
         EntryPoint::Symbol(name) => name,
     };
@@ -163,6 +163,31 @@ pub(crate) fn elf_entry_address<C: ElfClass>(layout: &ElfLayout<C>) -> Result<u6
         text_layout.mem_offset
     ));
     Ok(text_layout.mem_offset)
+}
+
+/// A replacing `SECTIONS` script with no `ENTRY` does not root `_start`.
+/// GNU still sets `e_entry` to the address the script gave `.text`.
+fn script_text_entry<C: ElfClass>(layout: &ElfLayout<C>) -> Result<u64> {
+    if !layout.symbol_db.output_kind.is_executable()
+        || !layout.symbol_db.script_has_sections
+        || layout.symbol_db.script_defines_phdrs
+    {
+        return Ok(0);
+    }
+    let text_id = layout
+        .output_sections
+        .section_id_by_name(SectionName(b".text"))
+        .unwrap_or(output_section_id::TEXT);
+    let explicit = layout
+        .output_sections
+        .output_info(text_id)
+        .location_info
+        .as_ref()
+        .is_some_and(|info| info.location.is_some());
+    if !explicit {
+        return Ok(0);
+    }
+    Ok(layout.section_layouts.get(text_id).mem_offset)
 }
 
 pub(crate) fn write_section_headers<C: ElfClass>(

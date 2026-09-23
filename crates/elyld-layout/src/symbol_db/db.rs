@@ -26,7 +26,7 @@ use elyld_platform::{
     Symbol,
 };
 use elyld_scripts::export_list::ExportList;
-use elyld_scripts::linker_script::Command;
+use elyld_scripts::linker_script::{Command, SectionCommand};
 use elyld_scripts::version_script::{
     RustVersionScript, VersionScript, combine_version_script_bodies,
 };
@@ -81,7 +81,13 @@ pub struct SymbolDb<'data, P: Platform> {
     /// script also has `PHDRS`.
     suppress_default_entry: bool,
     /// A `-T` script defined `PHDRS` and no `ENTRY`. Executables then keep `e_entry` 0.
-    script_defines_phdrs: bool,
+    pub script_defines_phdrs: bool,
+    /// A `-T` script has `SECTIONS` and no `ENTRY`. Used to keep `e_entry` at
+    /// the address the script gave `.text`.
+    pub script_has_sections: bool,
+    /// `.text` has an explicit VMA, or the script is an `OVERLAY`. `_start` is
+    /// not a GC root. A plain `SECTIONS` script still roots `_start`.
+    script_omits_entry_symbol: bool,
     /// `/DISCARD/` matched `.dynamic` / `.dynsym` / `.gnu.hash`.
     pub discard_dynamic_sections: bool,
     /// Dynamic inputs whose `DT_NEEDED` is the interpreter. Those entries are
@@ -217,6 +223,8 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             entry: None,
             suppress_default_entry: false,
             script_defines_phdrs: false,
+            script_has_sections: false,
+            script_omits_entry_symbol: false,
             discard_dynamic_sections: false,
             deferred_dt_needed: AtomicU32::new(0),
             output_kind,
@@ -901,7 +909,9 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
         if self.suppress_default_entry
             && self.entry.is_none()
             && !self.args.has_user_entry()
-            && (self.output_kind.is_shared_object() || self.script_defines_phdrs)
+            && (self.output_kind.is_shared_object()
+                || self.script_defines_phdrs
+                || self.script_omits_entry_symbol)
         {
             return EntryPoint::None;
         }
@@ -931,6 +941,37 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
                 .any(|cmd| matches!(cmd, Command::Phdrs(_)))
             {
                 self.script_defines_phdrs = true;
+            }
+            // `INSERT` splices into the default script, which still has `ENTRY(_start)`.
+            let has_insert = script
+                .script
+                .commands
+                .iter()
+                .any(|cmd| matches!(cmd, Command::Insert { .. }));
+            if !has_insert
+                && script
+                    .script
+                    .commands
+                    .iter()
+                    .any(|cmd| matches!(cmd, Command::Sections(_)))
+            {
+                self.script_has_sections = true;
+            }
+            let omits_entry_symbol = script.script.commands.iter().any(|cmd| {
+                let Command::Sections(sections) = cmd else {
+                    return false;
+                };
+                sections.commands.iter().any(|section| match section {
+                    SectionCommand::Overlay(_) => true,
+                    SectionCommand::Section(section) => {
+                        section.output_section_name == b".text"
+                            && section.start_address_expression.is_some()
+                    }
+                    _ => false,
+                })
+            });
+            if !has_insert && omits_entry_symbol {
+                self.script_omits_entry_symbol = true;
             }
             if self.entry.is_none() {
                 self.suppress_default_entry = true;

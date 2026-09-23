@@ -99,6 +99,9 @@ pub struct ObjectLayoutStateExt<'data, C: ElfClass> {
     pub(crate) riscv_attributes: Vec<RiscVAttribute>,
 
     pub(crate) has_eh_frame_input: bool,
+    /// The input ended with a 4-byte zero terminator, which is omitted from
+    /// the copied size and written back once at the end of the output.
+    pub(crate) omitted_eh_frame_terminator: bool,
 
     pub(crate) cies: SmallVec<[CieAtOffset<'data>; 2]>,
 
@@ -116,6 +119,7 @@ pub struct LayoutExt {
     pub(crate) riscv_attributes: RiscVAttributes,
     pub(crate) eflags: object::elf::FileFlags,
     pub(crate) has_eh_frame_input: bool,
+    pub(crate) omitted_eh_frame_terminator: bool,
     num_got_plt_header_entries: u64,
     /// Three reserved `.got` slots for an x86-64 shared object with no other GOT.
     pub(crate) shared_got_header: AtomicBool,
@@ -138,12 +142,15 @@ impl LayoutExt {
         let riscv_attributes = merge_riscv_attributes::<C, A>(states)?;
         let eflags = merge_eflags::<C, A>(objects_iter(groups).map(|o| o.object))?;
         let has_eh_frame_input = objects_iter(groups).any(|o| o.format_specific.has_eh_frame_input);
+        let omitted_eh_frame_terminator =
+            objects_iter(groups).any(|o| o.format_specific.omitted_eh_frame_terminator);
 
         Ok(Self {
             gnu_property_notes,
             riscv_attributes,
             eflags,
             has_eh_frame_input,
+            omitted_eh_frame_terminator,
             num_got_plt_header_entries: A::NUM_GOT_PLT_HEADER_ENTRIES,
             shared_got_header: AtomicBool::new(false),
             strtab: crate::FinalizedStrtab::default(),
