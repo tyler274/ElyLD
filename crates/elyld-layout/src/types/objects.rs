@@ -16,7 +16,7 @@ use smallvec::SmallVec;
 use std::num::NonZeroU32;
 use elyld_error::bail;
 use elyld_error::error::{Context, Error, Result};
-use elyld_platform::value_flags::{AtomicPerSymbolFlags, ValueFlags};
+use elyld_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
 use elyld_platform::{Arch, Args as _, ObjectFile, Platform, SectionHeader as _, Symbol as _};
 
 impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
@@ -364,6 +364,7 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         if !resources.symbol_db.args.should_strip_all() {
             self.allocate_symtab_space(common, resources.symbol_db, per_symbol_flags)?;
         }
+        self.allocate_common_symbol_sizes(common, resources, per_symbol_flags);
         let output_kind = resources.symbol_db.output_kind;
         for slot in &mut self.sections {
             if let SectionSlot::Loaded(_) = slot {
@@ -379,6 +380,36 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         P::finalise_object_sizes(self, common);
 
         Ok(())
+    }
+
+    /// One BSS/TBSS reservation per canonical common that is actually used.
+    /// `load_symbol` used to do this, but an export followed by a reference
+    /// calls it twice (`EXPORT_DYNAMIC` is not a section load).
+    fn allocate_common_symbol_sizes(
+        &self,
+        common: &mut CommonGroupState<'data, P>,
+        resources: &FinaliseSizesResources<'data, '_, P>,
+        per_symbol_flags: &AtomicPerSymbolFlags,
+    ) {
+        if !resources.symbol_db.args.should_allocate_common_symbols() {
+            return;
+        }
+        for (sym_index, sym) in self.object.enumerate_symbols() {
+            let Some(common_symbol) = sym.as_common() else {
+                continue;
+            };
+            let symbol_id = self.symbol_id_range.input_to_id(sym_index);
+            if !resources.symbol_db.is_canonical(symbol_id) {
+                continue;
+            }
+            if !per_symbol_flags
+                .flags_for_symbol(symbol_id)
+                .has_resolution()
+            {
+                continue;
+            }
+            common.allocate(common_symbol.part_id::<P>(), common_symbol.size);
+        }
     }
 
     pub fn allocate_symtab_space(

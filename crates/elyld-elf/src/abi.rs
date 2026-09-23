@@ -70,6 +70,16 @@ use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::atomic;
 use std::sync::atomic::AtomicBool;
 
+/// GNU ld reserves three `.got` slots on an x86-64 shared object even when no
+/// relocation uses the GOT. The first word holds the `.dynamic` address.
+fn needs_shared_got_header(args: &ElfArgs, sizes: &OutputSectionPartMap<u64>) -> bool {
+    args.architecture() == Architecture::X86_64
+        && !args.should_output_executable()
+        && !args.should_output_partial_object()
+        && sizes.get(part_id::GOT) == 0
+        && sizes.get(part_id::RELA_PLT) == 0
+}
+
 impl<C: ElfClass> platform::Platform for Elf<C> {
     const NUM_SINGLE_PART_SECTIONS: u32 = ELF_NUM_SINGLE_PART_SECTIONS;
     const NUM_BUILT_IN_REGULAR_SECTIONS: usize = ELF_NUM_BUILT_IN_REGULAR_SECTIONS;
@@ -1422,6 +1432,14 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         Ok(())
     }
 
+    fn retain_empty_builtin_section(
+        section_id: OutputSectionId,
+        args: &ElfArgs,
+        sizes: &OutputSectionPartMap<u64>,
+    ) -> bool {
+        section_id == output_section_id::GOT && needs_shared_got_header(args, sizes)
+    }
+
     fn apply_late_size_adjustments_prelude(
         current_sizes: &OutputSectionPartMap<u64>,
         extra_sizes: &mut OutputSectionPartMap<u64>,
@@ -1434,6 +1452,16 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                 * format_specific
                     .num_got_plt_header_entries(current_sizes.get(part_id::RELA_PLT) > 0),
         );
+
+        // GNU ld emits the three reserved `.got` slots for a shared object even
+        // when nothing takes a GOT-relative address. The first word is the
+        // address of `.dynamic`.
+        if needs_shared_got_header(args, current_sizes) {
+            format_specific
+                .shared_got_header
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            extra_sizes.increment(part_id::GOT, C::GOT_ENTRY_SIZE * 3);
+        }
 
         if args.should_write_eh_frame_hdr && current_sizes.get(part_id::EH_FRAME_HDR) != 0 {
             extra_sizes.increment(part_id::EH_FRAME_HDR, size_of::<EhFrameHdr>() as u64);
@@ -1816,13 +1844,20 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             Self::take_dynsym_index(memory_offsets, resources.section_layouts)?;
         }
 
-        let got_plt_header_entries = resources.format_specific.num_got_plt_header_entries(
+        let mut got_plt_header_entries = resources.format_specific.num_got_plt_header_entries(
             resources
                 .section_layouts
                 .get(output_section_id::RELA_PLT)
                 .mem_size
                 > 0,
         );
+        let got_header_points_at_dynamic = resources
+            .format_specific
+            .shared_got_header
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if got_header_points_at_dynamic {
+            got_plt_header_entries += 3;
+        }
         memory_offsets.increment(part_id::GOT, C::GOT_ENTRY_SIZE * got_plt_header_entries);
 
         let tlsld_got_entry = prelude.format_specific.needs_tlsld_got_entry.then(|| {
@@ -1834,6 +1869,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
 
         Ok(PreludeLayoutExt {
             got_plt_header_entries,
+            got_header_points_at_dynamic,
             tlsld_got_entry,
         })
     }

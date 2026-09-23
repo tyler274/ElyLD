@@ -167,8 +167,14 @@ impl<'layout, 'out, C: ElfClass> SymbolTableWriter<'layout, 'out, C> {
                 Some(self.copy_unallocated_common(sym, name, value, flags)?)
             } else {
                 // GNU `--no-define-common` / `INHIBIT_COMMON_ALLOCATION` on a DSO:
-                // commons become undefined, not `SHN_COMMON`.
-                self.undefined_symbol(flags.is_symtab_local(sym), name)?;
+                // commons become undefined, not `SHN_COMMON`, and keep their
+                // binding and type (`GLOBAL OBJECT`).
+                let entry = self.undefined_symbol(flags.is_symtab_local(sym), name)?;
+                entry.set_info(sym.st_info());
+                entry.set_other(sym.st_other());
+                if flags.is_downgraded_to_local() {
+                    entry.set_binding_and_type(object::elf::STB_LOCAL, sym.st_type());
+                }
                 return Ok(());
             }
         } else if sym.is_absolute(e) {
@@ -990,14 +996,30 @@ pub(crate) fn get_defsym_attributes<C: ElfClass>(
                         .or_else(|| output_index_of_nearby_section(layout, os, addr))
                 }
                 SymbolLoc::FirstSection => Some(1),
-                SymbolLoc::LocationCounter(_, Some(os)) => {
-                    let os = layout.output_sections.primary_output_section(os);
-                    layout
-                        .output_sections
-                        .output_index_of_section(os)
-                        .or_else(|| layout.output_sections.output_index_of_nearest_section(os))
+                SymbolLoc::LocationCounter(_, recorded) => {
+                    // Keep the section that was current when `.` is still inside it,
+                    // including a symbol at that section's end (`_etext = .`). A dot
+                    // moved past that section by `DATA_SEGMENT_ALIGN` belongs to the
+                    // following section that starts at the new address.
+                    let recorded_index = recorded.and_then(|os| {
+                        let os = layout.output_sections.primary_output_section(os);
+                        let idx = layout.output_sections.output_index_of_section(os)?;
+                        let sec = layout.merged_section_layouts.get(os);
+                        (sec.mem_offset <= addr && addr <= sec.mem_offset + sec.mem_size)
+                            .then_some(idx)
+                    });
+                    recorded_index.or_else(|| output_index_covering_address(layout, addr)).or_else(
+                        || match recorded {
+                            Some(os) => {
+                                let os = layout.output_sections.primary_output_section(os);
+                                layout.output_sections.output_index_of_section(os).or_else(|| {
+                                    layout.output_sections.output_index_of_nearest_section(os)
+                                })
+                            }
+                            None => Some(1),
+                        },
+                    )
                 }
-                SymbolLoc::LocationCounter(_, None) => Some(1),
                 SymbolLoc::None => {
                     return Ok((object::elf::SHN_ABS.into(), object::elf::STT_NOTYPE));
                 }
@@ -1017,9 +1039,71 @@ pub(crate) fn get_defsym_attributes<C: ElfClass>(
             if matches!(redirect.expression, Expression::Absolute(_)) {
                 return Ok((object::elf::SHN_ABS.into(), object::elf::STT_NOTYPE));
             }
+            // `SEGMENT_START` is numerically absolute but GNU ld still attaches
+            // the symbol to the section that was current. A plain number at the
+            // same spot stays `SHN_ABS` (`text_size = _etext - _stext`).
+            if expression_mentions_segment_start(&redirect.expression) {
+                return segment_start_symbol_shndx(layout, &redirect.loc, addr);
+            }
             in_section_constant_shndx(layout, &redirect.loc, addr)
         }
     }
+}
+
+fn expression_mentions_segment_start(expr: &Expression) -> bool {
+    let mut found = false;
+    expr.visit_expressions(&mut |e| {
+        if matches!(e, Expression::SegmentStart(..)) {
+            found = true;
+            false
+        } else {
+            true
+        }
+    });
+    found
+}
+
+/// Section for a `SEGMENT_START` assignment. Before `SECTIONS`, GNU ld uses the
+/// first output section. After a section that is not emitted, it uses the
+/// neighbouring kept section (`_bfd_nearby_section`).
+fn segment_start_symbol_shndx<C: ElfClass>(
+    layout: &ElfLayout<C>,
+    loc: &SymbolLoc,
+    addr: u64,
+) -> Result<(SymbolSection, object::elf::SymbolType), error::Error> {
+    let shndx = match loc {
+        SymbolLoc::FirstSection => Some(1),
+        SymbolLoc::SectionEnd(os) => {
+            let os = layout.output_sections.primary_output_section(*os);
+            layout
+                .output_sections
+                .output_index_of_section(os)
+                .or_else(|| output_index_of_nearby_section(layout, os, addr))
+        }
+        SymbolLoc::SectionStartRelative(os) | SymbolLoc::SectionEndRelative(os) => {
+            let os = layout.output_sections.primary_output_section(*os);
+            layout
+                .output_sections
+                .output_index_of_section(os)
+                .or_else(|| output_index_of_nearby_section(layout, os, addr))
+        }
+        SymbolLoc::LocationCounter(_, Some(os)) => {
+            let os = layout.output_sections.primary_output_section(*os);
+            layout.output_sections.output_index_of_section(os).or_else(|| {
+                layout
+                    .output_sections
+                    .output_index_of_nearest_section(os)
+            })
+        }
+        SymbolLoc::LocationCounter(_, None) | SymbolLoc::None => None,
+    };
+    Ok((
+        shndx.map_or(
+            SymbolSection::Raw(object::elf::SHN_ABS),
+            SymbolSection::Index,
+        ),
+        object::elf::STT_NOTYPE,
+    ))
 }
 
 fn in_section_constant_shndx<C: ElfClass>(
@@ -1066,6 +1150,44 @@ pub(crate) fn section_is_loaded<A: elyld_platform::SectionAttributes>(attr: &A) 
 /// only counts once the section is allocated.
 pub(crate) fn section_is_readonly<A: elyld_platform::SectionAttributes>(attr: &A) -> bool {
     attr.is_alloc() && !attr.is_writable()
+}
+
+/// Section that contains `addr`. A symbol defined as `.` on a section VMA belongs
+/// to the section that starts there, which is the following section when the
+/// previous one ends at that address.
+fn output_index_covering_address<C: ElfClass>(layout: &ElfLayout<C>, addr: u64) -> Option<u32> {
+    let mut interior = None;
+    let mut starts_here = None;
+    for section_id in elyld_layout::output_section_id::section_header_order(
+        &layout.output_order,
+        &layout.output_sections,
+    ) {
+        if layout
+            .output_sections
+            .output_index_of_section(section_id)
+            .is_none()
+        {
+            continue;
+        }
+        let attr = &layout
+            .output_sections
+            .output_info(section_id)
+            .section_attributes;
+        if !attr.is_alloc() {
+            continue;
+        }
+        let sec = layout.merged_section_layouts.get(section_id);
+        if sec.mem_size == 0 {
+            continue;
+        }
+        if sec.mem_offset == addr {
+            starts_here = Some(section_id);
+        } else if sec.mem_offset < addr && addr < sec.mem_offset + sec.mem_size {
+            interior = Some(section_id);
+        }
+    }
+    let section_id = starts_here.or(interior)?;
+    layout.output_sections.output_index_of_section(section_id)
 }
 
 /// GNU ld `_bfd_nearby_section`: map a symbol whose output section was omitted

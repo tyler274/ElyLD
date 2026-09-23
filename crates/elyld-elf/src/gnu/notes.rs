@@ -18,6 +18,7 @@ use object::LittleEndian;
 use object::read::elf::SectionHeader as _;
 use smallvec::SmallVec;
 use std::num::NonZeroU32;
+use std::sync::atomic::AtomicBool;
 use elyld_args::elf::ElfArgs;
 use elyld_error::error::{Context as _, Result};
 use elyld_error::{bail, ensure};
@@ -116,6 +117,8 @@ pub struct LayoutExt {
     pub(crate) eflags: object::elf::FileFlags,
     pub(crate) has_eh_frame_input: bool,
     num_got_plt_header_entries: u64,
+    /// Three reserved `.got` slots for an x86-64 shared object with no other GOT.
+    pub(crate) shared_got_header: AtomicBool,
     pub(crate) strtab: crate::FinalizedStrtab,
 }
 
@@ -142,6 +145,7 @@ impl LayoutExt {
             eflags,
             has_eh_frame_input,
             num_got_plt_header_entries: A::NUM_GOT_PLT_HEADER_ENTRIES,
+            shared_got_header: AtomicBool::new(false),
             strtab: crate::FinalizedStrtab::default(),
         })
     }

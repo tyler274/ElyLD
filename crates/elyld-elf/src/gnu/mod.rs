@@ -296,6 +296,10 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
         self.flags |= shf::WRITE;
     }
 
+    fn script_only_nobits_is_writable(&self) -> bool {
+        !self.overrides.avoid_progpogation.contains(shf::WRITE)
+    }
+
     fn avoids_alloc(&self) -> bool {
         self.overrides.avoid_progpogation.contains(shf::ALLOC)
     }

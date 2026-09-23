@@ -74,6 +74,103 @@ fn combined_excludes<'data>(
     excludes
 }
 
+fn expression_uses_segment_start(expr: &Expression) -> bool {
+    let mut found = false;
+    expr.visit_expressions(&mut |e| {
+        if matches!(e, Expression::SegmentStart(..)) {
+            found = true;
+            false
+        } else {
+            true
+        }
+    });
+    found
+}
+
+fn commands_use_segment_start(commands: &[linker_script::Command]) -> bool {
+    commands.iter().any(command_uses_segment_start)
+}
+
+fn command_uses_segment_start(cmd: &linker_script::Command) -> bool {
+    match cmd {
+        linker_script::Command::SymbolDefinition { value, .. } => {
+            expression_uses_segment_start(value)
+        }
+        linker_script::Command::SetLocation(loc) => expression_uses_segment_start(&loc.address),
+        linker_script::Command::Provide(provide) => expression_uses_segment_start(&provide.value),
+        linker_script::Command::Assert(assert_cmd) => {
+            expression_uses_segment_start(&assert_cmd.expression)
+        }
+        linker_script::Command::Sections(sections) => sections
+            .commands
+            .iter()
+            .any(section_command_uses_segment_start),
+        linker_script::Command::Group(cmds) | linker_script::Command::AsNeeded(cmds) => {
+            commands_use_segment_start(cmds)
+        }
+        _ => false,
+    }
+}
+
+fn section_command_uses_segment_start(cmd: &linker_script::SectionCommand) -> bool {
+    match cmd {
+        linker_script::SectionCommand::SetLocation(loc) => {
+            expression_uses_segment_start(&loc.address)
+        }
+        linker_script::SectionCommand::Assert(assert_cmd) => {
+            expression_uses_segment_start(&assert_cmd.expression)
+        }
+        linker_script::SectionCommand::Provide(provide) => {
+            expression_uses_segment_start(&provide.value)
+        }
+        linker_script::SectionCommand::SymbolAssignment(assignment) => {
+            expression_uses_segment_start(&assignment.expr)
+        }
+        linker_script::SectionCommand::Section(sec) => section_uses_segment_start(sec),
+        linker_script::SectionCommand::Overlay(overlay) => {
+            overlay
+                .start_address
+                .as_ref()
+                .is_some_and(expression_uses_segment_start)
+                || overlay.sections.iter().any(section_uses_segment_start)
+        }
+        linker_script::SectionCommand::Include(_) => false,
+    }
+}
+
+fn section_uses_segment_start(sec: &linker_script::Section) -> bool {
+    sec.start_address_expression
+        .as_ref()
+        .is_some_and(expression_uses_segment_start)
+        || sec
+            .at_address
+            .as_ref()
+            .is_some_and(expression_uses_segment_start)
+        || sec.commands.iter().any(|cmd| match cmd {
+            linker_script::ContentsCommand::SymbolAssignment(assignment) => {
+                expression_uses_segment_start(&assignment.expr)
+            }
+            linker_script::ContentsCommand::Provide(provide) => {
+                expression_uses_segment_start(&provide.value)
+            }
+            linker_script::ContentsCommand::SetLocation(loc) => {
+                expression_uses_segment_start(&loc.address)
+            }
+            linker_script::ContentsCommand::Assert(assert_cmd) => {
+                expression_uses_segment_start(&assert_cmd.expression)
+            }
+            linker_script::ContentsCommand::Fill(fill) => {
+                expression_uses_segment_start(&fill.value)
+            }
+            linker_script::ContentsCommand::OutputData(data) => {
+                expression_uses_segment_start(&data.value)
+            }
+            linker_script::ContentsCommand::Matcher(_)
+            | linker_script::ContentsCommand::Constructors
+            | linker_script::ContentsCommand::LinkerVersion => false,
+        })
+}
+
 fn loc_for_global_expr<'data>(
     expr: &Expression<'data>,
     section_id: Option<OutputSectionId>,
@@ -735,6 +832,7 @@ impl<'data> LayoutRulesBuilder<'data> {
             region_aliases,
             nocrossrefs,
             command_script,
+            uses_segment_start: commands_use_segment_start(&input.script.commands),
         })
     }
 

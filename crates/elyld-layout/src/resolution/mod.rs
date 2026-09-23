@@ -74,7 +74,17 @@ impl<'data, P: EnginePlatform> Resolver<'data, P> {
         );
 
         // Apply -Ttext/-Tdata/-Tbss (and --section-start) overrides to built-in sections.
-        output_sections.apply_section_start_overrides(symbol_db.args);
+        // A replacing script that calls SEGMENT_START owns those addresses itself.
+        let script_owns_segment_start = symbol_db.groups.iter().any(|group| {
+            let Group::LinkerScripts(scripts) = group else {
+                return false;
+            };
+            scripts.iter().any(|script| {
+                script.parsed.replaces_default_layout() && script.parsed.uses_segment_start
+            })
+        });
+        output_sections
+            .apply_section_start_overrides(symbol_db.args, !script_owns_segment_start);
 
         // Custom output-section IDs are assigned above. The start/stop GC map must be
         // sized after that, otherwise `--gc-sections` panics when a `__start_` /

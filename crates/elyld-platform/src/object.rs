@@ -448,6 +448,13 @@ pub trait SectionAttributes: std::fmt::Debug + Default + Send + Sync + Copy + 's
     /// assigned `PT_LOAD` onto script-only sections (kernel `.orc_lookup`).
     fn set_writable(&mut self) {}
 
+    /// A script section with no inputs and no `BYTE` data is `NOBITS`. GNU ld
+    /// treats that like `.bss` and sets `SHF_WRITE`, even when the section sits
+    /// in a read-execute `PT_LOAD`. `(READONLY)` blocks the write flag.
+    fn script_only_nobits_is_writable(&self) -> bool {
+        true
+    }
+
     /// True when the script used `(INFO)` / `(DSECT)` / `(COPY)` / `(OVERLAY)` so ALLOC
     /// should not be inferred.
     fn avoids_alloc(&self) -> bool {

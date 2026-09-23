@@ -469,6 +469,8 @@ pub struct PreludeLayoutStateExt {
 #[derive(Default, Debug)]
 pub struct PreludeLayoutExt {
     pub(crate) got_plt_header_entries: u64,
+    /// First reserved `.got` word is the address of `.dynamic`.
+    pub(crate) got_header_points_at_dynamic: bool,
     pub(crate) tlsld_got_entry: Option<NonZeroU64>,
 }
 

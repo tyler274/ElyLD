@@ -11,7 +11,8 @@ use elyld_error::error::{Context as _, Error, Result};
 use elyld_platform as platform;
 use elyld_platform::value_flags::{RawFlags, ValueFlags};
 use elyld_platform::{
-    FileId, ObjectFile, OutputKind, PRELUDE_FILE_ID, Platform, RawSymbolName as _, Symbol,
+    Args as _, FileId, ObjectFile, OutputKind, PRELUDE_FILE_ID, Platform, RawSymbolName as _,
+    Symbol,
 };
 use elyld_scripts::export_list::ExportList;
 use elyld_scripts::version_script::VersionScript;
@@ -144,7 +145,7 @@ fn read_symbols_for_group<'data, P: EnginePlatform>(
         }
         Group::LinkerScripts(scripts) => {
             for script in scripts {
-                load_linker_script_symbols(script, shard, &mut outputs);
+                load_linker_script_symbols(script, shard, &mut outputs, args, output_kind);
             }
         }
         Group::SyntheticSymbols(_) => {
@@ -239,7 +240,15 @@ fn load_linker_script_symbols<'data, P: EnginePlatform>(
     script: &SequencedLinkerScript<'data, P>,
     symbols_out: &mut SymbolWriterShard<'_, '_, 'data, P>,
     outputs: &mut SymbolLoadOutputs<'data>,
+    args: &P::Args,
+    output_kind: OutputKind,
 ) {
+    // A shared object exports default-visibility script symbols, and those can
+    // be interposed. Marking them non-interposable relaxes GOT loads to a
+    // PC-relative lea, which GNU ld does not do.
+    let interposable =
+        output_kind.is_shared_object() && args.shared_object_definitions_are_interposable();
+
     for (offset, definition) in script.parsed.symbol_defs.iter().enumerate() {
         let symbol_id = script.symbol_id_range.offset_to_id(offset);
 
@@ -257,8 +266,10 @@ fn load_linker_script_symbols<'data, P: EnginePlatform>(
 
         let mut flags = if matches!(definition.placement, SymbolPlacement::ForceUndefined) {
             ValueFlags::ABSOLUTE
-        } else {
+        } else if definition.symbol.is_hidden() || !interposable {
             ValueFlags::NON_INTERPOSABLE
+        } else {
+            ValueFlags::empty()
         };
         // PROVIDE_HIDDEN symbols have hidden visibility, which means they should be
         // non-interposable (already set) and not exported to dynamic symbol table.

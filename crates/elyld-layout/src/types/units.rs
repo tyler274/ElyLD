@@ -431,6 +431,11 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
                             }
                             if !has_output_data {
                                 info.section_attributes.set_no_bits();
+                                // `. += N` with no inputs is BSS. GNU ld sets
+                                // SHF_WRITE even when the inherited PT_LOAD is RX.
+                                if info.section_attributes.script_only_nobits_is_writable() {
+                                    info.section_attributes.set_writable();
+                                }
                             }
                         }
                     }
@@ -471,6 +476,12 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
             } else if content_size[i] == 0 && !loaded_empty_input[i] {
                 *keep_sections.get_mut(section_id) = false;
             }
+        }
+
+        if let Some(got) = P::GOT_SECTION_ID
+            && P::retain_empty_builtin_section(got, resources.symbol_db.args, total_sizes)
+        {
+            *keep_sections.get_mut(got) = true;
         }
 
         let singleton_count = partial_link_plan.map_or(0, |plan| plan.singleton_count as usize);

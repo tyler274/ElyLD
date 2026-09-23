@@ -314,8 +314,16 @@ pub(crate) fn write_plt_got_entries<'data, C: ElfClass, A: Arch<Platform = elf::
     layout: &ElfLayout<'data, C>,
     table_writer: &mut TableWriter<'_, '_, C>,
 ) -> Result {
-    for _ in 0..prelude.format_specific.got_plt_header_entries {
-        *table_writer.take_next_got_entry()? = elf::Word::<C>::from_u64(0)?;
+    for index in 0..prelude.format_specific.got_plt_header_entries {
+        let value = if index == 0 && prelude.format_specific.got_header_points_at_dynamic {
+            layout
+                .section_layouts
+                .get(output_section_id::DYNAMIC)
+                .mem_offset
+        } else {
+            0
+        };
+        *table_writer.take_next_got_entry()? = elf::Word::<C>::from_u64(value)?;
     }
 
     // Write a pair of GOT entries for use by any TLSLD or TLSGD relocations.

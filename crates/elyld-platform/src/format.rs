@@ -583,6 +583,16 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
         Ok(())
     }
 
+    /// Keep a built-in section that is still empty while sizes are being
+    /// finalised, because a later adjustment will give it bytes.
+    fn retain_empty_builtin_section(
+        _section_id: OutputSectionId,
+        _args: &Self::Args,
+        _sizes: &OutputSectionPartMap<u64>,
+    ) -> bool {
+        false
+    }
+
     /// Returns any extra size needed for the part that currently ends last in
     /// the output file, once its file offset and provisional size are known.
     fn last_part_size_to_extend(

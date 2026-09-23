@@ -761,6 +761,10 @@ impl platform::Args for ElfArgs {
         self.fini_symbol.as_deref().map(str::as_bytes)
     }
 
+    fn has_explicit_section_start(&self, section_name: SectionName) -> bool {
+        self.section_start.contains_key(section_name.bytes())
+    }
+
     fn start_address_for_section(&self, section_name: SectionName) -> Option<u64> {
         // --section-start takes precedence over -Ttext/-Tdata/-Tbss.
         if let Some(&addr) = self.section_start.get(section_name.bytes()) {
@@ -861,6 +865,12 @@ impl platform::Args for ElfArgs {
 
     fn should_export_dynamic(&self, lib_name: &[u8]) -> bool {
         !self.exclude_libs.should_exclude(lib_name)
+    }
+
+    fn shared_object_definitions_are_interposable(&self) -> bool {
+        // `-Bsymbolic-functions` still leaves non-function definitions
+        // (script assignments included) interposable.
+        matches!(self.b_symbolic, BSymbolicKind::None | BSymbolicKind::Functions)
     }
 
     fn loadable_segment_alignment(&self) -> Alignment {

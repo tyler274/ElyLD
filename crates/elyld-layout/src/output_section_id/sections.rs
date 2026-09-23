@@ -158,7 +158,11 @@ impl<'data, P: Platform> OutputSections<'data, P> {
     /// Applies `--section-start` / `-Ttext` / `-Tdata` / `-Tbss` overrides to the built-in
     /// sections `.text`, `.data`, and `.bss`. Must be called after `with_base_address` and before
     /// the layout phase reads `section_info.location`.
-    pub fn apply_section_start_overrides(&mut self, args: &P::Args) {
+    ///
+    /// When a replacing script mentions `SEGMENT_START`, GNU ld uses `-Ttext` /
+    /// `-Tdata` / `-Tbss` only as the value of that function. `--section-start`
+    /// still sets the section address.
+    pub fn apply_section_start_overrides(&mut self, args: &P::Args, honor_segment_address: bool) {
         // TODO: The names here are definitely ELF-specific. Look at moving this code.
         for (section_id, name) in [
             (P::TEXT_SECTION_ID, SectionName(b".text")),
@@ -168,6 +172,10 @@ impl<'data, P: Platform> OutputSections<'data, P> {
             let Some(section_id) = section_id else {
                 continue;
             };
+            let from_section_start = args.has_explicit_section_start(name);
+            if !honor_segment_address && !from_section_start {
+                continue;
+            }
             if let Some(address) = args.start_address_for_section(name) {
                 let info = self.section_infos.get_mut(section_id);
                 if let Some(ref mut loc_info) = info.location_info {

@@ -49,12 +49,17 @@ pub struct ProcessedLinkerScript<'data, P: Platform> {
     /// This script was passed with `-T` / `--script`. An ordinary input script does not
     /// replace the built-in layout even when it contains `SECTIONS`.
     pub command_script: bool,
+    /// The script mentions `SEGMENT_START`. GNU ld then treats `-Ttext` /
+    /// `-Tdata` / `-Tbss` as `SEGMENT_START` overrides only, and does not also
+    /// relocate `.text` / `.data` / `.bss`.
+    pub uses_segment_start: bool,
 }
 
 impl<'data, P: Platform> ProcessedLinkerScript<'data, P> {
-    /// GNU `-T` without `INSERT` replaces the default layout. `INSERT` fragments
-    /// splice into the default (or a previous replacing `-T`) instead. A script
-    /// given as a normal input only defines symbols and extra rules.
+    /// GNU `-T` without `INSERT` replaces the default layout when it has a
+    /// `SECTIONS` command. `INSERT` fragments splice into the default (or a
+    /// previous replacing `-T`) instead. A script given as a normal input only
+    /// defines symbols and extra rules.
     pub fn replaces_default_layout(&self) -> bool {
         self.command_script && self.insert.is_none() && !self.ordered_sections.is_empty()
     }

@@ -143,7 +143,9 @@ impl Config {
                 // We don't yet support these sections.
                 "section.data.rel.ro",
                 // We set this to 8. GNU ld sometimes does too, but sometimes to 0.
+                // `.got` is compared as `.got.plt` when the reference linker uses that name.
                 "section.got.entsize",
+                "section.got.plt.entsize",
                 "section.plt.got.entsize",
                 "section.plt.entsize",
                 // GNU ld sometimes sets this differently that we do.

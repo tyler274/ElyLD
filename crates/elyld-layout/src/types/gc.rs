@@ -20,7 +20,7 @@ use elyld_error::error::{Context, Error, Result};
 use elyld_error::{bail, debug_assert_bail};
 use elyld_platform::output_section_map::OutputSectionMap;
 use elyld_platform::value_flags::{AtomicPerSymbolFlags, FlagsForSymbol as _, ValueFlags};
-use elyld_platform::{Arch, Args as _, ObjectFile, Platform, SectionAttributes as _, Symbol as _};
+use elyld_platform::{Arch, Args as _, ObjectFile, Platform, SectionAttributes as _};
 use elyld_util::alignment::Alignment;
 
 /// Shared `file_id` / `symbol_id_range` accessors for generic handler code.
@@ -95,7 +95,7 @@ impl<'data, P: Platform> HandlerData for ObjectLayoutState<'data, P> {
 impl<'data, P: EnginePlatform> SymbolRequestHandler<'data, P> for ObjectLayoutState<'data, P> {
     fn load_symbol<'scope, A: Arch<Platform = P>>(
         &mut self,
-        common: &mut CommonGroupState<'data, P>,
+        _common: &mut CommonGroupState<'data, P>,
         symbol_id: SymbolId,
         resources: &GraphResources<'data, 'scope, P>,
         queue: &mut LocalWorkQueue<P>,
@@ -119,11 +119,10 @@ impl<'data, P: EnginePlatform> SymbolRequestHandler<'data, P> for ObjectLayoutSt
                     self.file_id,
                     gc_unit,
                 )));
-        } else if let Some(common_symbol) = local_symbol.as_common() {
-            if resources.symbol_db.args.should_allocate_common_symbols() {
-                common.allocate(common_symbol.part_id::<P>(), common_symbol.size);
-            }
         }
+        // Common symbols are sized once in `finalise_sizes`. Sizing here would
+        // run twice when an export (`EXPORT_DYNAMIC`, which is not a section
+        // load) is followed by a real reference.
 
         Ok(())
     }

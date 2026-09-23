@@ -240,6 +240,13 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     /// Returns whether all symbols from the specified input should be exported as dynamic symbols.
     fn should_export_dynamic(&self, lib_name: &[u8]) -> bool;
 
+    /// Default-visibility definitions in a shared object can be interposed.
+    /// `-Bsymbolic` and `-Bsymbolic-non-weak` turn that off. Executables are
+    /// always searched first, so this is only consulted for shared objects.
+    fn shared_object_definitions_are_interposable(&self) -> bool {
+        false
+    }
+
     /// Returns whether to allow undefined symbols in regular object files.
     fn should_allow_object_undefined(&self, _output_kind: OutputKind) -> bool {
         false
@@ -283,6 +290,11 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
     /// name.
     fn start_address_for_section(&self, _section_name: SectionName) -> Option<u64> {
         None
+    }
+
+    /// `--section-start=name=addr`, which is distinct from `-Ttext` / `-Tdata` / `-Tbss`.
+    fn has_explicit_section_start(&self, _section_name: SectionName) -> bool {
+        false
     }
 
     /// Returns the address override for a `SEGMENT_START` segment name, as set via
