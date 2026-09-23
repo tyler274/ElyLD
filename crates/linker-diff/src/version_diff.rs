@@ -11,12 +11,14 @@ pub(crate) fn report_diffs(report: &mut crate::Report, objects: &[crate::Binary]
         read_gnu_version_d,
         "version_d",
         DiffMode::Normal,
+        report.config.match_any,
     ));
     report.add_diffs(crate::header_diff::diff_fields(
         objects,
         read_gnu_version,
         "version",
         DiffMode::IgnoreMissingValues,
+        report.config.match_any,
     ));
 }
 

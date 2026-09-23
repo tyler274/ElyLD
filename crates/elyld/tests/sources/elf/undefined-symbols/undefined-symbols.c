@@ -6,6 +6,8 @@
 //#Config:shared-lib:default
 //#LinkArgs:--shared -z now
 //#RunEnabled:false
+// mold omits `.dynamic` here; GNU ld and lld keep it.
+//#DiffMatchAny:true
 
 //#Config:no-undefined:default
 //#LinkArgs:--shared --no-undefined

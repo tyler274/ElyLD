@@ -3,6 +3,7 @@
 // libc.so link uses `-shared --sort-section=alignment` plus data pointers.
 
 //#AbstractConfig:default
+//#DiffMatchAny:true
 //#CompArgs:-fPIC
 //#RunEnabled:false
 //#ReferenceLinkers:bfd,lld,mold

@@ -1020,6 +1020,12 @@ impl<'data, P: EnginePlatform> StubLibraryLayoutState<'data, P> {
     }
 }
 
+fn dynamic_lib_is_interpreter(args: &impl elyld_platform::Args, lib_name: &[u8]) -> bool {
+    args.dynamic_linker()
+        .and_then(|path| path.file_name())
+        .is_some_and(|name| name.as_encoded_bytes() == lib_name)
+}
+
 impl<'data, P: EnginePlatform> DynamicLayoutState<'data, P> {
     pub fn activate<'scope, A: Arch<Platform = P>>(
         &mut self,
@@ -1028,6 +1034,14 @@ impl<'data, P: EnginePlatform> DynamicLayoutState<'data, P> {
         queue: &mut LocalWorkQueue<P>,
         scope: &Scope<'scope>,
     ) -> Result {
+        let defer_needed = dynamic_lib_is_interpreter(resources.symbol_db.args, self.lib_name);
+        if defer_needed {
+            resources
+                .symbol_db
+                .deferred_dt_needed
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        P::set_defer_dynamic_needed(self, defer_needed);
         P::activate_dynamic(self, common);
 
         self.request_all_undefined_symbols::<A>(resources, queue, scope)

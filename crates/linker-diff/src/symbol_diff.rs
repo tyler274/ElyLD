@@ -8,6 +8,7 @@ pub(crate) fn report_diffs(report: &mut crate::Report, bins: &[crate::Binary]) {
         read_dynsym,
         "dynsym",
         DiffMode::Normal,
+        report.config.match_any,
     ));
 }
 

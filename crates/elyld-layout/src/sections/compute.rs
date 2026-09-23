@@ -476,17 +476,17 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         )
                     });
                     let region_lma_end = region.and_then(|r| r.last_lma_end);
-                    // `AT()` on an earlier section of a packed load sets LMA ≠ VMA.
-                    // GNU keeps that delta for the following sections; there is no
-                    // MEMORY region to carry `last_lma_end`.
-                    let packed_lma_delta = program_segments.pack_script_loads()
+                    // Script output sections without `AT()` get LMA = VMA when there
+                    // is no MEMORY region. Orphans placed after an `AT()` section
+                    // (`.note.gnu.property`, `.eh_frame`) keep that section's delta.
+                    let packed_orphan_lma = program_segments.pack_script_loads()
+                        && section_info.location_info.is_none()
                         && section_info.section_attributes.is_alloc()
-                        && !has_explicit_section_addr
                         && lma_offset != mem_offset;
                     keep_running_lma = section_info.section_attributes.is_alloc()
                         && !has_explicit_section_addr
-                        && (vma_region_has_lma_delta || packed_lma_delta);
-                    let lma_base = if packed_lma_delta {
+                        && (vma_region_has_lma_delta || packed_orphan_lma);
+                    let lma_base = if packed_orphan_lma {
                         Some(lma_offset)
                     } else {
                         region_lma_end

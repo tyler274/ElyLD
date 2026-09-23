@@ -15,6 +15,7 @@ use hashbrown::{HashMap, hash_map};
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::mem::take;
+use std::sync::atomic::AtomicU32;
 use symbolic_demangle::demangle;
 use elyld_args::InputLinkerScript;
 use elyld_error::error::Result;
@@ -76,8 +77,17 @@ pub struct SymbolDb<'data, P: Platform> {
     /// The name of the entry symbol if overridden by a linker script.
     entry: Option<&'data [u8]>,
     /// `-T` replaced the built-in script and no script named `ENTRY`. Shared objects
-    /// then keep `e_entry` at 0. Executables still default to `_start`.
+    /// then keep `e_entry` at 0. Executables still default to `_start`, unless the
+    /// script also has `PHDRS`.
     suppress_default_entry: bool,
+    /// A `-T` script defined `PHDRS` and no `ENTRY`. Executables then keep `e_entry` 0.
+    script_defines_phdrs: bool,
+    /// `/DISCARD/` matched `.dynamic` / `.dynsym` / `.gnu.hash`.
+    pub discard_dynamic_sections: bool,
+    /// Dynamic inputs whose `DT_NEEDED` is the interpreter. Those entries are
+    /// written by the epilogue so `ld-linux` follows the libraries named on the
+    /// link line. Groups are written in parallel, so the count is shared.
+    pub deferred_dt_needed: AtomicU32,
 
     pub output_kind: OutputKind,
     pub herd: &'data elyld_util::arena::Herd,
@@ -206,6 +216,9 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             export_list,
             entry: None,
             suppress_default_entry: false,
+            script_defines_phdrs: false,
+            discard_dynamic_sections: false,
+            deferred_dt_needed: AtomicU32::new(0),
             output_kind,
             herd,
             section_part_ids: Vec::new(),
@@ -243,6 +256,9 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             layout_rules_builder,
             self.args,
         )?;
+        if output_sections.discard_dynamic_sections {
+            self.discard_dynamic_sections = true;
+        }
 
         self.add_version_script_from_linker_scripts(&loaded.linker_scripts)?;
 
@@ -882,10 +898,10 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
         // that were not given `-T`. A `-T` script replaces that script. If it omits
         // `ENTRY`, a shared object keeps `e_entry` at 0. An executable still uses
         // `_start`; GNU ld's executable fallback depends on the script's segments.
-        if self.output_kind.is_shared_object()
-            && self.suppress_default_entry
+        if self.suppress_default_entry
             && self.entry.is_none()
             && !self.args.has_user_entry()
+            && (self.output_kind.is_shared_object() || self.script_defines_phdrs)
         {
             return EntryPoint::None;
         }
@@ -907,8 +923,18 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             }
         }
         // `-T` drops the built-in `ENTRY(_start)`. An augment script does not.
-        if self.args.command_line_script() && self.entry.is_none() {
-            self.suppress_default_entry = true;
+        if script.input_file.modifiers.command_script {
+            if script
+                .script
+                .commands
+                .iter()
+                .any(|cmd| matches!(cmd, Command::Phdrs(_)))
+            {
+                self.script_defines_phdrs = true;
+            }
+            if self.entry.is_none() {
+                self.suppress_default_entry = true;
+            }
         }
     }
 

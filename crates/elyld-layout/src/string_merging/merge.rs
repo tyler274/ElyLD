@@ -506,9 +506,14 @@ impl<'data> MergedStringsSection<'data> {
             .collect();
         self.class_buckets = resources.class_buckets.clone();
         self.class_unpadded = class_unpadded;
+        // Section `sh_addralign` is the maximum input `sh_addralign`. Entity
+        // placement still uses `layout_alignment` (`max(sh_addralign, sh_entsize)`
+        // for constant pools). Raising the section header to the entsize makes
+        // `.rodata.cst32` (align 1, entsize 32) force `.rodata` to 32 while GNU ld
+        // keeps 16.
         self.output_alignment = input_sections
             .iter()
-            .map(|section| section.layout_alignment())
+            .map(|section| section.alignment)
             .max()
             .unwrap_or(alignment::MIN);
         self.buckets = buckets;

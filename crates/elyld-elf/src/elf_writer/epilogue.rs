@@ -245,8 +245,8 @@ pub(crate) fn write_prelude_except_gdb_index<
             .set_next_symbol_version(object::elf::VER_NDX_GLOBAL)?;
     }
 
-    // Define the null dynamic symbol.
-    if layout.symbol_db.output_kind.needs_dynsym() {
+    // Define the null dynamic symbol. A `/DISCARD/` of `.dynsym` allocates none.
+    if layout.symbol_db.output_kind.needs_dynsym() && !layout.symbol_db.discard_dynamic_sections {
         table_writer.dynsym_writer.undefined_symbol(false, &[])?;
     }
 
@@ -425,7 +425,7 @@ pub(crate) fn write_epilogue<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
 
     let mut epilogue_offsets = EpilogueOffsets::default();
 
-    if layout.symbol_db.output_kind.needs_dynamic() {
+    if layout.symbol_db.output_kind.needs_dynamic() && !layout.symbol_db.discard_dynamic_sections {
         write_epilogue_dynamic_entries(layout, table_writer, &mut epilogue_offsets)?;
     }
 

@@ -53,6 +53,9 @@ pub struct ProcessedLinkerScript<'data, P: Platform> {
     /// `-Tdata` / `-Tbss` as `SEGMENT_START` overrides only, and does not also
     /// relocate `.text` / `.data` / `.bss`.
     pub uses_segment_start: bool,
+    /// GNU `INHIBIT_COMMON_ALLOCATION` in a `-T` script. Even with no `SECTIONS`
+    /// command, bfd replaces the built-in layout (orphans from address 0).
+    pub inhibit_common_allocation: bool,
 }
 
 impl<'data, P: Platform> ProcessedLinkerScript<'data, P> {
@@ -61,7 +64,9 @@ impl<'data, P: Platform> ProcessedLinkerScript<'data, P> {
     /// previous replacing `-T`) instead. A script given as a normal input only
     /// defines symbols and extra rules.
     pub fn replaces_default_layout(&self) -> bool {
-        self.command_script && self.insert.is_none() && !self.ordered_sections.is_empty()
+        self.command_script
+            && self.insert.is_none()
+            && (!self.ordered_sections.is_empty() || self.inhibit_common_allocation)
     }
 }
 

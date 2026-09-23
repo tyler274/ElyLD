@@ -11,6 +11,7 @@ pub(crate) fn report_diffs(report: &mut crate::Report, objects: &[crate::Binary]
         read_program_segment_fields,
         "segment",
         DiffMode::Normal,
+        report.config.match_any,
     ));
 }
 

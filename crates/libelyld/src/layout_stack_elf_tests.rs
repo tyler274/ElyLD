@@ -660,6 +660,7 @@ mod expression_eval {
                 nocrossrefs: Vec::new(),
                 command_script: false,
                 uses_segment_start: false,
+                inhibit_common_allocation: false,
             },
             symbol_id_range: SymbolIdRange::empty(),
             file_id: FileId::new(0, 0),

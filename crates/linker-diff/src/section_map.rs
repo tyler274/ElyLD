@@ -236,14 +236,23 @@ impl<'data> IndexedLayout<'data> {
 
         let mut last: Option<&SectionInfo> = None;
         for section in sections {
-            if let Some(last) = last
-                && section.addresses.start < last.addresses.end
+            if let Some(prev) = last
+                && section.addresses.start < prev.addresses.end
             {
+                // `ET_REL` and `OVERLAY` place several sections at one VMA. A
+                // shared start is that case. A start that falls inside the
+                // previous section is still an error, except for TLS.
+                if section.addresses.start == prev.addresses.start {
+                    if section.addresses.end > prev.addresses.end {
+                        last = Some(section);
+                    }
+                    continue;
+                }
                 // Allow TLS sections to overlap non-TLS sections (disallow TLS-TLS overlap though)
-                if self.is_section_tls(last)? == self.is_section_tls(section)? {
+                if self.is_section_tls(prev)? == self.is_section_tls(section)? {
                     bail!(
                         "{} overlaps with {}",
-                        DisplaySection::new(last, &self.files),
+                        DisplaySection::new(prev, &self.files),
                         DisplaySection::new(section, &self.files)
                     );
                 }

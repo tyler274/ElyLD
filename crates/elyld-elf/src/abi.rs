@@ -383,13 +383,23 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         Ok(())
     }
 
+    fn set_defer_dynamic_needed<'data>(
+        state: &mut layout::DynamicLayoutState<'data, Self>,
+        defer: bool,
+    ) {
+        state.format_specific.defer_needed = defer;
+    }
+
     fn activate_dynamic<'data>(
         state: &mut layout::DynamicLayoutState<'data, Self>,
         common: &mut CommonGroupState<'data, Self>,
     ) {
-        common.allocate(part_id::DYNAMIC, C::DYNAMIC_ENTRY_SIZE);
-
-        common.allocate(part_id::DYNSTR, state.lib_name.len() as u64 + 1);
+        // The interpreter's DT_NEEDED is allocated with the epilogue so it is
+        // written after the libraries named on the link line.
+        if !state.format_specific.defer_needed {
+            common.allocate(part_id::DYNAMIC, C::DYNAMIC_ENTRY_SIZE);
+            common.allocate(part_id::DYNSTR, state.lib_name.len() as u64 + 1);
+        }
 
         state.format_specific.symbol_versions_needed = vec![false; state.object.verdefnum as usize];
     }
@@ -1245,8 +1255,24 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         properties: &LayoutExt,
         symbol_db: &SymbolDb<'data, Self>,
     ) {
-        if symbol_db.output_kind.needs_dynamic() {
+        if symbol_db.output_kind.needs_dynamic() && !symbol_db.discard_dynamic_sections {
             let dynamic_entry_size = C::DYNAMIC_ENTRY_SIZE as usize;
+            let deferred = symbol_db
+                .deferred_dt_needed
+                .load(std::sync::atomic::Ordering::Relaxed);
+            if deferred > 0
+                && let Some(name) = symbol_db
+                    .args
+                    .dynamic_linker()
+                    .and_then(|path| path.file_name())
+            {
+                let name_len = name.as_encoded_bytes().len() as u64 + 1;
+                mem_sizes.increment(
+                    part_id::DYNAMIC,
+                    u64::from(deferred) * dynamic_entry_size as u64,
+                );
+                mem_sizes.increment(part_id::DYNSTR, u64::from(deferred) * name_len);
+            }
             mem_sizes.increment(
                 part_id::DYNAMIC,
                 (elf_writer::NUM_EPILOGUE_DYNAMIC_ENTRIES * dynamic_entry_size) as u64,
@@ -1291,6 +1317,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             properties.riscv_attributes.section_size,
         );
 
+        if symbol_db.discard_dynamic_sections {
+            state.gnu_hash_layout = None;
+        }
         if let Some(gnu_hash_layout) = state.gnu_hash_layout {
             gnu_hash_layout.allocate::<C>(mem_sizes);
         }
@@ -1827,7 +1856,7 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             common.allocate(part_id::STRTAB, 1);
         }
 
-        if symbol_db.output_kind.needs_dynsym() {
+        if symbol_db.output_kind.needs_dynsym() && !symbol_db.discard_dynamic_sections {
             // Allocate space for the null symbol.
             common.allocate(part_id::DYNSTR, 1);
             common.allocate(part_id::DYNSYM, C::SYMTAB_ENTRY_SIZE);
@@ -1840,7 +1869,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         resources: &layout::FinaliseLayoutResources<'_, 'data, Elf<C>>,
     ) -> Result<Self::PreludeLayoutExt> {
         // Take the null symbol's index.
-        if resources.symbol_db.output_kind.needs_dynsym() {
+        if resources.symbol_db.output_kind.needs_dynsym()
+            && !resources.symbol_db.discard_dynamic_sections
+        {
             Self::take_dynsym_index(memory_offsets, resources.section_layouts)?;
         }
 
@@ -2344,7 +2375,14 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                 if !output_sections.should_emit_only_if_order_slot(*id, index) {
                     continue;
                 }
-                let info = output_sections.section_infos.get(*id);
+                let section_id = *id;
+                let nonempty = output_sections.is_nonempty(section_id);
+                let section_flags = output_sections
+                    .section_infos
+                    .get(section_id)
+                    .section_attributes
+                    .flags;
+                let info = output_sections.section_infos.get(section_id);
                 for phdr in &info.phdrs {
                     if phdr == b"NONE" {
                         continue;
@@ -2366,11 +2404,14 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                             segment.as_usize()
                         );
                     }
-                    if entry.has_explicit_flags {
+                    // GNU ld fills `p_flags` from sections that were actually emitted
+                    // when the script omits `FLAGS`. An empty segment (for example
+                    // after `--gc-sections`) keeps the header default: readable if
+                    // it has `FILEHDR`/`PHDRS`, otherwise 0.
+                    if entry.has_explicit_flags || !nonempty {
                         continue;
                     }
-                    entry.flags |=
-                        Self::get_segment_flags_for_section(&info.section_attributes.flags);
+                    entry.flags |= Self::get_segment_flags_for_section(&section_flags);
                     builder.get_segment_mut(*segment).segment_flags |= SegmentFlags(entry.flags);
                 }
                 ordered_sections.push(*id);
@@ -2425,6 +2466,8 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             bail!("Missing LOAD PHDR in linker script");
         }
 
+        // Same rule as the script-assigned sections above: omit `FLAGS` and
+        // take permissions from sections that have bytes.
         let update_flags = |builder: &mut OutputOrderBuilder<Self>,
                             sections: &[OutputSectionId],
                             segment: ProgramSegmentId| {
@@ -2432,6 +2475,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                 return;
             }
             for &section_id in sections {
+                if !output_sections.is_nonempty(section_id) {
+                    continue;
+                }
                 let info = output_sections.section_infos.get(section_id);
                 let flags = Self::get_segment_flags_for_section(&info.section_attributes.flags);
                 builder.get_segment_mut(segment).segment_flags |= SegmentFlags(flags);

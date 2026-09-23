@@ -52,6 +52,14 @@ pub struct OutputSections<'data, P: Platform> {
     /// Used to redirect the epilogue layout cursor after GNU ld-style merging or discard.
     pub gnu_build_id_allocated: u64,
 
+    /// A `/DISCARD/` matcher covers `.dynamic` / `.dynsym` / `.gnu.hash`.
+    pub discard_dynamic_sections: bool,
+
+    /// Output sections that received bytes during layout. Used so a `PHDRS`
+    /// header that omits `FLAGS` takes permissions from sections that are
+    /// actually present, and leaves an empty segment at its default.
+    nonempty: HashSet<OutputSectionId>,
+
     /// `ONLY_IF_RO` / `ONLY_IF_RW` copies of the same output section name.
     only_if_slots: HashMap<OutputSectionId, OnlyIfSlots<'data>>,
 }
@@ -391,8 +399,23 @@ impl<'data, P: Platform> OutputSections<'data, P> {
             script_output_data: Vec::new(),
             gnu_build_id_placement: GnuBuildIdPlacement::Builtin,
             gnu_build_id_allocated: 0,
+            discard_dynamic_sections: false,
+            nonempty: HashSet::new(),
             only_if_slots: HashMap::new(),
         }
+    }
+
+    /// Record output sections that have a non-zero part size.
+    pub fn note_part_sizes<Q: Platform>(&mut self, sizes: &OutputSectionPartMap<u64>) {
+        for (part_id, &size) in sizes.iter() {
+            if size > 0 {
+                self.nonempty.insert(part_id.output_section_id::<Q>());
+            }
+        }
+    }
+
+    pub fn is_nonempty(&self, section_id: OutputSectionId) -> bool {
+        self.nonempty.contains(&section_id)
     }
 
     /// Part that holds the generated GNU build-id note, if it is being emitted.

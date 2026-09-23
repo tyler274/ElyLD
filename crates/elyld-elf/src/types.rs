@@ -76,6 +76,8 @@ pub trait ElfClass: Copy + Default + Send + Sync + std::fmt::Debug + 'static {
     const GNU_HASH_ALIGNMENT: Alignment = Self::ADDRESS_ALIGNMENT;
     const SYMTAB_ENTRY_ALIGNMENT: Alignment = Self::ADDRESS_ALIGNMENT;
     const VERSION_D_ALIGNMENT: Alignment = Self::ADDRESS_ALIGNMENT;
+    // GNU ld uses address alignment (8 on ELF64). lld and mold use 4. Tests that
+    // reference only lld still differ; changing this would miss every bfd diff.
     const VERSION_R_ALIGNMENT: Alignment = Self::ADDRESS_ALIGNMENT;
     const GNU_PROPERTY_ALIGNMENT: Alignment = Self::ADDRESS_ALIGNMENT;
     const GNU_PROPERTY_ENTRY_SIZE: u64 =

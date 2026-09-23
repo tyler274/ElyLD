@@ -109,8 +109,50 @@ pub(super) fn resolve_sections<'data, P: EnginePlatform>(
 
     symbol_db.section_part_ids = section_part_ids;
 
+    // A zero-sized input still contributes its `sh_addralign`. Clang `-Os` LTO
+    // emits an empty `.text` (align 4) plus `.text._start` (align 1); GNU ld's
+    // output `.text` stays 4. GC may drop the empty section, so record the
+    // alignment here rather than from the bytes that were copied.
+    record_empty_section_alignment(groups, output_sections, &symbol_db.section_part_ids)?;
+
     loaded_metrics.log();
 
+    Ok(())
+}
+
+/// Raise each output section's alignment to cover zero-sized inputs placed in it.
+fn record_empty_section_alignment<P: EnginePlatform>(
+    groups: &[ResolvedGroup<'_, P>],
+    output_sections: &mut OutputSections<'_, P>,
+    section_part_ids: &[PartId],
+) -> Result {
+    for group in groups {
+        for file in &group.files {
+            let ResolvedFile::Object(obj) = file else {
+                continue;
+            };
+            for (index, header) in obj.common.object.enumerate_sections() {
+                if obj.common.object.section_size(header).unwrap_or(0) != 0 {
+                    continue;
+                }
+                if !matches!(
+                    obj.sections.get(index.0),
+                    Some(SectionSlot::Unloaded(_) | SectionSlot::MustLoad(_))
+                ) {
+                    continue;
+                }
+                let part_id =
+                    section_part_ids[obj.section_id_range.input_to_id(index).as_usize()];
+                if part_id == part_id::UNMAPPED || part_id == PartId::CUSTOM_PLACEHOLDER {
+                    continue;
+                }
+                let raw = obj.common.object.section_alignment(header)?;
+                let alignment = Alignment::new(raw.max(1))?;
+                output_sections
+                    .bump_min_alignment(part_id.output_section_id::<P>(), alignment);
+            }
+        }
+    }
     Ok(())
 }
 

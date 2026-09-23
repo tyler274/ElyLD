@@ -156,6 +156,10 @@ pub struct DynamicLayoutStateExt<'data, C: ElfClass> {
 
     /// Maps from addresses within the shared object to copy relocations at that address.
     pub(crate) copy_relocations: HashMap<u64, CopyRelocationInfo>,
+
+    /// `DT_NEEDED` for this object is the dynamic linker. The epilogue writes it
+    /// so it follows libraries that were passed on the link line.
+    pub(crate) defer_needed: bool,
 }
 
 #[derive(Debug)]

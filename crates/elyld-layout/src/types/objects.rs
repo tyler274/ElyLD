@@ -667,6 +667,26 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         mode: ExportSymbolsMode,
         scope: &Scope<'scope>,
     ) -> Result {
+        if resources.symbol_db.discard_dynamic_sections {
+            // `/DISCARD/` dropped `.dynsym`, so there is no dynamic export.
+            // Global symbols are still GC roots; otherwise `.input_keeps` disappears.
+            for (sym_index, sym) in self.object.enumerate_symbols() {
+                let symbol_id = self.symbol_id_range.input_to_id(sym_index);
+                if let Some(section_index) = self.object.symbol_section(sym, sym_index)?
+                    && matches!(self.sections[section_index.0], SectionSlot::Discard)
+                {
+                    continue;
+                }
+                if !can_export_symbol(sym, symbol_id, resources, mode) {
+                    continue;
+                }
+                let old_flags = resources.per_symbol_flags.get_atomic(symbol_id).get();
+                if !old_flags.has_section_load() {
+                    self.load_symbol::<A>(common, symbol_id, resources, queue, scope)?;
+                }
+            }
+            return Ok(());
+        }
         for (sym_index, sym) in self.object.enumerate_symbols() {
             let symbol_id = self.symbol_id_range.input_to_id(sym_index);
 
@@ -706,6 +726,14 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
     ) -> Result {
         let sym_index = self.symbol_id_range.id_to_input(symbol_id);
         let sym = self.object.symbol(sym_index)?;
+
+        if resources.symbol_db.discard_dynamic_sections {
+            let old_flags = resources.per_symbol_flags.get_atomic(symbol_id).get();
+            if !old_flags.has_section_load() {
+                self.load_symbol::<A>(common, symbol_id, resources, queue, scope)?;
+            }
+            return Ok(());
+        }
 
         if let Some(section_index) = self.object.symbol_section(sym, sym_index)?
             && matches!(self.sections[section_index.0], SectionSlot::Discard)

@@ -21,7 +21,7 @@ use elyld_layout::symbol_db::SymbolId;
 use elyld_layout::{DynamicLayout, EpilogueLayout, OutputRecordLayout, verbose_timing_phase};
 use elyld_platform::output_section_map::OutputSectionMap;
 use elyld_platform::value_flags::ValueFlags;
-use elyld_platform::{Arch, ObjectFile, OutputKind};
+use elyld_platform::{Arch, Args as _, ObjectFile, OutputKind};
 use zerocopy::FromBytes;
 
 pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
@@ -29,6 +29,24 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
     table_writer: &mut TableWriter<'_, '_, C>,
     epilogue_offsets: &mut EpilogueOffsets,
 ) -> Result {
+    let deferred = layout
+        .symbol_db
+        .deferred_dt_needed
+        .load(std::sync::atomic::Ordering::Relaxed);
+    if deferred > 0
+        && let Some(name) = layout
+            .args()
+            .dynamic_linker()
+            .and_then(|path| path.file_name())
+    {
+        let bytes = name.as_encoded_bytes();
+        for _ in 0..deferred {
+            let offset = table_writer.dynsym_writer.strtab_writer.write_str(bytes);
+            table_writer
+                .dynamic
+                .write(object::elf::DT_NEEDED, u64::from(offset))?;
+        }
+    }
     if let Some(rpath) = &layout.args().rpath {
         let offset = table_writer
             .dynsym_writer
@@ -694,7 +712,7 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
 ) -> Result {
     verbose_timing_phase!("Write dynamic");
 
-    write_so_name(object, table_writer)?;
+    write_so_name(object, table_writer, lib_is_interpreter(layout, object.lib_name))?;
 
     write_copy_relocations::<C, A>(object, table_writer, layout)?;
 
@@ -843,10 +861,19 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
 }
 
 /// Write dynamic entry to indicate name of shared object to load.
+///
+/// The interpreter's `DT_NEEDED` is written by the epilogue so it follows
+/// libraries that were passed on the link line. GNU ld records `ld-linux` last.
+/// File groups are written in parallel, so this function skips the interpreter
+/// instead of trying to hand its string offset to the epilogue.
 pub(crate) fn write_so_name<'data, C: ElfClass>(
     object: &DynamicLayout<'data, elf::Elf<C>>,
     table_writer: &mut TableWriter<'_, '_, C>,
+    defer: bool,
 ) -> Result {
+    if defer {
+        return Ok(());
+    }
     let needed_offset = table_writer
         .dynsym_writer
         .strtab_writer
@@ -855,6 +882,14 @@ pub(crate) fn write_so_name<'data, C: ElfClass>(
         .dynamic
         .write(object::elf::DT_NEEDED, needed_offset.into())?;
     Ok(())
+}
+
+fn lib_is_interpreter<C: ElfClass>(layout: &ElfLayout<C>, lib_name: &[u8]) -> bool {
+    layout
+        .args()
+        .dynamic_linker()
+        .and_then(|path| path.file_name())
+        .is_some_and(|name| name.as_encoded_bytes() == lib_name)
 }
 
 pub(crate) fn write_copy_relocations<'data, C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(

@@ -279,6 +279,10 @@ impl<'data> LayoutRulesBuilder<'data> {
                                                     &rule,
                                                     GnuBuildIdPlacement::Discard,
                                                 );
+                                                record_discarded_dynamic_sections(
+                                                    output_sections,
+                                                    &rule,
+                                                );
                                                 self.add_section_rule(rule);
                                             }
                                         }
@@ -810,7 +814,14 @@ impl<'data> LayoutRulesBuilder<'data> {
         self.num_location_counters += location_counters.len();
 
         let command_script = input.input_file.modifiers.command_script;
-        if command_script && insert.is_none() && !ordered_sections.is_empty() {
+        let inhibit_common_allocation = input.script.inhibit_common_allocation();
+        // `INHIBIT_COMMON_ALLOCATION` alone is still a replacing `-T` for bfd:
+        // orphans start at 0 and share one load. `OUTPUT_FORMAT` / `OUTPUT_ARCH`
+        // do not, so those scripts keep `_start` and the built-in rules.
+        if command_script
+            && insert.is_none()
+            && (!ordered_sections.is_empty() || inhibit_common_allocation)
+        {
             self.replaces_default_script = true;
             if !script_set_base && args.image_base().is_none() {
                 output_sections.set_base_address(linker_script::Expression::Number(0));
@@ -833,15 +844,19 @@ impl<'data> LayoutRulesBuilder<'data> {
             nocrossrefs,
             command_script,
             uses_segment_start: commands_use_segment_start(&input.script.commands),
+            inhibit_common_allocation,
         })
     }
 
     pub fn build<P: EnginePlatform>(mut self, args: &P::Args) -> LayoutRules<'data> {
-        let section_rules = if self.rules.is_empty() {
-            SectionRules::from_rules(&P::default_layout_rules(args))
-        } else if self.replaces_default_script {
+        let section_rules = if self.replaces_default_script {
+            // No `SECTIONS` patterns (for example only `INHIBIT_COMMON_ALLOCATION`)
+            // still drops the built-in placement rules. Linker-managed rules
+            // (`.eh_frame`, reloc sections) are added by `pre_build`.
             P::linker_script_rules_pre_build(&mut self);
             SectionRules::from_rules(&self.rules)
+        } else if self.rules.is_empty() {
+            SectionRules::from_rules(&P::default_layout_rules(args))
         } else {
             // `INSERT` fragments keep their matchers but inherit builtin placement, matching
             // GNU `-T` with `INSERT` which splices into the default script.
@@ -870,5 +885,19 @@ fn record_gnu_build_id_placement<P: EnginePlatform>(
     // Linker-generated notes have no input filename; `*` still matches an empty name.
     if rule.matches(b".note.gnu.build-id", Some(b"")) {
         output_sections.gnu_build_id_placement = placement;
+    }
+}
+
+/// `/DISCARD/ : { *(*) }` matches linker-generated `.dynamic` / `.dynsym` /
+/// `.gnu.hash`. GNU ld then omits those sections.
+fn record_discarded_dynamic_sections<P: EnginePlatform>(
+    output_sections: &mut OutputSections<P>,
+    rule: &SectionRule<'_>,
+) {
+    if rule.matches(b".dynamic", Some(b""))
+        || rule.matches(b".dynsym", Some(b""))
+        || rule.matches(b".gnu.hash", Some(b""))
+    {
+        output_sections.discard_dynamic_sections = true;
     }
 }

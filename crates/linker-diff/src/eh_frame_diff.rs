@@ -16,6 +16,7 @@ pub(crate) fn report_diffs(report: &mut crate::Report, objects: &[crate::Binary]
         read_eh_frame_hdr_fields,
         "eh_frame",
         DiffMode::Normal,
+        report.config.match_any,
     ));
 }
 

@@ -17,6 +17,7 @@ pub(crate) fn report_diffs(report: &mut crate::Report, objects: &[crate::Binary]
         read_riscv_attributes_fields,
         "riscv_attributes",
         DiffMode::IgnoreIfAllErrors,
+        report.config.match_any,
     ));
 }
 

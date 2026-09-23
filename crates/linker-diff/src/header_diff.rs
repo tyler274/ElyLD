@@ -176,6 +176,7 @@ pub(crate) fn check_file_headers(report: &mut Report, objects: &[crate::Binary])
         read_file_header_fields,
         "file-header",
         DiffMode::IgnoreIfAllErrors,
+        report.config.match_any,
     ));
 }
 
@@ -185,6 +186,7 @@ pub(crate) fn check_dynamic_headers(report: &mut Report, objects: &[crate::Binar
         read_dynamic_fields,
         DYNAMIC_SECTION_NAME_STR,
         DiffMode::IgnoreIfAllErrors,
+        report.config.match_any,
     ));
 }
 
@@ -194,6 +196,7 @@ pub(crate) fn check_macho_linkedit_alignment(report: &mut Report, objects: &[cra
         read_macho_linkedit_fields,
         "linkedit",
         DiffMode::IgnoreMissingValues,
+        report.config.match_any,
     ));
 }
 
@@ -280,6 +283,7 @@ pub(crate) fn report_section_diffs(report: &mut Report, objects: &[Binary]) {
             },
             &table_name,
             DiffMode::Normal,
+            report.config.match_any,
         ));
     }
 }
@@ -323,6 +327,7 @@ pub(crate) fn diff_fields(
     get_fields_fn: impl Fn(&Binary<'_>) -> Result<FieldValues>,
     table_name: &str,
     diff_mode: DiffMode,
+    match_any: bool,
 ) -> Vec<Diff> {
     let field_values = objects.iter().map(get_fields_fn).collect_vec();
     if diff_mode == DiffMode::IgnoreIfAllErrors && field_values.iter().all(Result::is_err) {
@@ -343,7 +348,12 @@ pub(crate) fn diff_fields(
             }
         }
     }
-    if has_errors {
+    // `--match-any` still passes when our output matches one reference and
+    // another reference cannot be read (mold omits `.dynamic` on some shared
+    // objects). A read error on our own output is still a failure.
+    if has_errors
+        && !(match_any && errors.first().is_some_and(|e| e == "OK") && ok.len() >= 2)
+    {
         return vec![Diff {
             key: table_name.to_owned(),
             values: DiffValues::PerObject(errors),

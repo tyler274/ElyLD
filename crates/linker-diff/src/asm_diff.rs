@@ -159,6 +159,7 @@ fn compare_sections<A: Arch>(
                 &original_section,
                 bin,
                 section_address,
+                section_versions.found_via_symbol,
                 layout.input_file_for_section(section_versions.input_section_id),
             )
         })
@@ -1815,6 +1816,7 @@ impl<'data> RelaxationTester<'data> {
         original_section: &ElfSection64<'data, '_, Endianness>,
         bin: &'data Binary<'data>,
         section_address: u64,
+        symbol_name: &[u8],
         input_file: &section_map::InputFile,
     ) -> Result<Self> {
         let section_len = original_section.size();
@@ -1827,7 +1829,20 @@ impl<'data> RelaxationTester<'data> {
                 section_bytes = None;
             }
             _ => {
-                section_bytes = read_bytes(bin.file, section_address, section_len);
+                // `ET_REL` and `OVERLAY` put several sections at one VMA. Read
+                // the symbol's own section instead of the first load that
+                // covers that address.
+                section_bytes = if address_is_ambiguous(&bin.file, section_address, section_len) {
+                    read_symbol_section_bytes(
+                        &bin.file,
+                        symbol_name,
+                        section_address,
+                        section_len,
+                    )
+                    .or_else(|| read_bytes(&bin.file, section_address, section_len))
+                } else {
+                    read_bytes(&bin.file, section_address, section_len)
+                };
 
                 if section_bytes.is_none() {
                     bail!(
@@ -3833,11 +3848,109 @@ fn read_word_at(file: &File, address: u64) -> Option<u64> {
     Some(u64::from_le_bytes(*chunk))
 }
 
+/// More than one file-backed section covers this VMA, or the file has no
+/// `PT_LOAD` (`ET_REL`). A load-address read would return the wrong bytes.
+fn address_is_ambiguous(file: &File<'_>, address: u64, len: u64) -> bool {
+    let File::Elf64(elf_file) = file else {
+        return false;
+    };
+    let Some(end) = address.checked_add(len) else {
+        return false;
+    };
+    let e = elf_file.endian();
+    let has_load = elf_file.elf_program_headers().iter().any(|header| {
+        if header.p_type(e) != object::elf::PT_LOAD {
+            return false;
+        }
+        let start = header.p_vaddr(e);
+        start <= address && address < start + header.p_memsz(e)
+    });
+    if !has_load {
+        return true;
+    }
+    let mut covers = 0u32;
+    for section in elf_file.sections() {
+        match section.kind() {
+            SectionKind::UninitializedData | SectionKind::UninitializedTls | SectionKind::Metadata => {
+                continue;
+            }
+            _ => {}
+        }
+        let start = section.address();
+        let Some(section_end) = start.checked_add(section.size()) else {
+            continue;
+        };
+        if start <= address && end <= section_end {
+            covers += 1;
+            if covers > 1 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Bytes of the output section that defines `name`, starting at `section_vma`.
+fn read_symbol_section_bytes<'data>(
+    file: &File<'data>,
+    name: &[u8],
+    section_vma: u64,
+    len: u64,
+) -> Option<&'data [u8]> {
+    let File::Elf64(elf_file) = file else {
+        return None;
+    };
+    for symbol in elf_file.symbols() {
+        if symbol.name_bytes().ok()? != name {
+            continue;
+        }
+        let index = symbol.section_index()?;
+        let section = elf_file.section_by_index(index).ok()?;
+        let data = section.data().ok()?;
+        let start = usize::try_from(section_vma.checked_sub(section.address())?).ok()?;
+        return data.get(start..)?.get(..usize::try_from(len).ok()?);
+    }
+    None
+}
+
 fn read_bytes<'data>(file: &File<'data>, address: u64, len: u64) -> Option<&'data [u8]> {
-    read_segment(file, address).and_then(|data| match data {
-        Data::Bytes(bytes) => bytes.get(..len as usize),
-        Data::Bss => None,
-    })
+    if let Some(data) = read_segment(file, address) {
+        return match data {
+            Data::Bytes(bytes) => bytes.get(..len as usize),
+            Data::Bss => None,
+        };
+    }
+    // Relocatable output has no `PT_LOAD`. Section VMAs are all 0 and the
+    // bytes live at `sh_offset`. Use the tightest section that covers the read.
+    read_section_bytes(file, address, len)
+}
+
+/// Bytes of the smallest section that contains `address..address+len`.
+fn read_section_bytes<'data>(file: &File<'data>, address: u64, len: u64) -> Option<&'data [u8]> {
+    let File::Elf64(elf_file) = file else {
+        return None;
+    };
+    let end = address.checked_add(len)?;
+    let mut best: Option<(u64, &'data [u8])> = None;
+    for section in elf_file.sections() {
+        match section.kind() {
+            SectionKind::UninitializedData | SectionKind::UninitializedTls | SectionKind::Metadata => {
+                continue;
+            }
+            _ => {}
+        }
+        let start = section.address();
+        let size = section.size();
+        let section_end = start.checked_add(size)?;
+        if start <= address && end <= section_end {
+            let offset = (address - start) as usize;
+            let bytes = section.data().ok()?.get(offset..)?;
+            if best.as_ref().is_none_or(|(best_size, _)| size < *best_size) {
+                best = Some((size, bytes));
+            }
+        }
+    }
+    best.and_then(|(_, bytes)| bytes.get(..len as usize))
 }
 
 /// Returns bytes starting at `address` up to the end of the containing segment. This is useful when

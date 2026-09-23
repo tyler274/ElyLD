@@ -196,6 +196,11 @@ where
 
     propagate_section_attributes(&group_states, &mut output_sections);
 
+    for group in &group_states {
+        output_sections.note_part_sizes::<P>(&group.common.mem_sizes);
+        output_sections.note_part_sizes::<P>(&group.common.sorted_section_mem_sizes);
+    }
+
     if symbol_db.args.should_output_partial_object() {
         clear_singleton_attributes::<P>(&mut output_sections);
     }

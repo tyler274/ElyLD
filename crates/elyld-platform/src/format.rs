@@ -299,6 +299,14 @@ pub trait Platform: Copy + Send + Sync + Sized + Default + std::fmt::Debug + 'st
         common: &mut Self::CommonGroupState<'data>,
     );
 
+    /// The interpreter's `DT_NEEDED` is emitted by the epilogue, after libraries
+    /// named on the link line.
+    fn set_defer_dynamic_needed<'data>(
+        _state: &mut Self::DynamicLayoutState<'data>,
+        _defer: bool,
+    ) {
+    }
+
     fn pre_finalise_sizes_prelude<'scope, 'data>(
         prelude: &mut Self::PreludeLayoutState<'data>,
         common: &mut Self::CommonGroupState<'data>,
