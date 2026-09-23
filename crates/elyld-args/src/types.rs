@@ -258,7 +258,10 @@ impl CommonArgs {
     pub fn add_script(&mut self, path: &str) {
         self.inputs.push(Input::new(
             InputSpec::File(Box::from(Path::new(path))),
-            Modifiers::default(),
+            Modifiers {
+                command_script: true,
+                ..Modifiers::default()
+            },
         ));
     }
 

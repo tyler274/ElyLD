@@ -171,7 +171,7 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
             .per_symbol_flags
             .get_atomic(symbol_id)
             .fetch_or(ValueFlags::DIRECT);
-        if !old_flags.has_resolution() {
+        if !old_flags.has_section_load() {
             queue.send_work::<A>(
                 resources,
                 file_id,
@@ -678,7 +678,7 @@ impl<'data, P: EnginePlatform> InternalSymbols<'data, P> {
                 .per_symbol_flags
                 .get_atomic(canonical)
                 .fetch_or(ValueFlags::DIRECT);
-            if !old_flags.has_resolution() {
+            if !old_flags.has_section_load() {
                 queue.send_symbol_request::<A>(canonical, resources, scope);
             }
         }

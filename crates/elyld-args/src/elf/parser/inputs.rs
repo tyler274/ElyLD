@@ -101,7 +101,10 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
         .declare_with_param()
         .prefix("z")
         .help("Linker option")
-        .sub_option("now", "Resolve all symbols immediately", |_, _| Ok(()))
+        .sub_option("now", "Resolve all symbols immediately", |args, _| {
+            args.bind_now = true;
+            Ok(())
+        })
         .sub_option(
             "origin",
             "Mark object as requiring immediate $ORIGIN",
@@ -188,7 +191,10 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
             args.allow_multiple_definitions = true;
             Ok(())
         })
-        .sub_option("lazy", "Use lazy binding (default)", |_, _| Ok(()))
+        .sub_option("lazy", "Use lazy binding (default)", |args, _| {
+            args.bind_now = false;
+            Ok(())
+        })
         .sub_option(
             "interpose",
             "Mark object to interpose all DSOs but executable",
@@ -356,6 +362,7 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
         .help("Enable removal of unused sections")
         .execute(|args, _modifier_stack| {
             args.gc_sections = true;
+            args.gc_sections_explicit = true;
             Ok(())
         });
 
@@ -365,6 +372,7 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
         .help("Disable removal of unused sections")
         .execute(|args, _modifier_stack| {
             args.gc_sections = false;
+            args.gc_sections_explicit = false;
             Ok(())
         });
 
@@ -408,6 +416,7 @@ pub fn add_search_and_output_flags(parser: &mut ArgumentParser<ElfArgs>) {
             args.should_output_executable = false;
             args.should_output_partial_object = true;
             args.gc_sections = false;
+            args.gc_sections_explicit = false;
             args.relro = false;
             args.should_write_linker_identity = false;
             args.merge_sections = false;

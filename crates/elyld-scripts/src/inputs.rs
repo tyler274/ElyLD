@@ -20,6 +20,10 @@ pub struct Modifiers {
     /// stored in the layout file if written so that linker-diff knows not to error if the file
     /// is missing.
     pub temporary: bool,
+
+    /// The file was passed with `-T` / `--script`, which replaces the built-in linker script.
+    /// A script named as an ordinary input only augments it.
+    pub command_script: bool,
 }
 
 impl Default for Modifiers {
@@ -30,6 +34,7 @@ impl Default for Modifiers {
             whole_archive: false,
             archive_semantics: false,
             temporary: false,
+            command_script: false,
         }
     }
 }

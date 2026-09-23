@@ -658,6 +658,7 @@ mod expression_eval {
                 insert: None,
                 region_aliases: Vec::new(),
                 nocrossrefs: Vec::new(),
+                command_script: false,
             },
             symbol_id_range: SymbolIdRange::empty(),
             file_id: FileId::new(0, 0),

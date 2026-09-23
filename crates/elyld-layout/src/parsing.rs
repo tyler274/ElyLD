@@ -46,13 +46,17 @@ pub struct ProcessedLinkerScript<'data, P: Platform> {
     pub insert: Option<ScriptInsert<'data>>,
     pub region_aliases: Vec<(&'data [u8], &'data [u8])>,
     pub nocrossrefs: Vec<elyld_scripts::linker_script::NocrossrefConstraint<'data>>,
+    /// This script was passed with `-T` / `--script`. An ordinary input script does not
+    /// replace the built-in layout even when it contains `SECTIONS`.
+    pub command_script: bool,
 }
 
 impl<'data, P: Platform> ProcessedLinkerScript<'data, P> {
     /// GNU `-T` without `INSERT` replaces the default layout. `INSERT` fragments
-    /// splice into the default (or a previous replacing `-T`) instead.
+    /// splice into the default (or a previous replacing `-T`) instead. A script
+    /// given as a normal input only defines symbols and extra rules.
     pub fn replaces_default_layout(&self) -> bool {
-        self.insert.is_none() && !self.ordered_sections.is_empty()
+        self.command_script && self.insert.is_none() && !self.ordered_sections.is_empty()
     }
 }
 

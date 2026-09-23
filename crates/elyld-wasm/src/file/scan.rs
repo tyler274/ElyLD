@@ -149,7 +149,7 @@ pub(crate) fn enqueue_wasm_force_export_roots<'data, 'scope, A: platform::Arch<P
             .per_symbol_flags
             .get_atomic(def_id)
             .fetch_or(ValueFlags::DIRECT);
-        if !old_flags.has_resolution() {
+        if !old_flags.has_section_load() {
             queue.send_symbol_request::<A>(def_id, resources, scope);
         }
     }
@@ -281,7 +281,7 @@ pub(crate) fn send_wasm_definition_request<'data, 'scope, A: platform::Arch<Plat
         .per_symbol_flags
         .get_atomic(symbol_id)
         .fetch_or(ValueFlags::DIRECT);
-    if !previous_flags.has_resolution() {
+    if !previous_flags.has_section_load() {
         queue.send_symbol_request::<A>(symbol_id, resources, scope);
     }
 }

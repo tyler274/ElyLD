@@ -92,7 +92,7 @@ pub const INCREMENTAL_SECTION_PADDING: u64 = 256;
 pub fn compute<'data, P, A>(
     symbol_db: SymbolDb<'data, A::Platform>,
     mut per_symbol_flags: PerSymbolFlags,
-    mut groups: Vec<ResolvedGroup<'data, A::Platform>>,
+    groups: Vec<ResolvedGroup<'data, A::Platform>>,
     mut output_sections: OutputSections<'data, P>,
 ) -> Result<Layout<'data, A::Platform>>
 where
@@ -108,35 +108,27 @@ where
     let mut symbol_info_printer = SymbolInfoPrinter::new(symbol_db.args, &groups);
     symbol_info_printer.update(&symbol_db, &atomic_per_symbol_flags);
 
+    let gc_outputs = traverse_reference_graph::<A>(
+        groups,
+        &symbol_db,
+        &atomic_per_symbol_flags,
+        &output_sections,
+        layout_resources_ext,
+    )?;
+
+    let mut group_states = gc_outputs.group_states;
+    // Merge only sections GC kept. That has to follow the reference walk, because an
+    // unreferenced `.rodata.cst4` must not raise the output section's alignment.
     let string_merge_inputs = crate::string_merging::StringMergeInputs::new(
-        &mut groups,
+        &mut group_states,
         &symbol_db.section_part_ids,
         &output_sections,
     )?;
-
-    let (merged_strings, gc_outputs) = rayon::join(
-        || {
-            crate::string_merging::merge_strings(
-                &string_merge_inputs,
-                &output_sections,
-                symbol_db.args,
-            )
-        },
-        || {
-            traverse_reference_graph::<A>(
-                groups,
-                &symbol_db,
-                &atomic_per_symbol_flags,
-                &output_sections,
-                layout_resources_ext,
-            )
-        },
-    );
-
-    let mut merged_strings = merged_strings?;
-    let gc_outputs = gc_outputs?;
-
-    let mut group_states = gc_outputs.group_states;
+    let mut merged_strings = crate::string_merging::merge_strings(
+        &string_merge_inputs,
+        &output_sections,
+        symbol_db.args,
+    )?;
     let thunk_layout_builder = gc_outputs.thunk_layout_builder;
 
     let epilogue_file_id = FileId::new(group_states.len() as u32, 0);
@@ -361,6 +353,12 @@ where
     } else {
         unreachable!();
     };
+
+    merged_strings.for_each(|section_id, merged| {
+        if merged.len() > 0 {
+            output_sections.bump_min_alignment(section_id, merged.output_alignment);
+        }
+    });
 
     P::finalise_output_section_alignments(&section_part_sizes, &mut output_sections);
 

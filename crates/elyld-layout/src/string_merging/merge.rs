@@ -1,5 +1,6 @@
 use super::split::{create_split_resources, try_spawn_input_processing};
 use super::types::{
+    MergeString,
     BucketOffset, BucketString, LinearInputOffset, MAP_BLOCK_SIZE, MAX_SPLIT_PARALLELISM,
     MERGE_STRING_BUCKET_BITS, MERGE_STRING_BUCKETS, MergeClassBuckets, MergeStringsSectionBucket,
     MergedStringStartAddresses, MergedStringsSection, ReusePool, StringMergeInputSection,
@@ -8,7 +9,8 @@ use super::types::{
 use crate::output_section_id::OutputSections;
 use crate::output_section_part_map::OutputSectionPartMap;
 use crate::part_id::PartId;
-use crate::resolution::{ResolvedFile, ResolvedGroup, SectionSlot};
+use crate::resolution::SectionSlot;
+use crate::types::{FileLayoutState, GroupState};
 use crate::{EnginePlatform, timing_phase, verbose_timing_phase};
 use hashbrown::HashMap;
 use itertools::Itertools as _;
@@ -372,13 +374,13 @@ pub fn merge_strings<'data, P: EnginePlatform>(
 
 impl<'data> StringMergeInputs<'data> {
     pub fn new<P: EnginePlatform>(
-        resolved: &mut [ResolvedGroup<'data, P>],
+        groups: &mut [GroupState<'data, P>],
         section_part_ids: &[crate::part_id::PartId],
         output_sections: &OutputSections<P>,
     ) -> Result<Self> {
         Ok(Self {
             input_sections_by_output: group_merge_string_sections_by_output(
-                resolved,
+                groups,
                 section_part_ids,
                 output_sections,
             )?,
@@ -390,7 +392,7 @@ impl<'data> StringMergeInputs<'data> {
 // reference to the `MergeStringsFileSection` rather than copying it because it appears to be
 // faster.
 fn group_merge_string_sections_by_output<'data, P: EnginePlatform>(
-    resolved: &mut [ResolvedGroup<'data, P>],
+    groups: &mut [GroupState<'data, P>],
     section_part_ids: &[crate::part_id::PartId],
     output_sections: &OutputSections<P>,
 ) -> Result<OutputSectionMap<Vec<StringMergeInputSection<'data>>>> {
@@ -400,15 +402,31 @@ fn group_merge_string_sections_by_output<'data, P: EnginePlatform>(
 
     let mut starting_offsets = output_sections.new_section_map::<LinearInputOffset>();
 
-    for group in resolved {
+    for group in groups {
         for file in &mut group.files {
-            let ResolvedFile::Object(obj) = file else {
+            let FileLayoutState::Object(obj) = file else {
                 continue;
             };
             for extra in &obj.string_merge_extras {
                 let SectionSlot::MergeStrings(sec) = &mut obj.sections[extra.index.0] else {
                     bail!("Internal error: expected SectionSlot::MergeStrings");
                 };
+                if !sec.loaded {
+                    // GC dropped the section, but a string section that is not
+                    // null-terminated is still an error. GNU ld accepts those;
+                    // we do not.
+                    if extra.is_strings {
+                        let mut data = extra.section_data;
+                        while !data.is_empty() {
+                            MergeString::take_string_hashed(
+                                &mut data,
+                                extra.alignment,
+                                extra.entsize,
+                            )?;
+                        }
+                    }
+                    continue;
+                }
 
                 let part_id =
                     section_part_ids[obj.section_id_range.start().as_usize() + extra.index.0];
@@ -488,6 +506,11 @@ impl<'data> MergedStringsSection<'data> {
             .collect();
         self.class_buckets = resources.class_buckets.clone();
         self.class_unpadded = class_unpadded;
+        self.output_alignment = input_sections
+            .iter()
+            .map(|section| section.layout_alignment())
+            .max()
+            .unwrap_or(alignment::MIN);
         self.buckets = buckets;
         let leading = pad_merge_buckets(
             &mut self.buckets,

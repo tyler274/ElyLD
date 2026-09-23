@@ -43,6 +43,10 @@ pub struct ElfArgs {
     pub soname: Option<String>,
     pub exclude_libs: ExcludeLibs,
     pub gc_sections: bool,
+    /// Set only by an explicit `--gc-sections`. The default enables GC for ordinary
+    /// sections; allocatable merge sections are collected only when this is set, so a
+    /// link that did not pass the flag still keeps them the way GNU ld does.
+    pub gc_sections_explicit: bool,
     pub build_id: BuildIdOption,
 
     // Whether to emit errors if our input objects have undefined symbols that we can't resolve. If
@@ -59,6 +63,10 @@ pub struct ElfArgs {
     /// `--require-defined`: like `-u`, but the link fails if the symbol is still undefined.
     pub require_defined: Vec<String>,
     pub relro: bool,
+    /// `-z now`. GNU ld defaults to lazy binding; `-z lazy` turns this back off.
+    pub bind_now: bool,
+    /// `-T` / `--script` was given. That replaces the built-in script, including `ENTRY(_start)`.
+    pub command_script: bool,
     pub entry: Option<String>,
     /// GNU `-init` / `--init`: address written as `DT_INIT`.
     pub init_symbol: Option<String>,
@@ -335,6 +343,7 @@ impl Default for ElfArgs {
             // slow or slower than --gc-sections. For that reason, the latter is
             // probably a good default.
             gc_sections: true,
+            gc_sections_explicit: false,
             merge_sections: true,
             copy_relocations: CopyRelocations::Allowed,
             version_script_path: None,
@@ -370,6 +379,8 @@ impl Default for ElfArgs {
             undefined: Vec::new(),
             require_defined: Vec::new(),
             relro: true,
+            bind_now: false,
+            command_script: false,
             entry: None,
             init_symbol: None,
             fini_symbol: None,
@@ -699,6 +710,10 @@ impl platform::Args for ElfArgs {
         self.gc_sections && !self.common.incremental
     }
 
+    fn gc_unreferenced_merge_sections(&self) -> bool {
+        self.gc_sections_explicit && !self.common.incremental
+    }
+
     fn orphan_handling(&self) -> OrphanHandling {
         self.orphan_handling
     }
@@ -728,6 +743,14 @@ impl platform::Args for ElfArgs {
             );
         }
         platform::EntryPoint::Symbol(linker_script_entry.unwrap_or(b"_start"))
+    }
+
+    fn has_user_entry(&self) -> bool {
+        self.entry.is_some()
+    }
+
+    fn command_line_script(&self) -> bool {
+        self.command_script
     }
 
     fn dt_init_symbol_name(&self) -> Option<&[u8]> {

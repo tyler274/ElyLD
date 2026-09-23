@@ -109,6 +109,11 @@ bitflags! {
         /// We need a second GOT entry. i.e GOT->PLT->GOT. This is only used in conjunction with
         /// canonical PLT entries.
         const GOT_FOR_PLT_ENTRY = 1 << 18;
+
+        /// A dynamic symbol table entry has been recorded. `EXPORT_DYNAMIC` alone is not
+        /// enough: alternative resolution copies that flag from an LTO IR symbol onto the
+        /// native definition before garbage collection, without creating the dynsym entry.
+        const DYNSYM_ENTRY = 1 << 19;
     }
 }
 
@@ -147,6 +152,18 @@ impl ValueFlags {
     #[must_use]
     pub fn has_resolution(self) -> bool {
         !self.resolution_flags().is_empty()
+    }
+
+    /// True when a real use (direct, GOT, PLT, copy reloc, …) already queued the
+    /// defining section. `EXPORT_DYNAMIC` alone does not: alternative resolution
+    /// copies that flag from an LTO IR symbol onto the native definition before
+    /// GC, and that copy does not load the section.
+    #[must_use]
+    pub fn has_section_load(self) -> bool {
+        !self
+            .resolution_flags()
+            .difference(ValueFlags::EXPORT_DYNAMIC)
+            .is_empty()
     }
 
     #[must_use]

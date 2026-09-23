@@ -1,5 +1,5 @@
 use super::{BuiltInSectionDetails, PLT_ENTRY_SIZE, SYMTAB_SHNDX_ENTRY_SIZE};
-mod copy;
+pub(crate) mod copy;
 mod relocs;
 mod relr;
 mod rules;

@@ -258,10 +258,17 @@ pub(crate) fn write_copy_relocation_dynamic_symbol_definition<'data, C: ElfClass
     let sym_index = sym_def.symbol_id.to_input(object.symbol_id_range);
     let sym = object.object.symbol(sym_index)?;
     let name = sym_def.name;
+    let section_index = object
+        .object
+        .symbol_section(sym, sym_index)?
+        .context("Copy relocation for undefined symbol")?;
+    let section_id = crate::output::copy::copy_relocation_output_section(
+        object.object.section_name(section_index)?,
+    );
     let shndx = layout
         .output_sections
-        .output_index_of_section(output_section_id::BSS)
-        .context("Copy relocation with no BSS section")?;
+        .output_index_of_section(section_id)
+        .context("Copy relocation with no output section")?;
     let res = layout
         .local_symbol_resolution(sym_def.symbol_id)
         .context("Copy relocation for unresolved symbol")?;

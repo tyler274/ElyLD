@@ -112,6 +112,9 @@ impl<'data> LayoutRulesBuilder<'data> {
         let mut current_section_id = None;
         let mut loc = SymbolLoc::FirstSection;
         let mut last_lc_idx = self.num_location_counters;
+        // A replacing `-T` script does not inherit the default executable VMA.
+        // GNU ld starts `.` at 0 unless the script assigns it or `--image-base` is set.
+        let mut script_set_base = false;
 
         for cmd in &input.script.commands {
             if let linker_script::Command::Provide(provide) = cmd {
@@ -451,6 +454,7 @@ impl<'data> LayoutRulesBuilder<'data> {
                             loc = SymbolLoc::LocationCounter(last_lc_idx, current_section_id);
                             if current_section_id.is_none() && self.num_location_counters == 0 {
                                 output_sections.set_base_address(new_location.address.clone());
+                                script_set_base = true;
                                 section_start_lc_idx = location_counters.len();
                             }
                             last_lc_idx += 1;
@@ -708,8 +712,12 @@ impl<'data> LayoutRulesBuilder<'data> {
 
         self.num_location_counters += location_counters.len();
 
-        if insert.is_none() && !ordered_sections.is_empty() {
+        let command_script = input.input_file.modifiers.command_script;
+        if command_script && insert.is_none() && !ordered_sections.is_empty() {
             self.replaces_default_script = true;
+            if !script_set_base && args.image_base().is_none() {
+                output_sections.set_base_address(linker_script::Expression::Number(0));
+            }
         }
 
         Ok(ProcessedLinkerScript {
@@ -726,6 +734,7 @@ impl<'data> LayoutRulesBuilder<'data> {
             insert,
             region_aliases,
             nocrossrefs,
+            command_script,
         })
     }
 

@@ -101,12 +101,14 @@ pub(crate) fn allocate_for_copy_relocations<'data, C: ElfClass>(
             .context("Copy relocation for undefined symbol")?;
         let section = state.object.section(section_index)?;
 
-        let alignment = Alignment::new(state.object.section_alignment(section)?)?;
+        let alignment = copy_relocation_alignment(symbol.value(), state.object.section_alignment(section)?)?;
 
-        // Allocate space in BSS for the copy of the symbol.
+        // RELRO definitions (vtables in `.data.rel.ro`) must be copied into the
+        // RELRO output. Other copy relocations stay in BSS.
         let size = symbol.size();
+        let section_id = copy_relocation_output_section(state.object.section_name(section_index)?);
         common.allocate(
-            output_section_id::BSS.part_id_with_alignment::<Elf<C>>(alignment),
+            section_id.part_id_with_alignment::<Elf<C>>(alignment),
             alignment.align_up(size),
         );
 
@@ -134,27 +136,56 @@ pub(crate) fn assign_copy_relocation_addresses<'data, C: ElfClass>(
                 .context("Copy relocation for undefined symbol")?;
             let section = state.object.section(section_index)?;
 
-            let alignment = Alignment::new(state.object.section_alignment(section)?)?;
+            let alignment =
+                copy_relocation_alignment(symbol.value(), state.object.section_alignment(section)?)?;
 
             let input_address = symbol.value();
-            let output_address =
-                assign_copy_relocation_address::<C>(alignment, symbol.size(), memory_offsets);
+            let section_id = copy_relocation_output_section(state.object.section_name(section_index)?);
+            let output_address = assign_copy_relocation_address::<C>(
+                section_id,
+                alignment,
+                symbol.size(),
+                memory_offsets,
+            );
 
             Ok((input_address, output_address))
         })
         .try_collect()
 }
 
-/// Assigns the address in BSS for the copy relocation of a symbol.
+/// GNU ld aligns a copy relocation to the symbol's address, not to the
+/// alignment of the whole input section. A vtable in a 32-byte-aligned
+/// `.data.rel.ro` is often only 8-byte aligned itself.
+fn copy_relocation_alignment(symbol_value: u64, section_alignment: u64) -> Result<Alignment> {
+    let from_symbol = if symbol_value == 0 {
+        section_alignment
+    } else {
+        1u64 << symbol_value.trailing_zeros().min(63)
+    };
+    let value = from_symbol.min(section_alignment.max(1)).max(1);
+    Alignment::new(value).context("Invalid copy relocation alignment")
+}
+
+pub(crate) fn copy_relocation_output_section(
+    name: &[u8],
+) -> elyld_platform::output_section_id::OutputSectionId {
+    if name == b".data.rel.ro" || name.starts_with(b".data.rel.ro.") {
+        output_section_id::DATA_REL_RO
+    } else {
+        output_section_id::BSS
+    }
+}
+
+/// Assigns the address for the copy relocation of a symbol.
 pub(crate) fn assign_copy_relocation_address<C: ElfClass>(
+    section_id: elyld_platform::output_section_id::OutputSectionId,
     alignment: Alignment,
     size: u64,
     memory_offsets: &mut OutputSectionPartMap<u64>,
 ) -> u64 {
-    let bss =
-        memory_offsets.get_mut(output_section_id::BSS.part_id_with_alignment::<Elf<C>>(alignment));
-    let a = *bss;
-    *bss += alignment.align_up(size);
+    let out = memory_offsets.get_mut(section_id.part_id_with_alignment::<Elf<C>>(alignment));
+    let a = *out;
+    *out += alignment.align_up(size);
     a
 }
 

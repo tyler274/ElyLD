@@ -535,7 +535,9 @@ pub(crate) struct DynamicEntryInputs<'layout> {
 impl DynamicEntryInputs<'_> {
     pub(crate) fn dt_flags(&self) -> object::elf::DynamicFlags {
         let mut flags = object::elf::DynamicFlags(0);
-        flags |= object::elf::DF_BIND_NOW;
+        if self.args.bind_now {
+            flags |= object::elf::DF_BIND_NOW;
+        }
 
         if !self.output_kind.is_executable() && self.has_static_tls {
             flags |= object::elf::DF_STATIC_TLS;
@@ -550,7 +552,9 @@ impl DynamicEntryInputs<'_> {
 
     pub(crate) fn dt_flags_1(&self) -> object::elf::DynamicFlags1 {
         let mut flags = object::elf::DynamicFlags1(0);
-        flags |= object::elf::DF_1_NOW;
+        if self.args.bind_now {
+            flags |= object::elf::DF_1_NOW;
+        }
 
         if self.output_kind.is_executable() && self.output_kind.is_position_independent() {
             flags |= object::elf::DF_1_PIE;

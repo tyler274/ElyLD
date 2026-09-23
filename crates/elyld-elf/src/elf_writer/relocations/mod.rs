@@ -417,7 +417,13 @@ pub(crate) fn apply_debug_relocation<
         }
     } else if let Some(section_index) = section_index {
         match object_layout.sections[section_index.0] {
-            SectionSlot::MergeStrings(..) => get_merged_string_output_address::<elf::Elf<C>>(
+            // Debug relocations are not GC roots. A merge section that nothing in
+            // the loaded image references was discarded; use the same tombstone as
+            // any other discarded section.
+            section if matches!(section, SectionSlot::MergeStrings(_)) && !section.is_loaded() => {
+                section_tombstone_value
+            }
+            SectionSlot::MergeStrings(_) => get_merged_string_output_address::<elf::Elf<C>>(
                 symbol_index,
                 addend,
                 object_layout.object,

@@ -61,12 +61,11 @@ impl<'data, P: EnginePlatform<GcUnit = SectionGcUnit>> ObjectLayoutState<'data, 
         let mut init_func_section_indices = SmallVec::<[SectionIndex; 1]>::new();
 
         let no_gc = !resources.symbol_db.args.should_gc_sections();
+        let gc_merge = resources.symbol_db.args.gc_unreferenced_merge_sections();
 
         for (i, section) in self.sections.iter().enumerate() {
             match section {
-                SectionSlot::MustLoad(..)
-                | SectionSlot::UnloadedDebugInfo
-                | SectionSlot::MergeStrings(_) => {
+                SectionSlot::MustLoad(..) | SectionSlot::UnloadedDebugInfo => {
                     queue.send_gc_unit_request::<A>(
                         self.file_id,
                         SectionGcUnit::new(object::SectionIndex(i)),
@@ -76,6 +75,19 @@ impl<'data, P: EnginePlatform<GcUnit = SectionGcUnit>> ObjectLayoutState<'data, 
                 }
                 SectionSlot::Unloaded(_) => {
                     if no_gc {
+                        queue.send_gc_unit_request::<A>(
+                            self.file_id,
+                            SectionGcUnit::new(object::SectionIndex(i)),
+                            resources,
+                            scope,
+                        );
+                    }
+                }
+                // Allocatable merge sections are collected only for an explicit
+                // `--gc-sections`. Non-alloc ones (`.debug_str`, `.comment`) stay.
+                SectionSlot::MergeStrings(_) => {
+                    let header = self.object.section(object::SectionIndex(i))?;
+                    if !gc_merge || !header.is_alloc() {
                         queue.send_gc_unit_request::<A>(
                             self.file_id,
                             SectionGcUnit::new(object::SectionIndex(i)),
@@ -114,7 +126,7 @@ impl<'data, P: EnginePlatform<GcUnit = SectionGcUnit>> ObjectLayoutState<'data, 
                     .per_symbol_flags
                     .get_atomic(symbol_id)
                     .fetch_or(ValueFlags::DIRECT);
-                if !old_flags.has_resolution() {
+                if !old_flags.has_section_load() {
                     queue.send_symbol_request::<A>(symbol_id, resources, scope);
                 }
             }
@@ -169,6 +181,11 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         section_index: SectionIndex,
         scope: &Scope<'scope>,
     ) -> Result<(), Error> {
+        if let SectionSlot::MergeStrings(slot) = &mut self.sections[section_index.0] {
+            // Individual strings inside a live merge section are still kept. The section
+            // itself is omitted when nothing references it.
+            slot.loaded = true;
+        }
         match &self.sections[section_index.0] {
             SectionSlot::Unloaded(unloaded) | SectionSlot::MustLoad(unloaded) => {
                 self.load_section::<A>(common, queue, *unloaded, section_index, resources, scope)?;
@@ -193,9 +210,6 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
             | SectionSlot::RiscvVAttributes(..)
             | SectionSlot::InitFunc(..) => {}
             SectionSlot::MergeStrings(_) => {
-                // We currently always load everything in merge-string sections. i.e. we don't GC
-                // unreferenced data. So the only thing we need to do here is propagate section
-                // flags.
                 let header = self.object.section(section_index)?;
                 let part_id =
                     self.section_part_id(section_index, &resources.symbol_db.section_part_ids);
@@ -566,6 +580,12 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
                 if resources.symbol_db.is_mapping_symbol(symbol_id) {
                     return Ok(None);
                 }
+                // A version script can localize a symbol after LTO copied
+                // EXPORT_DYNAMIC onto it. GC then drops the unreferenced section.
+                // That flag is not a real use, so there is no address to resolve.
+                if flags.is_downgraded_to_local() && !flags.has_section_load() {
+                    return Ok(None);
+                }
                 bail!(
                     "Symbol is in a section that we didn't load. \
                      Symbol: {} Section: {} Res: {flags}",
@@ -632,13 +652,13 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
             let old_flags = resources
                 .per_symbol_flags
                 .get_atomic(symbol_id)
-                .fetch_or(ValueFlags::EXPORT_DYNAMIC);
+                .fetch_or(ValueFlags::EXPORT_DYNAMIC | ValueFlags::DYNSYM_ENTRY);
 
-            if !old_flags.has_resolution() {
+            if !old_flags.has_section_load() {
                 self.load_symbol::<A>(common, symbol_id, resources, queue, scope)?;
             }
 
-            if !old_flags.needs_export_dynamic() {
+            if !old_flags.contains(ValueFlags::DYNSYM_ENTRY) {
                 export_dynamic(common, symbol_id, resources.symbol_db)?;
             }
         }
@@ -674,13 +694,13 @@ impl<'data, P: EnginePlatform> ObjectLayoutState<'data, P> {
         let old_flags = resources
             .per_symbol_flags
             .get_atomic(symbol_id)
-            .fetch_or(ValueFlags::EXPORT_DYNAMIC);
+            .fetch_or(ValueFlags::EXPORT_DYNAMIC | ValueFlags::DYNSYM_ENTRY);
 
-        if !old_flags.has_resolution() {
+        if !old_flags.has_section_load() {
             self.load_symbol::<A>(common, symbol_id, resources, queue, scope)?;
         }
 
-        if !old_flags.needs_export_dynamic() {
+        if !old_flags.contains(ValueFlags::DYNSYM_ENTRY) {
             export_dynamic(common, symbol_id, resources.symbol_db)?;
         }
 

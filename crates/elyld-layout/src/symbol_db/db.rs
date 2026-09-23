@@ -75,6 +75,9 @@ pub struct SymbolDb<'data, P: Platform> {
 
     /// The name of the entry symbol if overridden by a linker script.
     entry: Option<&'data [u8]>,
+    /// `-T` replaced the built-in script and no script named `ENTRY`. Shared objects
+    /// then keep `e_entry` at 0. Executables still default to `_start`.
+    suppress_default_entry: bool,
 
     pub output_kind: OutputKind,
     pub herd: &'data elyld_util::arena::Herd,
@@ -202,6 +205,7 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
             version_script,
             export_list,
             entry: None,
+            suppress_default_entry: false,
             output_kind,
             herd,
             section_part_ids: Vec::new(),
@@ -874,6 +878,17 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
     }
 
     pub fn entry_point(&self) -> EntryPoint<'_> {
+        // The built-in script provides `ENTRY(_start)`, including for shared objects
+        // that were not given `-T`. A `-T` script replaces that script. If it omits
+        // `ENTRY`, a shared object keeps `e_entry` at 0. An executable still uses
+        // `_start`; GNU ld's executable fallback depends on the script's segments.
+        if self.output_kind.is_shared_object()
+            && self.suppress_default_entry
+            && self.entry.is_none()
+            && !self.args.has_user_entry()
+        {
+            return EntryPoint::None;
+        }
         self.args.entry_point(self.entry)
     }
 
@@ -888,7 +903,12 @@ impl<'data, P: Platform> SymbolDb<'data, P> {
         for cmd in &script.script.commands {
             if let Command::Entry(symbol_name) = cmd {
                 self.entry = Some(*symbol_name);
+                self.suppress_default_entry = false;
             }
+        }
+        // `-T` drops the built-in `ENTRY(_start)`. An augment script does not.
+        if self.args.command_line_script() && self.entry.is_none() {
+            self.suppress_default_entry = true;
         }
     }
 

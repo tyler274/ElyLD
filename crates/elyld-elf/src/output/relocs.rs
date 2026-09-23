@@ -314,7 +314,10 @@ pub(crate) fn note_relocation_symbol_reference<
     let atomic_flags = &resources.per_symbol_flags.get_atomic(symbol_id);
     let previous_flags = atomic_flags.fetch_or(flags_to_add);
 
-    if !previous_flags.has_resolution() {
+    // `EXPORT_DYNAMIC` can be copied from an LTO IR symbol before GC. It is a
+    // resolution flag, but it does not load the defining section. A later GOT or
+    // direct reference still has to.
+    if !previous_flags.has_section_load() {
         if flags.is_ifunc() && resources.symbol_db.output_kind.is_static_executable() {
             atomic_flags.fetch_or(ValueFlags::GOT | ValueFlags::PLT);
         }

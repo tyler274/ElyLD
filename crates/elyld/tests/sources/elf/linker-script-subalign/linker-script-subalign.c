@@ -1,6 +1,7 @@
-// GNU `SUBALIGN(n)` forces every input in the output section to alignment `n`,
-// whether that is larger or smaller than `sh_addralign`. Output alignment is
-// `max(ALIGN, SUBALIGN)` and is not raised by input `sh_addralign`.
+// GNU `SUBALIGN(n)` is the output `sh_addralign` and the alignment of every
+// input in the section, whether that is larger or smaller than the input's
+// `sh_addralign`. `ALIGN` places the section VMA and does not raise
+// `sh_addralign` above `SUBALIGN`.
 //
 //#AbstractConfig:default
 //#RunEnabled:false

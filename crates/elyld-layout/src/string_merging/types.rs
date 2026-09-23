@@ -40,6 +40,8 @@ pub struct StringMergeSectionSlot {
     /// The sum of the sizes of the input sections prior to this one with the same part ID.
     /// Populated during string merging.
     pub(super) start_input_offset: LinearInputOffset,
+    /// Set when GC loads the section. Unreferenced merge sections are omitted.
+    pub(crate) loaded: bool,
 }
 
 impl StringMergeSectionSlot {
@@ -47,6 +49,7 @@ impl StringMergeSectionSlot {
         Self {
             // We'll fill this in during string merging.
             start_input_offset: LinearInputOffset(0),
+            loaded: false,
         }
     }
 }
@@ -218,6 +221,9 @@ pub struct MergedStringsSection<'data> {
     pub(super) class_buckets: Vec<MergeClassBuckets>,
     /// Tail-merged size of each class before VMA / inter-class padding.
     pub(super) class_unpadded: Vec<u32>,
+    /// Maximum alignment of merged inputs. GNU ld uses this as the output
+    /// section's `sh_addralign` even though the bytes live in one part.
+    pub output_alignment: alignment::Alignment,
 }
 
 impl Default for MergedStringsSection<'_> {
@@ -230,6 +236,7 @@ impl Default for MergedStringsSection<'_> {
             tail_remap: HashMap::new(),
             class_buckets: Vec::new(),
             class_unpadded: Vec::new(),
+            output_alignment: alignment::MIN,
         }
     }
 }

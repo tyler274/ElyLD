@@ -352,7 +352,9 @@ impl<'data, P: Platform> OutputSections<'data, P> {
     pub fn set_subalign(&mut self, sid: OutputSectionId, subalign: Alignment) {
         let info = self.section_infos.get_mut(sid);
         info.subalign = Some(subalign);
-        info.min_alignment = info.min_alignment.max(subalign);
+        // GNU `SUBALIGN` is the output `sh_addralign`. `ALIGN` still places the
+        // section; it must not raise `sh_addralign` above `SUBALIGN`.
+        info.min_alignment = subalign;
     }
 
     pub fn subalign(&self, sid: OutputSectionId) -> Option<Alignment> {

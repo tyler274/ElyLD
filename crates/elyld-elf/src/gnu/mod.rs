@@ -190,8 +190,8 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
         }
         self.flags = (left | right).without(MERGE_STRINGS_FLAGS) | merge_strings;
 
-        // We somewhat arbitrarily tie-break by selecting the maximum type. This means for example
-        // that types like SHT_INIT_ARRAY win out over more generic types like SHT_PROGBITS.
+        // Tie-break by the larger type number. `apply` then refuses to let an array
+        // type replace a non-array output section such as `.text`.
         self.ty = self.ty.max(rhs.ty);
 
         // If all input sections specify the same entsize, then we use that. If there's any
@@ -203,6 +203,10 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
     }
 
     fn apply(&self, output_sections: &mut OutputSections<Elf<C>>, section_id: OutputSectionId) {
+        // GNU keeps `.text` as `SHT_PROGBITS` when a script places `.init_array` in it.
+        let block_array_type = output_sections.name(section_id).is_some_and(|section_name| {
+            array_type_in_non_array_section(section_name.0, self.ty)
+        });
         let info = output_sections.section_infos.get_mut(section_id);
 
         let incoming_flags = self.flags.without(
@@ -242,9 +246,13 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
 
         if !info.section_attributes.overrides.has_fixed_type {
             if info.section_attributes.overrides.has_script_type {
-                info.section_attributes.ty = self.ty;
-                info.section_attributes.overrides.has_script_type = false;
-            } else {
+                // `TYPE=` is only a default. The first real input replaces it, except
+                // an array input placed in a non-array section.
+                if !block_array_type {
+                    info.section_attributes.ty = self.ty;
+                    info.section_attributes.overrides.has_script_type = false;
+                }
+            } else if !block_array_type {
                 info.section_attributes.ty = info.section_attributes.ty.max(self.ty);
             }
         }
@@ -311,6 +319,26 @@ impl<C: ElfClass> platform::SectionAttributes for SectionAttributes<C> {
     fn is_no_bits(&self) -> bool {
         self.ty == sht::NOBITS
     }
+}
+
+/// `SHT_INIT_ARRAY` and friends outrank `SHT_PROGBITS` numerically, but GNU ld
+/// only keeps those types on sections whose names are array or ctor sections.
+fn array_type_in_non_array_section(name: &[u8], ty: SectionType) -> bool {
+    matches!(ty, sht::INIT_ARRAY | sht::FINI_ARRAY | sht::PREINIT_ARRAY)
+        && !name_is_array_section(name)
+}
+
+fn name_is_array_section(name: &[u8]) -> bool {
+    const NEEDLES: &[&[u8]] = &[
+        b"init_array",
+        b"fini_array",
+        b"preinit_array",
+        b"ctors",
+        b"dtors",
+    ];
+    NEEDLES
+        .iter()
+        .any(|needle| name.windows(needle.len()).any(|window| window == *needle))
 }
 
 #[derive(Debug)]

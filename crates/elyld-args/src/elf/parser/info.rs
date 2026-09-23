@@ -486,6 +486,7 @@ pub fn add_info_and_script_flags(parser: &mut ArgumentParser<ElfArgs>) {
                 );
                 return Ok(());
             }
+            args.command_script = true;
             args.common_mut().handle_file(value);
             args.common_mut().add_script(value);
             Ok(())

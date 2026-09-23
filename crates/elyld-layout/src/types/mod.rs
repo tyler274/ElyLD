@@ -515,6 +515,8 @@ pub struct ObjectLayoutState<'data, P: Platform> {
     /// Mapping from sections to their corresponding relocation section.
     pub relocations: P::RelocationSections,
 
+    pub string_merge_extras: Vec<crate::string_merging::StringMergeSectionExtra<'data>>,
+
     pub format_specific: P::ObjectLayoutStateExt<'data>,
 
     /// Sparse map from section index to relaxation delta details, built during `finalise_sizes`

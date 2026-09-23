@@ -334,7 +334,7 @@ pub(super) fn process_relocation<'data, 'scope, A: platform::Arch<Platform = Mac
             resources,
         )?;
 
-        if !previous_flags.has_resolution() {
+        if !previous_flags.has_section_load() {
             queue.send_symbol_request::<A>(symbol_id, resources, scope);
         }
     }

@@ -401,13 +401,16 @@ impl SectionSlot {
     }
 
     pub fn is_loaded(&self) -> bool {
-        !matches!(
-            self,
+        match self {
             SectionSlot::Discard
-                | SectionSlot::Unloaded(..)
-                | SectionSlot::InitFunc(..)
-                | SectionSlot::NoteGnuProperty(..)
-        )
+            | SectionSlot::Unloaded(..)
+            | SectionSlot::InitFunc(..)
+            | SectionSlot::NoteGnuProperty(..) => false,
+            // Merge sections stay in this slot after GC. Only the ones something
+            // referenced are actually in the output.
+            SectionSlot::MergeStrings(slot) => slot.loaded,
+            _ => true,
+        }
     }
 
     pub fn unloaded_mut(&mut self) -> Option<&mut UnloadedSection> {

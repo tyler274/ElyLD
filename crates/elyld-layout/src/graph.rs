@@ -262,7 +262,7 @@ pub fn load_expression_referenced_symbols<'data, 'scope, A: Arch>(
                 .get_atomic(canonical_target_id)
                 .fetch_or(ValueFlags::DIRECT);
 
-            if !old_flags.has_resolution() {
+            if !old_flags.has_section_load() {
                 queue.send_work::<A>(
                     resources,
                     file_id,
@@ -484,6 +484,7 @@ pub fn new_object_layout_state<P: EnginePlatform>(
         link_order: input_state.common.link_order,
         sections: input_state.sections,
         relocations: input_state.relocations,
+        string_merge_extras: input_state.string_merge_extras,
         format_specific: P::new_object_layout_state_ext(input_state.format_specific),
         section_relax_deltas: RelaxDeltaMap::new(),
         script_sorted_sections: input_state.script_sorted_sections,

@@ -158,6 +158,16 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
 
     fn entry_point<'a>(&'a self, linker_script_entry: Option<&'a [u8]>) -> EntryPoint<'a>;
 
+    /// `-e` / `--entry`. A linker-script `ENTRY` is separate and is not reported here.
+    fn has_user_entry(&self) -> bool {
+        false
+    }
+
+    /// `-T` / `--script`. A script passed as an ordinary input does not count.
+    fn command_line_script(&self) -> bool {
+        false
+    }
+
     /// GNU `-init` / `--init`: symbol whose address is written as `DT_INIT`.
     fn dt_init_symbol_name(&self) -> Option<&[u8]> {
         None
@@ -186,6 +196,13 @@ pub trait Args: std::fmt::Debug + Send + Sync + 'static {
 
     fn should_gc_sections(&self) -> bool {
         true
+    }
+
+    /// Collect unreferenced allocatable merge sections. Defaults to the same
+    /// answer as [`Self::should_gc_sections`]. ELF only does this for an
+    /// explicit `--gc-sections`.
+    fn gc_unreferenced_merge_sections(&self) -> bool {
+        self.should_gc_sections()
     }
 
     fn orphan_handling(&self) -> OrphanHandling {

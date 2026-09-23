@@ -4872,6 +4872,11 @@ impl LinkCommand {
                         opt_save_dir = Some(save_dir);
                     }
 
+                    // Nix's compiler wrapper appends `NIX_LDFLAGS`, including `-rpath` to
+                    // the development shell's library directory. Keep the `-L` search paths
+                    // and drop that runpath so every linker sees the same command.
+                    apply_nix_link_search_env(&mut command, &linker_args.args);
+
                     match linker_driver {
                         Compiler::Clang(_) => {
                             command.arg(format!(
@@ -4880,9 +4885,6 @@ impl LinkCommand {
                                     .to_str()
                                     .expect("Linker path must be valid UTF-8")
                             ));
-                            if linker.is_elyld() {
-                                apply_nix_link_search_env(&mut command, &linker_args.args);
-                            }
 
                             add_cross_args(&mut command, &[], cross_arch, config.platform);
                         }
@@ -4895,7 +4897,6 @@ impl LinkCommand {
                                     // to want any equivalent to clang's --ld-path. The closest we
                                     // can get is to put a file called "ld" in a directory, then
                                     // pass "-B" and that directory.
-                                    apply_nix_link_search_env(&mut command, &linker_args.args);
                                     command.arg("-B").arg(elyld_b_dir());
                                 }
                                 Linker::ThirdParty(third_party_linker) => {
