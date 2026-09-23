@@ -207,7 +207,7 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
         must_keep_sections: OutputSectionMap<bool>,
         output_sections: &mut OutputSections<P>,
         output_order: &OutputOrder<'data>,
-        program_segments: &ProgramSegments<P::ProgramSegmentDef>,
+        program_segments: &mut ProgramSegments<P::ProgramSegmentDef>,
         per_symbol_flags: &mut PerSymbolFlags,
         resources: &FinaliseSizesResources<'data, 'scope, P>,
         partial_link_plan: Option<&PartialLinkPlan>,
@@ -342,7 +342,7 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
         extra_sizes: &mut OutputSectionPartMap<u64>,
         must_keep_sections: OutputSectionMap<bool>,
         output_sections: &mut OutputSections<P>,
-        program_segments: &ProgramSegments<P::ProgramSegmentDef>,
+        program_segments: &mut ProgramSegments<P::ProgramSegmentDef>,
         output_order: &OutputOrder<'data>,
         resources: &FinaliseSizesResources<'data, 'scope, P>,
         symbol_flags: &PerSymbolFlags,
@@ -530,13 +530,36 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
                 .map(|details| details.always_keep())
                 .collect_vec();
             let mut active_segments = Vec::with_capacity(4);
+            let mut open_segments = Vec::with_capacity(4);
+            let pack_script_loads = program_segments.pack_script_loads();
             for event in output_order {
                 match event {
-                    OrderEvent::SegmentStart(segment_id) => active_segments.push(segment_id),
+                    OrderEvent::SegmentStart(segment_id) => {
+                        active_segments.push(segment_id);
+                        open_segments.push(segment_id);
+                    }
                     OrderEvent::SegmentEnd(segment_id) => {
                         active_segments.retain(|a| *a != segment_id);
+                        open_segments.retain(|a| *a != segment_id);
                     }
                     OrderEvent::Section(section_id) => {
+                        if pack_script_loads
+                            && *keep_sections.get(section_id)
+                            && Some(section_id) != P::RELRO_PADDING_SECTION_ID
+                        {
+                            let info = output_sections.output_info(section_id);
+                            if info.section_attributes.is_alloc() {
+                                let writable = info.section_attributes.is_writable();
+                                let executable = info.section_attributes.is_executable();
+                                for segment_id in &open_segments {
+                                    if program_segments.is_load_segment(*segment_id) {
+                                        program_segments
+                                            .segment_def_mut(*segment_id)
+                                            .or_section_permissions(writable, executable);
+                                    }
+                                }
+                            }
+                        }
                         if *keep_sections.get(section_id) {
                             for segment_id in &active_segments {
                                 keep_segments[segment_id.as_usize()] = true;

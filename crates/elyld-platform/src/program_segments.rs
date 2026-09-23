@@ -8,6 +8,9 @@ pub struct ProgramSegmentId(u8);
 pub struct ProgramSegments<T: ProgramSegmentDef> {
     program_segment_details: Vec<T>,
     has_custom_phdrs: bool,
+    /// Replacing script with no `PHDRS`: one `PT_LOAD` covers contiguous
+    /// allocatable sections, and its flags are the OR of those sections.
+    pack_script_loads: bool,
     at_lmas: Vec<Option<u64>>,
 }
 
@@ -16,8 +19,17 @@ impl<T: ProgramSegmentDef> ProgramSegments<T> {
         Self {
             program_segment_details: Vec::new(),
             has_custom_phdrs,
+            pack_script_loads: false,
             at_lmas: Vec::new(),
         }
+    }
+
+    pub fn set_pack_script_loads(&mut self, pack: bool) {
+        self.pack_script_loads = pack;
+    }
+
+    pub fn pack_script_loads(&self) -> bool {
+        self.pack_script_loads
     }
 
     pub fn len(&self) -> usize {

@@ -55,6 +55,10 @@ pub struct OutputOrderBuilder<'scope, 'data, P: Platform> {
     pending_segment_starts: Vec<ProgramSegmentId>,
     /// `(anchor, follower)` pairs: emit `follower` immediately after `anchor`.
     script_followers: Vec<(OutputSectionId, OutputSectionId)>,
+    /// Replacing script with no `PHDRS`: allocatable sections share one `PT_LOAD`
+    /// until a script address or `MEMORY` region changes. Flags are filled in
+    /// later from the sections that are actually kept.
+    pack_script_loads: bool,
 }
 
 impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
@@ -81,11 +85,17 @@ impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
             last_location_counter: location_counters.last().map(|_| 0),
             pending_segment_starts: Vec::new(),
             script_followers: Vec::new(),
+            pack_script_loads: false,
         }
     }
 
     pub fn set_script_followers(&mut self, followers: Vec<(OutputSectionId, OutputSectionId)>) {
         self.script_followers = followers;
+    }
+
+    pub fn set_pack_script_loads(&mut self, pack: bool) {
+        self.pack_script_loads = pack;
+        self.program_segments.set_pack_script_loads(pack);
     }
 
     pub fn queue_segment_start(&mut self, segment_id: ProgramSegmentId) {
@@ -273,12 +283,16 @@ impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
         }
 
         let section_info = self.output_sections.output_info(section_id);
-        if section_info
+        let has_location = section_info
             .location_info
             .as_ref()
             .and_then(|info| info.location.as_ref())
-            .is_some()
-        {
+            .is_some();
+        let section_alloc = section_info.section_attributes.is_alloc();
+        let section_region = section_info.region_name;
+        let breaks_packed_load =
+            self.pack_script_loads && self.assignment_breaks_packed_load(section_id);
+        if has_location || breaks_packed_load {
             // If we're setting the location, then first end all active segments.
             for (id, region) in self
                 .active_segment_kinds
@@ -292,16 +306,26 @@ impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
             }
         }
 
-        let section_region = section_info.region_name;
+        let pack_script_loads = self.pack_script_loads;
         multizip((
             self.segment_defs.iter().copied(),
             self.active_segment_kinds.iter_mut(),
             self.active_segment_regions.iter_mut(),
         ))
         .for_each(|(segment_def, active_id, active_region)| {
-            let should_be_active = self
-                .output_sections
-                .should_include_in_segment(section_id, segment_def);
+            // GNU ld, for a replacing script with no PHDRS, does not open a new
+            // PT_LOAD just because SHF_WRITE or SHF_EXECINSTR changed. A new
+            // load starts when the VMA is assigned explicitly or the MEMORY
+            // region changes. RELRO is a separate segment and would split that
+            // load, so it stays off in this mode.
+            let should_be_active = if pack_script_loads && segment_def.is_loadable() {
+                section_alloc && !segment_def.is_writable() && !segment_def.is_executable()
+            } else if pack_script_loads && segment_def.should_cut_rw_segment_when_ending() {
+                false
+            } else {
+                self.output_sections
+                    .should_include_in_segment(section_id, segment_def)
+            };
 
             match (active_id.as_ref(), should_be_active) {
                 // Remain inactive
@@ -335,6 +359,41 @@ impl<'scope, 'data, P: EnginePlatform> OutputOrderBuilder<'scope, 'data, P> {
         });
 
         (stop, start)
+    }
+
+    /// `. = 0x800000` (and anything other than `. = ALIGN(...)`) between output
+    /// sections starts a new PT_LOAD. GNU ld does not keep the previous
+    /// section's permissions across that gap.
+    fn assignment_breaks_packed_load(&self, section_id: OutputSectionId) -> bool {
+        let Some(loc_info) = self
+            .output_sections
+            .output_info(section_id)
+            .location_info
+            .as_ref()
+        else {
+            return false;
+        };
+        let (start, end) = loc_info.location_counters;
+        (start..end).any(|idx| {
+            let LocationCounter::Absolute(expr, _) = &self.location_counters[idx] else {
+                return false;
+            };
+            // `. += N` and `. = ALIGN(...)` stay in the current load. An
+            // absolute `. = 0x800000` starts a new one. Splitting on a small
+            // bump maps one page twice and the process faults.
+            if matches!(expr, linker_script::Expression::Align(_, _)) {
+                return false;
+            }
+            let mut mentions_dot = false;
+            expr.visit_expressions(&mut |sub| {
+                if matches!(sub, linker_script::Expression::LocationCounter) {
+                    mentions_dot = true;
+                    return false;
+                }
+                true
+            });
+            !mentions_dot
+        })
     }
 
     pub fn push_event(&mut self, event: OrderEvent<'data>) {

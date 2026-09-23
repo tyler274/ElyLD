@@ -2164,6 +2164,9 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         );
 
         builder.set_script_followers(custom.script_followers.clone());
+        if custom.pack_script_loads {
+            builder.set_pack_script_loads(true);
+        }
 
         if custom.place_after_similar && !output_kind.is_position_independent() {
             // GNU `-T` ET_EXEC without FILEHDR: ELF/program headers occupy file

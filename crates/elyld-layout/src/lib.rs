@@ -217,7 +217,7 @@ where
         location_counters.extend(script.parsed.location_counters.iter().cloned());
     }
 
-    let (output_order, program_segments) =
+    let (output_order, mut program_segments) =
         output_sections.output_order(symbol_db.output_kind, &linker_scripts, &location_counters)?;
 
     tracing::trace!(
@@ -233,7 +233,7 @@ where
         &mut group_states,
         &mut output_sections,
         &output_order,
-        &program_segments,
+        &mut program_segments,
         &mut per_symbol_flags,
         gc_outputs.must_keep_sections,
         &finalise_sizes_resources,
@@ -600,7 +600,10 @@ fn warn_execstack_and_rwx<P: EnginePlatform>(layout: &Layout<P>) {
         return;
     }
 
-    if layout.args().warn_rwx_segments() && !layout.program_segments.has_custom_phdrs() {
+    if layout.args().warn_rwx_segments()
+        && !layout.program_segments.has_custom_phdrs()
+        && !layout.program_segments.pack_script_loads()
+    {
         for segment in &layout.segment_layouts.segments {
             let def = *layout.program_segments.segment_def(segment.id);
             if def.is_loadable() && def.is_writable() && def.is_executable() {

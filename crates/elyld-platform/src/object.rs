@@ -521,6 +521,11 @@ pub trait ProgramSegmentDef: Copy + Send + Sync + Display + 'static {
         false
     }
 
+    /// OR a kept section's write/execute permissions into this program header.
+    /// Used when a replacing script without `PHDRS` puts contiguous sections in
+    /// one `PT_LOAD`.
+    fn or_section_permissions(&mut self, _writable: bool, _executable: bool) {}
+
     fn from_linker_script(_ptype: u32, _flags: u32) -> Self {
         unreachable!("This function is only called from platforms that support linker scripts.");
     }

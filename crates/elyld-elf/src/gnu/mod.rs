@@ -555,6 +555,15 @@ impl platform::ProgramSegmentDef for ProgramSegmentDef {
         self.segment_type == pt::GNU_RELRO
     }
 
+    fn or_section_permissions(&mut self, writable: bool, executable: bool) {
+        if writable {
+            self.segment_flags |= pf::WRITABLE;
+        }
+        if executable {
+            self.segment_flags |= pf::EXECUTABLE;
+        }
+    }
+
     fn from_linker_script(ptype: u32, flags: u32) -> Self {
         Self {
             segment_type: SegmentType(ptype),

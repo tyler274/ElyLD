@@ -293,6 +293,15 @@ pub fn compute_segment_layout<'data, P: EnginePlatform>(
                         section_id,
                     )?;
 
+                    // Zero-sized RELRO padding stays in the output order so the
+                    // cursor does not page-align, but its VMA must not become the
+                    // PT_LOAD's LMA when an earlier section used AT().
+                    if Some(merge_target) == P::RELRO_PADDING_SECTION_ID
+                        && section_layout.mem_size == 0
+                    {
+                        continue;
+                    }
+
                     for opt_rec in &mut active_segments {
                         let Some(rec) = opt_rec.as_mut() else {
                             continue;

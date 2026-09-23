@@ -26,6 +26,9 @@ pub struct CustomSectionIds {
     /// `INSERT` fragments and GROUP/OUTPUT_FORMAT scripts (e.g. `libc.so`)
     /// splice into or keep the default layout and do not set this.
     pub place_after_similar: bool,
+    /// Replacing script, no `PHDRS` and no `MEMORY`: contiguous allocatable
+    /// sections share one `PT_LOAD` until a script address assignment.
+    pub pack_script_loads: bool,
     /// Script-mentioned custom sections emitted immediately after the previous
     /// builtin named in `SECTIONS`. Without this, those sections are grouped
     /// with orphans (e.g. RO customs before `.text`) and GNU `AT>` LMA

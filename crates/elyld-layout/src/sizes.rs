@@ -349,7 +349,7 @@ pub fn compute_total_section_part_sizes<'data, 'scope, P: EnginePlatform>(
     group_states: &mut [GroupState<'data, P>],
     output_sections: &mut OutputSections<P>,
     output_order: &OutputOrder<'data>,
-    program_segments: &ProgramSegments<P::ProgramSegmentDef>,
+    program_segments: &mut ProgramSegments<P::ProgramSegmentDef>,
     per_symbol_flags: &mut PerSymbolFlags,
     must_keep_sections: OutputSectionMap<bool>,
     resources: &FinaliseSizesResources<'data, 'scope, P>,

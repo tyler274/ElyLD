@@ -536,9 +536,13 @@ impl<'data, P: Platform> OutputSections<'data, P> {
         // scripts such as `libc.so` do not replace it either. Only a `-T`
         // script with `SECTIONS` uses GNU "after similar" orphan placement.
         let place_after_similar = replacing_script;
+        let has_memory_regions = linker_scripts
+            .iter()
+            .any(|script| !script.parsed.memory_regions.is_empty());
 
         let mut custom = CustomSectionIds {
             place_after_similar,
+            pack_script_loads: replacing_script && !has_custom_phdrs && !has_memory_regions,
             ..Default::default()
         };
 

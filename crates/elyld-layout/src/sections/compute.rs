@@ -476,10 +476,22 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         )
                     });
                     let region_lma_end = region.and_then(|r| r.last_lma_end);
+                    // `AT()` on an earlier section of a packed load sets LMA ≠ VMA.
+                    // GNU keeps that delta for the following sections; there is no
+                    // MEMORY region to carry `last_lma_end`.
+                    let packed_lma_delta = program_segments.pack_script_loads()
+                        && section_info.section_attributes.is_alloc()
+                        && !has_explicit_section_addr
+                        && lma_offset != mem_offset;
                     keep_running_lma = section_info.section_attributes.is_alloc()
                         && !has_explicit_section_addr
-                        && vma_region_has_lma_delta;
-                    lma_offset = gnu_default_lma(mem_offset, region_lma_end, keep_running_lma);
+                        && (vma_region_has_lma_delta || packed_lma_delta);
+                    let lma_base = if packed_lma_delta {
+                        Some(lma_offset)
+                    } else {
+                        region_lma_end
+                    };
+                    lma_offset = gnu_default_lma(mem_offset, lma_base, keep_running_lma);
                 }
 
                 let is_top_level = section_info
@@ -540,9 +552,16 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     };
                     let aligned_mem_offset = alignment.align_up(mem_offset);
                     let mem_size = if Some(section_id) == P::RELRO_PADDING_SECTION_ID {
-                        let page_alignment = args.loadable_segment_alignment();
-                        let aligned_offset = page_alignment.align_up(mem_offset);
-                        aligned_offset - mem_offset
+                        // A replacing script with no PHDRS keeps one PT_LOAD across
+                        // permission changes. Page-sized RELRO padding would split
+                        // that range and mark the executable load writable.
+                        if program_segments.pack_script_loads() {
+                            0
+                        } else {
+                            let page_alignment = args.loadable_segment_alignment();
+                            let aligned_offset = page_alignment.align_up(mem_offset);
+                            aligned_offset - mem_offset
+                        }
                     } else if let Some(inputs) = input_order_sizes.get(&part_id) {
                         packed_span(aligned_mem_offset, inputs)
                     } else {
