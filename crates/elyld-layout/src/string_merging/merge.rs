@@ -94,6 +94,38 @@ pub(super) fn merge_bucket_index(
     class.base + (hash as usize % class.count)
 }
 
+/// Alignment the class start must satisfy in the output VMA. `pad_align` is
+/// the max `sh_addralign` of sections whose key owns the class. Extra merge
+/// classes spill into the last class, and a spilled `.rodata.cst32` is only
+/// safe for `vmovdqa` when that class start meets the spilled section's
+/// `sh_addralign`. Entity `entsize` is not included: GNU ld does not 32-align
+/// an align-1 constant pool.
+fn class_pad_align(
+    class: &MergeClassBuckets,
+    classes: &[MergeClassBuckets],
+    overflow_align: alignment::Alignment,
+) -> alignment::Alignment {
+    if classes.last().is_some_and(|last| last.base == class.base) {
+        class.pad_align.max(overflow_align)
+    } else {
+        class.pad_align
+    }
+}
+
+/// `sh_addralign` of inputs whose merge class did not get its own bucket range
+/// and therefore landed in the last class.
+fn overflow_section_align(
+    input_sections: &[StringMergeInputSection<'_>],
+    classes: &[MergeClassBuckets],
+) -> alignment::Alignment {
+    input_sections
+        .iter()
+        .filter(|section| classes.iter().all(|class| class.key != section.merge_class_key()))
+        .map(|section| section.alignment)
+        .max()
+        .unwrap_or(alignment::MIN)
+}
+
 /// Restore each class to its unpadded tail-merged size, then pad so class
 /// starts are aligned in the output VMA (`start_vma` is the address of merge
 /// offset 0). GNU ld aligns `SHF_MERGE` groups to absolute VMA, not to offset
@@ -103,19 +135,26 @@ pub(super) fn pad_merge_buckets(
     classes: &[MergeClassBuckets],
     start_vma: u64,
     class_unpadded: &[u32],
+    overflow_align: alignment::Alignment,
 ) -> u32 {
     for (class, &sz) in classes.iter().zip(class_unpadded.iter()) {
         for bucket in buckets.iter_mut().skip(class.base).take(class.count) {
             bucket.next_offset = if bucket.index == class.base { sz } else { 0 };
         }
+        let pad_align = class_pad_align(class, classes, overflow_align);
         let dest = &mut buckets[class.base];
-        dest.next_offset = class.pad_align.align_up(u64::from(dest.next_offset)) as u32;
+        dest.next_offset = pad_align.align_up(u64::from(dest.next_offset)) as u32;
     }
 
     let mut leading_pad = 0u32;
     let mut offset = 0u64;
     for (i, class) in classes.iter().enumerate() {
-        let aligned = class.pad_align.align_up(start_vma + offset);
+        // Piece offsets are aligned relative to the class start. The class
+        // start itself has to satisfy every piece, including a `.rodata.cst32`
+        // (`sh_addralign` 32) that spilled into the last class because there
+        // are more merge classes than hash buckets. Otherwise `vmovdqa` faults.
+        let pad_align = class_pad_align(class, classes, overflow_align);
+        let aligned = pad_align.align_up(start_vma + offset);
         let extra = aligned - (start_vma + offset);
         if extra > 0 {
             if i == 0 {
@@ -506,6 +545,7 @@ impl<'data> MergedStringsSection<'data> {
             .collect();
         self.class_buckets = resources.class_buckets.clone();
         self.class_unpadded = class_unpadded;
+        self.overflow_align = overflow_section_align(input_sections, &self.class_buckets);
         // Section `sh_addralign` is the maximum input `sh_addralign`. Entity
         // placement still uses `layout_alignment` (`max(sh_addralign, sh_entsize)`
         // for constant pools). Raising the section header to the entsize makes
@@ -522,6 +562,7 @@ impl<'data> MergedStringsSection<'data> {
             &self.class_buckets,
             0,
             &self.class_unpadded,
+            self.overflow_align,
         );
         self.bucket_offsets[0] = u64::from(leading);
         for i in 1..MERGE_STRING_BUCKETS {
@@ -569,6 +610,7 @@ impl<'data> MergedStringsSection<'data> {
             &self.class_buckets,
             start_vma,
             &self.class_unpadded,
+            self.overflow_align,
         );
         self.bucket_offsets[0] = u64::from(leading);
         for i in 1..MERGE_STRING_BUCKETS {

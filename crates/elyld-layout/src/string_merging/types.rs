@@ -221,6 +221,8 @@ pub struct MergedStringsSection<'data> {
     pub(super) class_buckets: Vec<MergeClassBuckets>,
     /// Tail-merged size of each class before VMA / inter-class padding.
     pub(super) class_unpadded: Vec<u32>,
+    /// `sh_addralign` of merge inputs that spilled into the last class.
+    pub(super) overflow_align: alignment::Alignment,
     /// Maximum alignment of merged inputs. GNU ld uses this as the output
     /// section's `sh_addralign` even though the bytes live in one part.
     pub output_alignment: alignment::Alignment,
@@ -236,6 +238,7 @@ impl Default for MergedStringsSection<'_> {
             tail_remap: HashMap::new(),
             class_buckets: Vec::new(),
             class_unpadded: Vec::new(),
+            overflow_align: alignment::MIN,
             output_alignment: alignment::MIN,
         }
     }
