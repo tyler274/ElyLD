@@ -142,6 +142,9 @@ LTO plugin search path, mold, glibc (static + source for relink tests), and:
 * `ELYLD_LIBBACKTRACE_TREE` — unpacked nixpkgs `libbacktrace.src`, so
   `cargo test -p elyld --test integration_tests -- libbacktrace` builds that
   suite with ElyLD as `ld` and runs `ctestzstd` / `ctestzstd_alloc`
+* `ELYLD_DUCKDB_TREE` — unpacked nixpkgs `duckdb.src`, so
+  `cargo test -p elyld --test integration_tests --release -- duckdb` builds
+  DuckDB with ElyLD and runs the nixpkgs `installCheck` unittest list
 * `mimalloc` + `pkg-config` for `--features mimalloc-dynamic` (default builds use mimalloc-rs)
 * `gdb`, `lldb`, `elfutils`, `valgrind`, `strace` for inspecting links
 * `hyperfine` and `samply` (see [BENCHMARKING.md](../BENCHMARKING.md))
@@ -153,6 +156,20 @@ Kani is not in nixpkgs. Install it with `cargo install --locked kani-verifier &&
 cargo kani setup`, then `./scripts/kani.sh`. Firefox, Blender, Chrome, and kernel
 source trees are **not** pulled into the shell; point `ELYLD_*_TREE` /
 `ELYLD_*_LINK` at local checkouts.
+
+## DuckDB
+
+`nix develop` unpacks nixpkgs `duckdb.src` and sets `ELYLD_DUCKDB_TREE`,
+`ELYLD_DUCKDB_BUILD` (`$PWD/target/duckdb`), and `ELYLD_DUCKDB_DESCRIBE`. The
+test is ignored when `ELYLD_DUCKDB_TREE` is unset. It configures the in-tree
+extensions with `-DBUILD_UNITTESTS=ON`, links via GCC `-B` at ElyLD, and runs
+`test/unittest` with the same `exclude:` list as nixpkgs' `installCheckPhase`.
+A failure leaves the tail of `unittest.log` in the build directory. This is not
+part of `nix flake check`.
+
+```sh
+cargo test -p elyld --test integration_tests --release -- duckdb
+```
 
 ## Glibc relink tests
 

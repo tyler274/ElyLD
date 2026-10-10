@@ -373,6 +373,7 @@
 //!
 //! mem-size=N: Type: Integer. Asserts the mem size of the segment.
 
+mod duckdb;
 mod external_tests;
 mod glibc;
 mod incremental_check;
@@ -426,6 +427,7 @@ fn main() -> Result<std::process::ExitCode> {
     vmlinux::collect_tests(&mut tests, &filter);
     glibc::collect_tests(&mut tests, &filter);
     libbacktrace::collect_tests(&mut tests, &filter);
+    duckdb::collect_tests(&mut tests, &filter);
     packages::collect_tests(&mut tests, &filter);
     Ok(libtest_mimic::run(&args, tests).exit_code())
 }

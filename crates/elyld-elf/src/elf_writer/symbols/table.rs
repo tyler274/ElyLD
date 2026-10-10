@@ -89,10 +89,7 @@ impl<'layout, 'out, C: ElfClass> SymbolTableWriter<'layout, 'out, C> {
             .and_then(|s| (!s.is_empty()).then(|| slice_from_all_bytes_mut(s)));
 
         let strings = buffers.take(part_id::STRTAB);
-        let mut strtab_writer = StrTabWriter {
-            next_offset: start_string_offset,
-            out: strings,
-        };
+        let mut strtab_writer = StrTabWriter::new(start_string_offset, strings);
         if let Some(table) = strtab_lookup {
             strtab_writer.write_finalized(table)?;
         }
@@ -119,10 +116,7 @@ impl<'layout, 'out, C: ElfClass> SymbolTableWriter<'layout, 'out, C> {
             local_entries: Default::default(),
             global_entries,
             output_sections,
-            strtab_writer: StrTabWriter {
-                next_offset: string_offset,
-                out: strings,
-            },
+            strtab_writer: StrTabWriter::new(string_offset, strings),
             is_dynamic: true,
             symtab_shndx_local_entries: None,
             symtab_shndx_global_entries: None,
@@ -1374,9 +1368,23 @@ pub(crate) fn write_internal_symbols<C: ElfClass>(
 pub(crate) struct StrTabWriter<'out> {
     pub(crate) next_offset: u32,
     pub(crate) out: &'out mut [u8],
+    /// Address of the first byte of this writer's string table, as `usize` so the writer stays
+    /// `Send`. Dynamic symbol names are written through `take_prefix` before DT_RUNPATH, and the
+    /// parent writer has to see those bytes in order to reuse one.
+    origin: usize,
+    origin_offset: u32,
 }
 
 impl StrTabWriter<'_> {
+    fn new(next_offset: u32, out: &mut [u8]) -> StrTabWriter<'_> {
+        StrTabWriter {
+            origin: out.as_mut_ptr() as usize,
+            origin_offset: next_offset,
+            next_offset,
+            out,
+        }
+    }
+
     /// Writes a string to the string table. Returns the offset within the string table at which the
     /// string was written.
     pub(crate) fn write_str(&mut self, str: &[u8]) -> u32 {
@@ -1387,6 +1395,48 @@ impl StrTabWriter<'_> {
         let offset = self.next_offset;
         self.next_offset += len_with_terminator as u32;
         offset
+    }
+
+    /// Returns the offset of an existing C string equal to `str`, or appends one.
+    ///
+    /// GNU ld keeps one `.dynstr` copy of `a_symbol_name` for both the dynamic symbol and
+    /// `DT_RPATH`. patchelf only rewrites an rpath in place when that string has a single
+    /// reference; a second copy is overwritten with Xs and the symbol is left alone, which fails
+    /// `shared-rpath.sh`.
+    pub(crate) fn write_str_reused(&mut self, str: &[u8]) -> u32 {
+        if let Some(offset) = self.find_c_string(str) {
+            let len_with_terminator = str.len() + 1;
+            // Size finalisation reserved a fresh copy. Keep those bytes zero and still consume
+            // them so the writer exhausts its allocation.
+            self.out.split_off_mut(..len_with_terminator).unwrap();
+            self.next_offset += len_with_terminator as u32;
+            return offset;
+        }
+        self.write_str(str)
+    }
+
+    fn find_c_string(&self, needle: &[u8]) -> Option<u32> {
+        let origin = self.origin as *const u8;
+        let written_len = unsafe { self.out.as_ptr().offset_from(origin) };
+        if written_len <= needle.len() as isize {
+            return None;
+        }
+        // `origin` is the start of this table's allocation. `out` is the not-yet-written tail.
+        // Prefix writers have finished, so the bytes in between are initialised C strings and do
+        // not overlap `out`.
+        let written = unsafe { std::slice::from_raw_parts(origin, written_len as usize) };
+        let n = needle.len();
+        let mut i = 0;
+        while i + n < written.len() {
+            if written[i + n] == 0
+                && &written[i..i + n] == needle
+                && (i == 0 || written[i - 1] == 0)
+            {
+                return Some(self.origin_offset + i as u32);
+            }
+            i += 1;
+        }
+        None
     }
 
     fn write_finalized(&mut self, table: &elf::FinalizedStrtab) -> Result {
@@ -1412,6 +1462,51 @@ impl StrTabWriter<'_> {
         Self {
             next_offset,
             out: self.out.split_off_mut(..size).unwrap(),
+            origin: self.origin,
+            origin_offset: self.origin_offset,
         }
+    }
+}
+
+#[cfg(test)]
+mod strtab_tests {
+    use super::StrTabWriter;
+
+    #[test]
+    fn reused_string_keeps_the_existing_offset() {
+        let mut buf = [0u8; 64];
+        let mut writer = StrTabWriter::new(0, &mut buf);
+        let first = writer.write_str(b"a_symbol_name");
+        let second = writer.write_str_reused(b"a_symbol_name");
+        assert_eq!(first, 0);
+        assert_eq!(second, first);
+        let written_len = writer.out.as_ptr() as usize - writer.origin;
+        let written = &buf[..written_len];
+        let copies = written
+            .windows(b"a_symbol_name".len())
+            .filter(|window| *window == b"a_symbol_name")
+            .count();
+        assert_eq!(copies, 1);
+        assert!(written.ends_with(&[0]));
+    }
+
+    #[test]
+    fn reuse_sees_a_string_written_into_a_prefix() {
+        let mut buf = [0u8; 64];
+        let mut writer = StrTabWriter::new(0, &mut buf);
+        let mut prefix = writer.take_prefix(b"a_symbol_name".len() + 1);
+        let first = prefix.write_str(b"a_symbol_name");
+        drop(prefix);
+        assert_eq!(writer.write_str_reused(b"a_symbol_name"), first);
+    }
+
+    #[test]
+    fn missing_string_is_appended() {
+        let mut buf = [0u8; 64];
+        let mut writer = StrTabWriter::new(0, &mut buf);
+        writer.write_str(b"foo");
+        let offset = writer.write_str_reused(b"name");
+        assert_eq!(offset, 4);
+        assert_eq!(&buf[4..8], b"name");
     }
 }

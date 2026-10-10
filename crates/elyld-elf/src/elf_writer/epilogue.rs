@@ -425,9 +425,8 @@ pub(crate) fn write_epilogue<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
 
     let mut epilogue_offsets = EpilogueOffsets::default();
 
-    if layout.symbol_db.output_kind.needs_dynamic() && !layout.symbol_db.discard_dynamic_sections {
-        write_epilogue_dynamic_entries(layout, table_writer, &mut epilogue_offsets)?;
-    }
+    // Symbol names land in .dynstr before DT_RUNPATH / DT_SONAME. Those tags reuse an identical
+    // C string when one already exists; patchelf treats a second copy as private and taints it.
 
     let got_relr_n = layout.got_relr_n;
     if got_relr_n > 0 {
@@ -441,6 +440,10 @@ pub(crate) fn write_epilogue<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
     write_gnu_hash_tables(layout, epilogue, buffers)?;
 
     write_dynamic_symbol_definitions(table_writer, layout)?;
+
+    if layout.symbol_db.output_kind.needs_dynamic() && !layout.symbol_db.discard_dynamic_sections {
+        write_epilogue_dynamic_entries(layout, table_writer, &mut epilogue_offsets)?;
+    }
 
     if !layout.format_specific.gnu_property_notes.is_empty() {
         write_gnu_property_notes(layout, buffers)?;

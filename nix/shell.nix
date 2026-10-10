@@ -26,6 +26,7 @@ let
     ;
   glibcTests = pkgs.callPackage ./glibc-tests.nix { };
   libbacktraceTests = pkgs.callPackage ./libbacktrace-tests.nix { };
+  duckdbTests = pkgs.callPackage ./duckdb-tests.nix { };
 in
 pkgs.mkShell {
   packages = [
@@ -81,7 +82,8 @@ pkgs.mkShell {
     pkgs.git
   ]
   ++ glibcTests.packages
-  ++ libbacktraceTests.packages;
+  ++ libbacktraceTests.packages
+  ++ duckdbTests.packages;
 
   env.LD_LIBRARY_PATH = lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib
@@ -101,6 +103,7 @@ pkgs.mkShell {
   shellHook =
     glibcTests.shellHook
     + libbacktraceTests.shellHook
+    + duckdbTests.shellHook
     + ''
       if ! command -v cargo-kani >/dev/null 2>&1; then
         echo "Kani is not in this shell (not packaged in nixpkgs)."

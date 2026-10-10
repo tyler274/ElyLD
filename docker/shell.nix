@@ -9,6 +9,7 @@ let
   binutilsZstd = pkgs.callPackage ../nix/binutils-zstd.nix { };
   glibcTests = pkgs.callPackage ../nix/glibc-tests.nix { };
   libbacktraceTests = pkgs.callPackage ../nix/libbacktrace-tests.nix { };
+  duckdbTests = pkgs.callPackage ../nix/duckdb-tests.nix { };
 in
 pkgs.mkShell {
   nativeBuildInputs = [
@@ -45,7 +46,8 @@ pkgs.mkShell {
     pkgs.elfutils
   ]
   ++ glibcTests.packages
-  ++ libbacktraceTests.packages;
+  ++ libbacktraceTests.packages
+  ++ duckdbTests.packages;
 
   ELYLD_MOLD_TESTS = "1";
 
@@ -54,5 +56,5 @@ pkgs.mkShell {
     pkgs.mimalloc
   ];
 
-  shellHook = glibcTests.shellHook + libbacktraceTests.shellHook;
+  shellHook = glibcTests.shellHook + libbacktraceTests.shellHook + duckdbTests.shellHook;
 }

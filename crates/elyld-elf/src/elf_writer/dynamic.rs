@@ -41,7 +41,10 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
     {
         let bytes = name.as_encoded_bytes();
         for _ in 0..deferred {
-            let offset = table_writer.dynsym_writer.strtab_writer.write_str(bytes);
+            let offset = table_writer
+                .dynsym_writer
+                .strtab_writer
+                .write_str_reused(bytes);
             table_writer
                 .dynamic
                 .write(object::elf::DT_NEEDED, u64::from(offset))?;
@@ -51,7 +54,7 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
         let offset = table_writer
             .dynsym_writer
             .strtab_writer
-            .write_str(rpath.as_bytes());
+            .write_str_reused(rpath.as_bytes());
         let rpath_tag = if layout.args().enable_new_dtags {
             object::elf::DT_RUNPATH
         } else {
@@ -63,7 +66,7 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
         let offset = table_writer
             .dynsym_writer
             .strtab_writer
-            .write_str(soname.as_bytes());
+            .write_str_reused(soname.as_bytes());
         table_writer
             .dynamic
             .write(object::elf::DT_SONAME, offset.into())?;
@@ -73,7 +76,7 @@ pub(crate) fn write_epilogue_dynamic_entries<C: ElfClass>(
         let offset = table_writer
             .dynsym_writer
             .strtab_writer
-            .write_str(aux.as_bytes());
+            .write_str_reused(aux.as_bytes());
         table_writer
             .dynamic
             .write(object::elf::DT_AUXILIARY, offset.into())?;
