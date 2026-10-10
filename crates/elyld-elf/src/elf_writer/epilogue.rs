@@ -638,12 +638,14 @@ pub(crate) fn eh_frame_hdr_entry_count<C: ElfClass>(layout: &ElfLayout<C>) -> Re
 /// Returns the address of .eh_frame relative to the location in .eh_frame_hdr where the frame
 /// pointer is stored.
 pub(crate) fn eh_frame_ptr<C: ElfClass>(layout: &ElfLayout<C>) -> Result<i32> {
-    let eh_frame_address = layout.mem_address_of_built_in(output_section_id::EH_FRAME);
-    let eh_frame_hdr_address = layout.mem_address_of_built_in(output_section_id::EH_FRAME_HDR);
-    i32::try_from(
-        eh_frame_address - (eh_frame_hdr_address + elf::FRAME_POINTER_FIELD_OFFSET as u64),
-    )
-    .context(".eh_frame more than 2GB away from .eh_frame_hdr")
+    let eh_frame_address = layout.mem_address_of_built_in(output_section_id::EH_FRAME) as i64;
+    let frame_pointer_address = layout.mem_address_of_built_in(output_section_id::EH_FRAME_HDR)
+        as i64
+        + elf::FRAME_POINTER_FIELD_OFFSET as i64;
+    // DW_EH_PE_sdata4 | DW_EH_PE_pcrel. A script that only names `.text` leaves
+    // these as orphans, and `.eh_frame` can land before `.eh_frame_hdr`.
+    i32::try_from(eh_frame_address - frame_pointer_address)
+        .context(".eh_frame more than 2GB away from .eh_frame_hdr")
 }
 
 pub(crate) fn write_internal_symbols_plt_got_entries<
