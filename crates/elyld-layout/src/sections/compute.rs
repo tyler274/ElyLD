@@ -1,6 +1,4 @@
-use crate::expression_eval::{
-    ResolvedLocationCounter, evaluate_early_expression, section_mem_end,
-};
+use crate::expression_eval::{ResolvedLocationCounter, evaluate_early_expression, section_mem_end};
 use crate::output_section_id::{OrderEvent, OutputOrder, OutputSectionId, OutputSections};
 use crate::output_section_part_map::OutputSectionPartMap;
 use crate::parsing::SymbolLoc;
@@ -10,16 +8,16 @@ use crate::{
     EnginePlatform, GroupState, MemoryRegion, OutputRecordLayout, collect_const_script_symbols,
     compute_segment_alignments, layout_section_from_part_layouts, packed_span, timing_phase,
 };
-use hashbrown::{HashMap, HashSet};
-use std::cell::OnceCell;
 use elyld_error::error::{Context, Result};
 use elyld_error::{bail, error};
 use elyld_platform::output_section_map::OutputSectionMap;
 use elyld_platform::program_segments::ProgramSegments;
 use elyld_platform::{Args as _, SectionAttributes as _, SectionFlags as _};
 use elyld_scripts::linker_script::Expression;
-use elyld_util::alignment::Alignment;
+use elyld_util::alignment::{self, Alignment};
 use elyld_util::layout::{align_vma_lma, gnu_default_lma};
+use hashbrown::{HashMap, HashSet};
+use std::cell::OnceCell;
 
 pub fn compute_layout_sections<'data, P: EnginePlatform>(
     group_states: &[GroupState<'data, P>],
@@ -153,6 +151,13 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
     // / `.dynamic`. Save both counters so a high `.tbss` alignment cannot leave later
     // PROGBITS with `sh_offset` that disagrees with `p_offset ≡ p_vaddr`.
     let mut tls_memsave: Option<(u64, usize)> = None;
+    // x86-64 dlopen places a DSO's TLS block on `p_align` and adds `st_value`.
+    // That offset stays aligned only when the first TLS section is aligned to every
+    // TLS section, not merely to its own input alignment. `.tdata` is often 4 or 8
+    // while `.tbss` is 16 or 64; a 16-byte `thread_local` then lands 8 bytes off
+    // and `vmovdqa` faults.
+    let tls_segment_alignment = tls_segment_alignment::<P>(sizes, output_sections);
+    let mut tls_segment_aligned = false;
 
     // ALLOC sections not covered by a PT_LOAD (typical: ELF file/program/section headers when
     // the linker script's PHDRS omit FILEHDR) occupy file space only. GNU ld does not put them
@@ -366,7 +371,7 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                 }
 
                 let part_id_range = section_id.part_id_range::<P>();
-                let max_alignment = crate::output_section_part_map::max_alignment(
+                let mut max_alignment = crate::output_section_part_map::max_alignment(
                     sizes,
                     part_id_range.clone(),
                     output_sections,
@@ -431,9 +436,7 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     }
                 }
 
-                if has_explicit_nonalloc_vma
-                    && let Some(addr) = pending_section_address.take()
-                {
+                if has_explicit_nonalloc_vma && let Some(addr) = pending_section_address.take() {
                     mem_offset = addr;
                 } else {
                     pending_section_address = None;
@@ -551,6 +554,14 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     if output_sections.has_data_in_file(merge_target) {
                         file_offset = max_input_align.align_up_usize(file_offset);
                     }
+                }
+
+                let place_tls_segment = !tls_segment_aligned
+                    && !has_explicit_section_addr
+                    && section_info.section_attributes.is_tls();
+                if place_tls_segment {
+                    max_alignment = max_alignment.max(tls_segment_alignment);
+                    tls_segment_aligned = true;
                 }
 
                 let mut is_first_part = true;
@@ -703,8 +714,7 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                         let mem_offset = if has_explicit_section_addr {
                             mem_offset
                         } else {
-                            let aligned =
-                                alignment.align_up(*nonalloc_mem_offsets.get(section_id));
+                            let aligned = alignment.align_up(*nonalloc_mem_offsets.get(section_id));
                             *nonalloc_mem_offsets.get_mut(section_id) += mem_size;
                             aligned
                         };
@@ -755,6 +765,11 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
                     }
 
                     is_first_part = false;
+                }
+
+                if place_tls_segment {
+                    let layout = section_layouts.get_mut(section_id);
+                    layout.alignment = layout.alignment.max(tls_segment_alignment);
                 }
 
                 if let Some(region_name) = region_name
@@ -831,9 +846,58 @@ pub fn compute_layout_sections<'data, P: EnginePlatform>(
         }
     }
 
+    // Variant 2 (x86-64) initial-exec uses `st_value - p_memsz`. Rounding the TLS
+    // image up to the segment alignment keeps that difference aligned once `st_value`
+    // itself is. The extra bytes are NOBITS, so only the TLS memory size grows.
+    pad_tls_segment_end::<P>(output_sections, &mut section_layouts, tls_segment_alignment);
+
     validate_all_non_empty_sections_emitted(sizes, output_sections, output_order)?;
 
     Ok((records_out, section_layouts, resolved_lc))
+}
+
+fn tls_segment_alignment<P: EnginePlatform>(
+    sizes: &OutputSectionPartMap<u64>,
+    output_sections: &OutputSections<P>,
+) -> Alignment {
+    output_sections
+        .ids_with_info()
+        .filter(|(_, info)| info.section_attributes.is_tls())
+        .map(|(id, _)| {
+            crate::output_section_part_map::max_alignment(
+                sizes,
+                id.part_id_range::<P>(),
+                output_sections,
+            )
+        })
+        .max()
+        .unwrap_or(alignment::MIN)
+}
+
+fn pad_tls_segment_end<P: EnginePlatform>(
+    output_sections: &OutputSections<P>,
+    section_layouts: &mut OutputSectionMap<OutputRecordLayout>,
+    tls_alignment: Alignment,
+) {
+    if tls_alignment <= alignment::MIN {
+        return;
+    }
+    let Some((last, nobits)) = output_sections
+        .ids_with_info()
+        .filter(|(_, info)| info.section_attributes.is_tls())
+        .map(|(id, info)| (id, info.section_attributes.is_no_bits()))
+        .filter(|(id, _)| section_layouts.get(*id).mem_size > 0)
+        .max_by_key(|(id, _)| section_layouts.get(*id).mem_end())
+    else {
+        return;
+    };
+    if !nobits {
+        return;
+    }
+    let layout = section_layouts.get_mut(last);
+    let end = layout.mem_end();
+    let aligned_end = tls_alignment.align_up(end);
+    layout.mem_size += aligned_end - end;
 }
 
 pub fn pick_compatible_memory_region<'data>(
