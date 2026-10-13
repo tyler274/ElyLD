@@ -211,8 +211,10 @@ pub(crate) enum OutputFileType {
 pub(crate) struct LdPluginInputFile {
     pub(crate) name: *const libc::c_char,
     pub(crate) fd: libc::c_int,
-    pub(crate) offset: libc::off_t,
-    pub(crate) file_size: libc::off_t,
+    // GCC and binutils build their plugins with _FILE_OFFSET_BITS=64, so these are 64-bit even
+    // where libc::off_t is 32-bit.
+    pub(crate) offset: i64,
+    pub(crate) file_size: i64,
     pub(crate) handle: *mut libc::c_void,
 }
 

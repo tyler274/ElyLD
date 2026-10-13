@@ -651,7 +651,7 @@ fn preallocate_output_file(file: &File, size: u64) -> Result {
             file,
             nix::fcntl::FallocateFlags::empty(),
             0,
-            i64::try_from(size).context("Output file is too large for fallocate")?,
+            nix::libc::off_t::try_from(size).context("Output file is too large for fallocate")?,
         )?;
     }
 

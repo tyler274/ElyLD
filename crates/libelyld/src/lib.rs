@@ -16,17 +16,10 @@ pub(crate) mod output_kind;
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 pub(crate) mod perf;
-#[cfg(any(
-    not(target_os = "linux"),
-    all(
-        target_os = "linux",
-        any(
-            target_arch = "riscv64",
-            target_arch = "loongarch64",
-            target_arch = "powerpc64"
-        )
-    )
-))]
+#[cfg(not(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+)))]
 #[path = "perf_unsupported.rs"]
 pub(crate) mod perf;
 pub(crate) mod save_dir;

@@ -306,8 +306,8 @@ impl<'data> LinkerPlugin<'data> {
                 let file = LdPluginInputFile {
                     name: name.as_ptr(),
                     fd,
-                    offset: offset as libc::off_t,
-                    file_size: data.len() as libc::off_t,
+                    offset: offset as i64,
+                    file_size: data.len() as i64,
                     // Whatever we store here needs to be valid for 'data, since the plugin might
                     // pass this back to us at a later point. e.g. get_symbols
                     // does so.
