@@ -1,1 +1,1 @@
-OUTPUT_ARCH(i386)
+OUTPUT_ARCH(sparc)

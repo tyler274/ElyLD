@@ -18,33 +18,38 @@ pub(crate) fn identify_bytes(bytes: &[u8]) -> Result<FileKind> {
     } else if bytes.starts_with(&object::archive::THIN_MAGIC) {
         Ok(FileKind::ThinArchive)
     } else if bytes.starts_with(&object::elf::ELFMAG) {
-        const HEADER_LEN: usize = size_of::<FileHeader64<LittleEndian>>();
-        if bytes.len() < HEADER_LEN {
+        // e_ident is at the same offset in both ELFCLASS32 and ELFCLASS64 files. We need to know
+        // the class before we can pick the right header type, so just peek at the ident bytes.
+        if bytes.len() < 7 {
             bail!("Invalid ELF file");
         }
-        let header: &FileHeader64<LittleEndian> =
-            object::from_bytes(&bytes[..HEADER_LEN]).unwrap().0;
+        let is_32bit = bytes[4] == object::elf::ELFCLASS32.0;
+        let is_64bit = bytes[4] == object::elf::ELFCLASS64.0;
         ensure!(
-            header.e_ident.class == object::elf::ELFCLASS64,
-            "Only 64 bit ELF is currently supported"
+            is_32bit || is_64bit,
+            "Unsupported ELF class {}",
+            bytes[4]
         );
         ensure!(
-            header.e_ident.data == object::elf::ELFDATA2LSB,
+            bytes[5] == object::elf::ELFDATA2LSB.0,
             "Only little endian is currently supported"
         );
-
-        match header.e_type.get(LittleEndian) {
-            object::elf::ET_REL => {
-                if is_gcc_bitcode(bytes, header).unwrap_or(false) {
-                    Ok(FileKind::GccIr)
-                } else if is_llvm_bitcode(bytes, header).unwrap_or(false) {
-                    Ok(FileKind::LlvmIr)
-                } else {
-                    Ok(FileKind::ElfObject)
-                }
+        if is_64bit {
+            const HEADER_LEN: usize = size_of::<FileHeader64<LittleEndian>>();
+            if bytes.len() < HEADER_LEN {
+                bail!("Invalid ELF file");
             }
-            object::elf::ET_DYN => Ok(FileKind::ElfDynamic),
-            t => bail!("Unsupported ELF kind {t}"),
+            let header: &FileHeader64<LittleEndian> =
+                object::from_bytes(&bytes[..HEADER_LEN]).unwrap().0;
+            match_ident_elf(bytes, header.e_type.get(LittleEndian).0)
+        } else {
+            const HEADER_LEN: usize = size_of::<object::elf::FileHeader32<LittleEndian>>();
+            if bytes.len() < HEADER_LEN {
+                bail!("Invalid ELF file");
+            }
+            let header: &object::elf::FileHeader32<LittleEndian> =
+                object::from_bytes(&bytes[..HEADER_LEN]).unwrap().0;
+            match_ident_elf(bytes, header.e_type.get(LittleEndian).0)
         }
     } else if bytes.starts_with(macho::MH_MAGIC_64.as_bytes())
         || bytes.starts_with(&macho::MH_MAGIC_64.to_be_bytes())
@@ -68,6 +73,81 @@ pub(crate) fn identify_bytes(bytes: &[u8]) -> Result<FileKind> {
         bail!("Couldn't identify file type starting with {start:x?}");
     } else {
         bail!("Input file is only {} bytes", bytes.len());
+    }
+}
+
+fn match_ident_elf(bytes: &[u8], e_type: u16) -> Result<FileKind> {
+    match e_type {
+        t if t == object::elf::ET_REL.0 => {
+            if is_gcc_bitcode_any_class(bytes).unwrap_or(false) {
+                Ok(FileKind::GccIr)
+            } else if is_llvm_bitcode_any_class(bytes).unwrap_or(false) {
+                Ok(FileKind::LlvmIr)
+            } else {
+                Ok(FileKind::ElfObject)
+            }
+        }
+        t if t == object::elf::ET_DYN.0 => Ok(FileKind::ElfDynamic),
+        t => bail!("Unsupported ELF kind {t}"),
+    }
+}
+
+/// Scans the section header string table for GCC LTO sections, working for either ELF class.
+fn is_gcc_bitcode_any_class(bytes: &[u8]) -> Option<bool> {
+    let class = *bytes.get(4)?;
+    if class == object::elf::ELFCLASS64.0 {
+        let header: &FileHeader64<LittleEndian> =
+            object::from_bytes(&bytes[..size_of::<FileHeader64<LittleEndian>>()])
+                .ok()?
+                .0;
+        is_gcc_bitcode(bytes, header)
+    } else if class == object::elf::ELFCLASS32.0 {
+        let header: &object::elf::FileHeader32<LittleEndian> =
+            object::from_bytes(&bytes[..size_of::<object::elf::FileHeader32<LittleEndian>>()])
+                .ok()?
+                .0;
+        // Same heuristic as the 64-bit path, but with 32-bit section headers.
+        let e = LittleEndian;
+        if !cfg!(all(feature = "plugins", unix)) {
+            return Some(false);
+        }
+        let section_headers = header.section_headers(e, bytes).ok()?;
+        let sh_str_index = header.shstrndx(e, bytes).ok()?;
+        let strings_section_header = section_headers.get(sh_str_index as usize)?;
+        let start_offset = strings_section_header.sh_offset(e) as usize;
+        let len = strings_section_header.sh_size(e) as usize;
+        const START: usize = 100;
+        const MAX_SCAN: usize = 200;
+        let strings = bytes.get(start_offset + START..start_offset + (START + MAX_SCAN).min(len))?;
+        Some(memchr::memmem::find(strings, b"\0.gnu.lto_.").is_some())
+    } else {
+        None
+    }
+}
+
+/// Returns whether the file contains LLVM IR bitcode sections, working for either ELF class.
+fn is_llvm_bitcode_any_class(bytes: &[u8]) -> Option<bool> {
+    if !cfg!(all(feature = "plugins", unix)) {
+        return Some(false);
+    }
+    let class = *bytes.get(4)?;
+    let e = LittleEndian;
+    if class == object::elf::ELFCLASS64.0 {
+        let header: &FileHeader64<LittleEndian> =
+            object::from_bytes(&bytes[..size_of::<FileHeader64<LittleEndian>>()])
+                .ok()?
+                .0;
+        let section_headers = header.section_headers(e, bytes).ok()?;
+        Some(section_headers.iter().any(|s| s.sh_type(e) == SHT_LLVM_LTO))
+    } else if class == object::elf::ELFCLASS32.0 {
+        let header: &object::elf::FileHeader32<LittleEndian> =
+            object::from_bytes(&bytes[..size_of::<object::elf::FileHeader32<LittleEndian>>()])
+                .ok()?
+                .0;
+        let section_headers = header.section_headers(e, bytes).ok()?;
+        Some(section_headers.iter().any(|s| s.sh_type(e) == SHT_LLVM_LTO))
+    } else {
+        None
     }
 }
 

@@ -304,6 +304,14 @@ impl elyld_platform::Arch for ElfRiscV64 {
                 existing_deltas,
                 &mut resolve_symbol,
             ),
+            RelocationList64::Rel(_) => collect_relaxation_deltas(
+                section_output_address,
+                section_bytes,
+                std::iter::empty::<ElfRela<crate::Class64>>()
+                ,
+                existing_deltas,
+                &mut resolve_symbol,
+            ),
         }
     }
 
@@ -320,6 +328,7 @@ impl elyld_platform::Arch for ElfRiscV64 {
                 crel_iter.flatten().map(ElfCrel::new),
                 existing_deltas,
             ),
+            RelocationList64::Rel(_) => Vec::new(),
         }
     }
 

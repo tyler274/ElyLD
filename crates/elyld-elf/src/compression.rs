@@ -411,6 +411,15 @@ fn build_regular_debug_section<C: ElfClass, A: Arch<Platform = elf::Elf<C>>>(
                                             layout,
                                         )?;
                                     }
+                                    elf::RelocationList::Rel(rel) => {
+                                        apply_debug_relocations::<C, A, elf::ElfRel<C>, _>(
+                                            object_layout,
+                                            &mut group_buf[offset..end],
+                                            section_index,
+                                            rel.iter().map(|r| Ok(elf::ElfRel::<C>::clone(r))),
+                                            layout,
+                                        )?;
+                                    }
                                     elf::RelocationList::Crel(crel_iter) => {
                                         apply_debug_relocations::<C, A, elf::ElfCrel<C>, _>(
                                             object_layout,

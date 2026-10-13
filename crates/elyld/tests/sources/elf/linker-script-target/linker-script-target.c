@@ -10,7 +10,7 @@
 //#Config:unsupported:default
 //#ReferenceLinkers:
 //#LinkerScript:linker-script-target-unsupported.ld
-//#ExpectError:elf32-i386 is not yet supported
+//#ExpectError:elf32-sparc is not yet supported
 
 //#Config:mismatch:default
 //#ReferenceLinkers:

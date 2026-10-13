@@ -355,7 +355,7 @@ impl CommonSymbol {
     }
 }
 
-pub trait Relocation: Send + Sync + Copy + 'static {
+pub trait Relocation: Send + Sync + Copy {
     type Sequence<'data>: RelocationSequence<'data, Rel = Self>;
     type Platform: Platform;
 

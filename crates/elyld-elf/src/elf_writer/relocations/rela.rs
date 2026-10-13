@@ -128,6 +128,11 @@ pub(crate) fn write_rela_sections<'data, C: ElfClass>(
                     write_one(rel.offset(), rel.symbol(), rel.raw_type(), rel.addend())?;
                 }
             }
+            elf::RelocationList::Rel(rels) => {
+                for rel in rels {
+                    write_one(rel.offset(), rel.symbol(), rel.raw_type(), rel.addend())?;
+                }
+            }
             elf::RelocationList::Crel(crel) => {
                 for raw in crel.flatten() {
                     let rel: elf::ElfCrel<C> = elf::ElfCrel::new(raw);

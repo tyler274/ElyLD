@@ -130,6 +130,15 @@ pub fn x86_64_rel_type_to_string(r_type: object::elf::RelocationType) -> Cow<'st
 }
 
 #[must_use]
+pub fn i386_rel_type_to_string(r_type: object::elf::RelocationType) -> Cow<'static, str> {
+    if let Some(name) = object::elf::NAMES_R_386.name(r_type) {
+        Cow::Borrowed(name)
+    } else {
+        Cow::Owned(format!("Unknown i386 relocation type 0x{r_type:x}"))
+    }
+}
+
+#[must_use]
 pub fn aarch64_rel_type_to_string(r_type: object::elf::RelocationType) -> Cow<'static, str> {
     if let Some(name) = object::elf::NAMES_R_AARCH64.name(r_type) {
         Cow::Borrowed(name)
@@ -622,6 +631,22 @@ impl DynamicRelocationKind {
             DynamicRelocationKind::GotEntry => object::elf::R_X86_64_GLOB_DAT,
             DynamicRelocationKind::TlsDesc => object::elf::R_X86_64_TLSDESC,
             DynamicRelocationKind::JumpSlot => object::elf::R_X86_64_JUMP_SLOT,
+        }
+    }
+
+    #[must_use]
+    pub fn i386_r_type(self) -> object::elf::RelocationType {
+        match self {
+            DynamicRelocationKind::Copy => object::elf::R_386_COPY,
+            DynamicRelocationKind::Irelative => object::elf::R_386_IRELATIVE,
+            DynamicRelocationKind::DtpMod => object::elf::R_386_TLS_DTPMOD32,
+            DynamicRelocationKind::DtpOff => object::elf::R_386_TLS_DTPOFF32,
+            DynamicRelocationKind::TpOff => object::elf::R_386_TLS_TPOFF,
+            DynamicRelocationKind::Relative => object::elf::R_386_RELATIVE,
+            DynamicRelocationKind::Absolute => object::elf::R_386_32,
+            DynamicRelocationKind::GotEntry => object::elf::R_386_GLOB_DAT,
+            DynamicRelocationKind::TlsDesc => object::elf::R_386_TLS_DESC,
+            DynamicRelocationKind::JumpSlot => object::elf::R_386_JMP_SLOT,
         }
     }
 

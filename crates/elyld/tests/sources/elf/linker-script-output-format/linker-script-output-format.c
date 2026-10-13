@@ -17,7 +17,7 @@
 //#Config:unsupported:default
 //#ReferenceLinkers:
 //#LinkerScript:linker-script-output-format-unsupported.ld
-//#ExpectError:elf32-i386 is not yet supported
+//#ExpectError:elf32-sparc is not yet supported
 
 //#Config:invalid:default
 //#ReferenceLinkers:
@@ -32,6 +32,6 @@
 //#Config:arch-unsupported:default
 //#ReferenceLinkers:
 //#LinkerScript:linker-script-output-arch-unsupported.ld
-//#ExpectError:i386 is not yet supported
+//#ExpectError:sparc is not yet supported
 
 void _start() {}

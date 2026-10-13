@@ -35,6 +35,16 @@ pub(crate) fn write_eh_frame_data<'data, C: ElfClass, A: Arch<Platform = elf::El
                 relocations.iter().copied().map(elf::ElfRela::new),
             )
         }
+        elf::RelocationList::Rel(relocations) => {
+            write_eh_frame_relocations::<C, A, elf::ElfRel<C>>(
+                object,
+                layout,
+                table_writer,
+                trace,
+                eh_frame_section,
+                relocations.iter().copied(),
+            )
+        }
         elf::RelocationList::Crel(relocations) => {
             write_eh_frame_relocations::<C, A, elf::ElfCrel<C>>(
                 object,

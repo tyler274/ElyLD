@@ -1,6 +1,7 @@
 use super::types::{
-    CrelSequence, DynamicEntry, Elf, ElfClass, ElfCrel, ElfRela, ElfWord as _, File, RelaSequence,
-    RelocationList, SectionHeader, SymtabEntry, Versym, Word, symtab_name_for_strtab,
+    CrelSequence, DynamicEntry, Elf, ElfClass, ElfCrel, ElfRel, ElfRela, ElfWord as _, File,
+    RelaSequence, RelocationList, RelSequence, SectionHeader, SymtabEntry, Versym, Word,
+    symtab_name_for_strtab,
 };
 use super::{
     BuiltInSectionDetails, CommonGroupStateExt, CopyRelocationInfo,
@@ -73,7 +74,7 @@ use std::sync::atomic::AtomicBool;
 /// GNU ld reserves three `.got` slots on an x86-64 shared object even when no
 /// relocation uses the GOT. The first word holds the `.dynamic` address.
 fn needs_shared_got_header(args: &ElfArgs, sizes: &OutputSectionPartMap<u64>) -> bool {
-    args.architecture() == Architecture::X86_64
+    matches!(args.architecture(), Architecture::X86_64 | Architecture::X86)
         && !args.should_output_executable()
         && !args.should_output_partial_object()
         && sizes.get(part_id::GOT) == 0
@@ -644,6 +645,17 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                     scope,
                 )?;
             }
+            RelocationList::Rel(relocations) => {
+                load_section_relocations::<C, A, ElfRel<C>>(
+                    state,
+                    common,
+                    queue,
+                    resources,
+                    section_index,
+                    RelSequence(relocations).rel_iter(),
+                    scope,
+                )?;
+            }
             RelocationList::Crel(relocations) => {
                 load_section_relocations::<C, A, ElfCrel<C>>(
                     state,
@@ -657,6 +669,17 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                             class: PhantomData,
                         })
                     }),
+                    scope,
+                )?;
+            }
+            RelocationList::Rel(relocations) => {
+                load_section_relocations::<C, A, ElfRel<C>>(
+                    state,
+                    common,
+                    queue,
+                    resources,
+                    section_index,
+                    RelSequence(relocations).rel_iter(),
                     scope,
                 )?;
             }
@@ -1112,6 +1135,20 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
                     scope,
                 )?)
             }
+            RelocationList::Rel(relocations) => {
+                ExceptionFrames::Rel(process_eh_frame_relocations::<C, A, ElfRel<C>>(
+                    object,
+                    common,
+                    resources,
+                    queue,
+                    eh_frame_section,
+                    eh_frame_section_index,
+                    frame_index_offset,
+                    data,
+                    &RelSequence(relocations),
+                    scope,
+                )?)
+            }
             RelocationList::Crel(crel_iterator) => {
                 ExceptionFrames::Crel(process_eh_frame_relocations::<C, A, ElfCrel<C>>(
                     object,
@@ -1155,6 +1192,17 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
         let sizes = match &object.format_specific.exception_frames {
             ExceptionFrames::Rela(exception_frames) => {
                 process_section_exception_frames::<C, A, ElfRela<C>>(
+                    object,
+                    unloaded.last_frame_index,
+                    common,
+                    resources,
+                    queue,
+                    scope,
+                    exception_frames,
+                )?
+            }
+            ExceptionFrames::Rel(exception_frames) => {
+                process_section_exception_frames::<C, A, ElfRel<C>>(
                     object,
                     unloaded.last_frame_index,
                     common,

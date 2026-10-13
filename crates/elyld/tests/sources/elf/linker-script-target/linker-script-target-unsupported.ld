@@ -1,1 +1,1 @@
-TARGET(elf32-i386)
+TARGET(elf32-sparc)

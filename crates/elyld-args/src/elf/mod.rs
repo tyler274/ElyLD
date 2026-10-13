@@ -283,6 +283,8 @@ enum Emulation {
     ElfX86_64,
     #[strum(serialize = "elf_x86_64_sol2", message = "x86-64 ELF target (Solaris)")]
     ElfX86_64Sol2,
+    #[strum(serialize = "elf_i386", message = "i386 ELF target")]
+    ElfI386,
     #[strum(
         serialize = "aarch64elf",
         serialize = "aarch64linux",
@@ -303,6 +305,7 @@ impl Emulation {
     fn architecture(self) -> Architecture {
         match self {
             Emulation::ElfX86_64 | Emulation::ElfX86_64Sol2 => Architecture::X86_64,
+            Emulation::ElfI386 => Architecture::X86,
             Emulation::AArch64 => Architecture::AArch64,
             Emulation::RiscV64 => Architecture::RiscV64,
             Emulation::LoongArch64 => Architecture::LoongArch64,
@@ -436,6 +439,10 @@ const fn default_emulation() -> Emulation {
     {
         return Emulation::ElfX86_64;
     }
+    #[cfg(target_arch = "x86")]
+    {
+        return Emulation::ElfI386;
+    }
     #[cfg(target_arch = "aarch64")]
     {
         return Emulation::AArch64;
@@ -502,6 +509,7 @@ impl ElfArgs {
     pub fn set_architecture(&mut self, architecture: Architecture) {
         self.set_emulation(match architecture {
             Architecture::X86_64 => Emulation::ElfX86_64,
+            Architecture::X86 => Emulation::ElfI386,
             Architecture::AArch64 => Emulation::AArch64,
             Architecture::RiscV64 => Emulation::RiscV64,
             Architecture::LoongArch64 => Emulation::LoongArch64,
@@ -884,6 +892,7 @@ impl platform::Args for ElfArgs {
 
         match self.architecture() {
             Architecture::X86_64 => Alignment { exponent: 12 },
+            Architecture::X86 => Alignment { exponent: 12 },
             Architecture::AArch64 => Alignment { exponent: 16 },
             Architecture::RiscV64 => Alignment { exponent: 12 },
             Architecture::LoongArch64 => Alignment { exponent: 16 },

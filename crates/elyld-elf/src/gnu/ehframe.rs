@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use crate::types::ElfClass;
-use crate::types::{ElfCrel, ElfRela};
+use crate::types::{ElfCrel, ElfRel, ElfRela};
 use std::mem::offset_of;
 use elyld_platform::{FrameIndex, Relocation};
 use zerocopy::{FromBytes, IntoBytes, KnownLayout};
@@ -60,6 +60,7 @@ pub(crate) struct CieAtOffset<'data> {
 
 pub(crate) enum ExceptionFrames<'data, C: ElfClass> {
     Rela(Vec<ExceptionFrame<'data, ElfRela<C>>>),
+    Rel(Vec<ExceptionFrame<'data, ElfRel<C>>>),
     Crel(Vec<ExceptionFrame<'data, ElfCrel<C>>>),
 }
 
@@ -67,6 +68,7 @@ impl<'data, C: ElfClass> ExceptionFrames<'data, C> {
     pub(crate) fn extend(&mut self, other: Self) {
         match (self, other) {
             (ExceptionFrames::Rela(a), ExceptionFrames::Rela(b)) => a.extend(b),
+            (ExceptionFrames::Rel(a), ExceptionFrames::Rel(b)) => a.extend(b),
             (ExceptionFrames::Crel(a), ExceptionFrames::Crel(b)) => a.extend(b),
             (a, b) if a.is_empty() => *a = b,
             _ => panic!("Mixed exception frame relocations"),
@@ -76,6 +78,7 @@ impl<'data, C: ElfClass> ExceptionFrames<'data, C> {
     pub(crate) fn is_empty(&self) -> bool {
         match self {
             ExceptionFrames::Rela(a) => a.is_empty(),
+            ExceptionFrames::Rel(a) => a.is_empty(),
             ExceptionFrames::Crel(a) => a.is_empty(),
         }
     }
@@ -109,6 +112,7 @@ impl<'data, C: ElfClass> ExceptionFrames<'data, C> {
     pub(crate) fn len(&self) -> usize {
         match self {
             ExceptionFrames::Rela(f) => f.len(),
+            ExceptionFrames::Rel(f) => f.len(),
             ExceptionFrames::Crel(f) => f.len(),
         }
     }

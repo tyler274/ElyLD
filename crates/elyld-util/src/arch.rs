@@ -1,4 +1,4 @@
-use object::elf::{EM_AARCH64, EM_LOONGARCH, EM_PPC64, EM_RISCV, EM_X86_64};
+use object::elf::{EM_386, EM_AARCH64, EM_LOONGARCH, EM_PPC64, EM_RISCV, EM_X86_64};
 use std::fmt::Display;
 use elyld_error::bail;
 use elyld_error::error::Result;
@@ -6,6 +6,7 @@ use elyld_error::error::Result;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Architecture {
     X86_64,
+    X86,
     AArch64,
     RiscV64,
     LoongArch64,
@@ -19,6 +20,7 @@ impl TryFrom<object::elf::Machine> for Architecture {
     fn try_from(arch: object::elf::Machine) -> Result<Self, Self::Error> {
         match arch {
             EM_X86_64 => Ok(Self::X86_64),
+            EM_386 => Ok(Self::X86),
             EM_AARCH64 => Ok(Self::AArch64),
             EM_RISCV => Ok(Self::RiscV64),
             EM_LOONGARCH => Ok(Self::LoongArch64),
@@ -32,6 +34,7 @@ impl Display for Architecture {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let arch = match self {
             Architecture::X86_64 => "x86_64",
+            Architecture::X86 => "x86",
             Architecture::AArch64 => "aarch64",
             Architecture::RiscV64 => "riscv64",
             Architecture::LoongArch64 => "loongarch64",
@@ -44,17 +47,22 @@ impl Display for Architecture {
 
 impl Architecture {
     pub fn parse_output_format(format: &[u8]) -> Self {
-        let Some(format) = format.strip_prefix(b"elf64-") else {
-            return Self::Unsupported;
-        };
-
-        match format {
-            b"x86-64" => Self::X86_64,
-            b"aarch64" | b"littleaarch64" => Self::AArch64,
-            b"littleriscv" => Self::RiscV64,
-            b"loongarch" => Self::LoongArch64,
-            b"powerpcle" => Self::Ppc64,
-            _ => Self::Unsupported,
+        if let Some(format) = format.strip_prefix(b"elf64-") {
+            match format {
+                b"x86-64" => Self::X86_64,
+                b"aarch64" | b"littleaarch64" => Self::AArch64,
+                b"littleriscv" => Self::RiscV64,
+                b"loongarch" => Self::LoongArch64,
+                b"powerpcle" => Self::Ppc64,
+                _ => Self::Unsupported,
+            }
+        } else if let Some(format) = format.strip_prefix(b"elf32-") {
+            match format {
+                b"i386" => Self::X86,
+                _ => Self::Unsupported,
+            }
+        } else {
+            Self::Unsupported
         }
     }
 
@@ -62,6 +70,7 @@ impl Architecture {
     pub fn parse_output_arch(arch: &[u8]) -> Self {
         match arch {
             b"i386:x86-64" | b"x86-64" => Self::X86_64,
+            b"i386" | b"i386:x86" | b"i486" | b"i586" | b"i686" => Self::X86,
             b"aarch64" => Self::AArch64,
             b"riscv" => Self::RiscV64,
             b"loongarch" => Self::LoongArch64,
@@ -71,8 +80,7 @@ impl Architecture {
     }
 }
 
-pub const SUPPORTED_TARGETS: &str =
-    "elf64-x86-64 elf64-littleaarch64 elf64-littleriscv elf64-loongarch elf64-powerpcle";
+pub const SUPPORTED_TARGETS: &str = "elf64-x86-64 elf32-i386 elf64-littleaarch64 elf64-littleriscv elf64-loongarch elf64-powerpcle";
 
 #[cfg(test)]
 mod tests {
@@ -100,10 +108,8 @@ mod tests {
             Architecture::parse_output_arch(b"powerpc:common64"),
             Architecture::Ppc64
         );
-        assert_eq!(
-            Architecture::parse_output_arch(b"i386"),
-            Architecture::Unsupported
-        );
+        assert_eq!(Architecture::parse_output_arch(b"i386"), Architecture::X86);
+        assert_eq!(Architecture::parse_output_arch(b"i686"), Architecture::X86);
         assert_eq!(
             Architecture::parse_output_arch(b"powerpc:common"),
             Architecture::Unsupported

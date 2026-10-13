@@ -272,6 +272,15 @@ pub(crate) fn write_object_section<'data, C: ElfClass, A: Arch<Platform = elf::E
             table_writer,
             trace,
         ),
+        elf::RelocationList::Rel(rels) => apply_relocations::<C, A, elf::ElfRel<C>, _>(
+            object,
+            reloc_out,
+            section_index,
+            rels.iter().copied().map(Ok),
+            layout,
+            table_writer,
+            trace,
+        ),
         elf::RelocationList::Crel(crel_iter) => apply_relocations::<C, A, elf::ElfCrel<C>, _>(
             object,
             reloc_out,
@@ -332,6 +341,7 @@ pub(crate) fn write_section_reversed<'data, C: ElfClass, A: Arch<Platform = elf:
             table_writer,
             trace,
         ),
+        elf::RelocationList::Rel(_) => Ok(()),
         elf::RelocationList::Crel(crel_iter) => apply_relocations::<C, A, elf::ElfCrel<C>, _>(
             object,
             out,
@@ -395,6 +405,15 @@ pub(crate) fn write_debug_section<'data, C: ElfClass, A: Arch<Platform = elf::El
             rela.iter().map(|rela| Ok(elf::ElfRela::new(*rela))),
             layout,
         ),
+        elf::RelocationList::Rel(rels) => {
+            apply_debug_relocations::<C, A, elf::ElfRel<C>, _>(
+                object,
+                out,
+                section_index,
+                rels.iter().copied().map(Ok),
+                layout,
+            )
+        }
         elf::RelocationList::Crel(crel_iter) => {
             apply_debug_relocations::<C, A, elf::ElfCrel<C>, _>(
                 object,

@@ -11,6 +11,9 @@ pub(crate) fn link_for_arch<'data, F: FileSystem>(
         elyld_util::arch::Architecture::X86_64 => {
             linker.link_for_arch::<elyld_elf::Elf64, elyld_elf::ElfX86_64>(args)
         }
+        elyld_util::arch::Architecture::X86 => {
+            linker.link_for_arch::<elyld_elf::Elf32, elyld_elf::ElfI386>(args)
+        }
         elyld_util::arch::Architecture::AArch64 => {
             linker.link_for_arch::<elyld_elf::Elf64, elyld_elf::ElfAArch64>(args)
         }

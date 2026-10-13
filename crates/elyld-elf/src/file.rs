@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use super::types::CompressionHeaderEntry;
 use super::types::{
-    DynamicEntry, Elf, ElfClass, File, RelocationList, SectionHeader, SymbolTable, SymtabEntry,
-    Versym,
+    DynamicEntry, Elf, ElfClass, ElfRel, File, RelocationList, SectionHeader, SymbolTable,
+    SymtabEntry, Versym,
 };
 use super::{
     Cie, CieAtOffset, DynamicLayoutStateExt, DynamicTagValues, EhFrameEntryPrefix, EhFrameSizes,
@@ -225,6 +225,11 @@ impl<'data, C: ElfClass> platform::ObjectFile<'data> for File<'data, C> {
         Ok(
             if let Some((rela, _)) = section.rela(LittleEndian, self.data)? {
                 RelocationList::Rela(rela)
+            } else if let Some((rel, _)) = section.rel(LittleEndian, self.data)? {
+                // REL-style: addends live in the bytes of the target section.
+                let target = self.sections.section(index)?;
+                let target_data = target.data(LittleEndian, self.data)?;
+                RelocationList::Rel(rel.iter().map(|raw| ElfRel::new(*raw, target_data)).collect())
             } else if let Some((crel, _)) = section.crel(LittleEndian, self.data)? {
                 RelocationList::Crel(crel)
             } else {

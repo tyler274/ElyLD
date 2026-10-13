@@ -52,6 +52,7 @@ pub trait ElfClass: Copy + Default + Send + Sync + std::fmt::Debug + 'static {
             Sym: ElfSymbol<Class = Self>,
             Dyn: WritableDynamicEntry + Send + Sync,
             Rela: WritableRela + Send + Sync + Copy + 'static,
+            Rel: Send + Sync + Copy + 'static,
         > + WritableFileHeader;
 
     const FILE_HEADER_SIZE: u16 = size_of::<Self::FileHeader>() as u16;
@@ -109,6 +110,17 @@ impl ElfSymbol for object::elf::Sym64<LittleEndian> {
     type Class = Class64;
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub struct Class32;
+
+impl ElfClass for Class32 {
+    type FileHeader = object::elf::FileHeader32<LittleEndian>;
+}
+
+impl ElfSymbol for object::elf::Sym32<LittleEndian> {
+    type Class = Class32;
+}
+
 pub(crate) type FileHeader<C> = <C as ElfClass>::FileHeader;
 pub(crate) type Word<C> = <FileHeader<C> as object::read::elf::FileHeader>::Word;
 pub(crate) type ProgramHeader<C> = <FileHeader<C> as object::read::elf::FileHeader>::ProgramHeader;
@@ -118,6 +130,7 @@ pub(crate) type DynamicEntry<C> = <FileHeader<C> as object::read::elf::FileHeade
 pub(crate) type CompressionHeaderEntry<C> =
     <FileHeader<C> as object::read::elf::FileHeader>::CompressionHeader;
 pub(crate) type Rela<C> = <FileHeader<C> as object::read::elf::FileHeader>::Rela;
+pub(crate) type Rel<C> = <FileHeader<C> as object::read::elf::FileHeader>::Rel;
 pub(crate) type Relr<C> = <FileHeader<C> as object::read::elf::FileHeader>::Relr;
 pub(crate) type NoteHeader<C> = <FileHeader<C> as object::read::elf::FileHeader>::NoteHeader;
 pub(crate) type GnuHashHeader = object::elf::GnuHashHeader<LittleEndian>;
@@ -251,6 +264,100 @@ impl<C: ElfClass> Relocation for ElfRela<C> {
     }
 }
 
+/// A REL (no-addend) relocation with the implicit addend already decoded from the target
+/// section bytes at the relocation offset. Owned and decoded at read time: object crate's
+/// `Rel32` is not `Sync`, and `Relocation` requires thread safety.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ElfRel<C: ElfClass> {
+    offset: u64,
+    symbol: Option<object::SymbolIndex>,
+    r_type: object::elf::RelocationType,
+    addend: i64,
+    class: PhantomData<C>,
+}
+
+impl<C: ElfClass> ElfRel<C> {
+    pub(crate) fn new(raw: Rel<C>, section_data: &[u8]) -> Self {
+        let offset = object::read::elf::Rel::r_offset(&raw, LittleEndian).into();
+        let r_type = object::read::elf::Rel::r_type(&raw, LittleEndian);
+        Self {
+            offset,
+            symbol: object::read::elf::Rel::symbol(&raw, LittleEndian),
+            r_type,
+            addend: read_rel_addend::<C>(section_data, offset, r_type),
+            class: PhantomData,
+        }
+    }
+}
+
+impl<C: ElfClass> Relocation for ElfRel<C> {
+    type Sequence<'data> = RelSequence<C>;
+    type Platform = Elf<C>;
+
+    fn symbol(&self) -> Option<object::SymbolIndex> {
+        self.symbol
+    }
+
+    fn raw_type(&self) -> object::elf::RelocationType {
+        self.r_type
+    }
+
+    fn offset(&self) -> u64 {
+        self.offset
+    }
+
+    fn addend(&self) -> i64 {
+        self.addend
+    }
+}
+
+/// Reads the implicit addend for a REL relocation from the bytes at `offset`. Mirrors mold's
+/// `get_addend` for i386: 1- and 2-byte types read a signed value of that width; everything
+/// else uses the class word size as a signed little-endian value.
+pub(crate) fn read_rel_addend<C: ElfClass>(
+    section_data: &[u8],
+    offset: u64,
+    r_type: object::elf::RelocationType,
+) -> i64 {
+    let start = offset as usize;
+    let width = |n: usize| -> Option<i64> {
+        let bytes = section_data.get(start..start + n)?;
+        Some(match n {
+            1 => bytes[0] as i8 as i64,
+            2 => i16::from_le_bytes(bytes.try_into().ok()?) as i64,
+            4 => i32::from_le_bytes(bytes.try_into().ok()?) as i64,
+            8 => i64::from_le_bytes(bytes.try_into().ok()?),
+            _ => return None,
+        })
+    };
+    match r_type {
+        object::elf::R_386_NONE | object::elf::R_386_TLS_DESC_CALL => Some(0),
+        object::elf::R_386_8 | object::elf::R_386_PC8 => width(1),
+        object::elf::R_386_16 | object::elf::R_386_PC16 => width(2),
+        _ => width(C::ADDRESS_SIZE as usize),
+    }
+    .unwrap_or(0)
+}
+
+#[derive(Clone)]
+pub(crate) struct RelSequence<C: ElfClass>(pub(crate) Vec<ElfRel<C>>);
+
+impl<C: ElfClass> RelocationSequence<'_> for RelSequence<C> {
+    type Rel = ElfRel<C>;
+
+    fn rel_iter(&self) -> impl Iterator<Item = ElfRel<C>> {
+        self.0.iter().copied()
+    }
+
+    fn subsequence(&self, range: Range<usize>) -> Self {
+        Self(self.0[range].to_vec())
+    }
+
+    fn num_relocations(&self) -> usize {
+        self.0.len()
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct ElfCrel<C: ElfClass> {
     pub(super) raw: Crel,
@@ -294,6 +401,9 @@ impl<C: ElfClass> Relocation for ElfCrel<C> {
 #[derive(Clone)]
 pub enum RelocationList<'data, C: ElfClass> {
     Rela(&'data [Rela<C>]),
+    /// REL-style relocations (no addend in the entry) with addends pre-decoded from the
+    /// target section bytes.
+    Rel(Vec<ElfRel<C>>),
     Crel(CrelIterator<'data>),
 }
 
@@ -301,6 +411,7 @@ impl<'data, C: ElfClass> platform::RelocationList<'data> for RelocationList<'dat
     fn num_relocations(&self) -> usize {
         match self {
             RelocationList::Rela(rela) => rela.len(),
+            RelocationList::Rel(rel) => rel.len(),
             RelocationList::Crel(crel) => crel.len(),
         }
     }
@@ -310,6 +421,13 @@ impl<'data, C: ElfClass> platform::RelocationList<'data> for RelocationList<'dat
             RelocationList::Rela(rela) => {
                 for raw in *rela {
                     if let Some(sym) = object::read::elf::Rela::symbol(raw, LittleEndian, false) {
+                        f(sym);
+                    }
+                }
+            }
+            RelocationList::Rel(rel) => {
+                for r in rel {
+                    if let Some(sym) = r.symbol() {
                         f(sym);
                     }
                 }

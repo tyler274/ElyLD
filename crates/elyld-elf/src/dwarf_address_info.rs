@@ -1,7 +1,7 @@
 //! Uses DWARF debug info, if available, to find file and line number information for a particular
 //! offset in an input section.
 
-use crate::{Elf, ElfClass, ElfCrel, ElfRela, File, SectionHeader};
+use crate::{Elf, ElfClass, ElfCrel, ElfRel, ElfRela, File, SectionHeader};
 use anyhow::Context;
 use linker_utils::elf::RelocationKind;
 use object::LittleEndian;
@@ -102,6 +102,14 @@ fn section_data_with_relocations<C: ElfClass, A: Arch<Platform = Elf<C>>>(
                         section_of_interest,
                         &mut section_data,
                         relocations.iter().copied().map(ElfRela::new),
+                    )?;
+                }
+                crate::RelocationList::Rel(relocations) => {
+                    apply_section_relocations::<C, A, ElfRel<C>>(
+                        object,
+                        section_of_interest,
+                        &mut section_data,
+                        relocations.iter().copied(),
                     )?;
                 }
                 crate::RelocationList::Crel(relocations) => {

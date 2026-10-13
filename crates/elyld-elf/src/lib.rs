@@ -9,6 +9,7 @@ pub(crate) mod elf_loongarch64;
 pub(crate) mod elf_ppc64;
 pub(crate) mod elf_riscv64;
 pub(crate) mod elf_writer;
+pub(crate) mod elf_i386;
 pub(crate) mod elf_x86_64;
 pub(crate) mod file;
 pub(crate) mod gdb_index;
@@ -28,6 +29,7 @@ pub(crate) mod writable_elf;
 #[allow(unused_imports)]
 pub(crate) use abi::*;
 pub use elf_aarch64::ElfAArch64;
+pub use elf_i386::ElfI386;
 pub use elf_loongarch64::ElfLoongArch64;
 pub use elf_ppc64::ElfPpc64;
 pub use elf_riscv64::ElfRiscV64;
@@ -42,10 +44,12 @@ pub(crate) use output::*;
 pub(crate) use strtab::*;
 #[allow(unused_imports)]
 pub(crate) use types::*;
-pub use types::{Class64, Elf, ElfClass};
+pub use types::{Class32, Class64, Elf, ElfClass};
 pub(crate) use elyld_error::{debug_assert_bail, malfunction};
 
 pub type Elf64 = Elf<Class64>;
+
+pub type Elf32 = Elf<Class32>;
 
 pub(crate) const GLOBAL_POINTER_SYMBOL_NAME: &str = "__global_pointer$";
 
