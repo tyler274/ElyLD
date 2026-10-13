@@ -269,7 +269,13 @@ pub(crate) fn write_section_headers<C: ElfClass>(
         };
         entry.set_type(sh_type);
 
-        let mut flags = output_sections.section_flags(section_id);
+        // The null header shares FILE_HEADER's section, which is ALLOC so the ELF header is
+        // loaded. gABI requires every field of section 0 except size/link overflow to be zero.
+        let mut flags = if section_type == sht::NULL {
+            linker_utils::elf::SectionFlags(0)
+        } else {
+            output_sections.section_flags(section_id)
+        };
 
         if layout.compressed_debug_sections.get(section_id).is_some() {
             flags = flags.with(shf::COMPRESSED);
