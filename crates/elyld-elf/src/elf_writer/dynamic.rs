@@ -719,6 +719,7 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
 
     write_copy_relocations::<C, A>(object, table_writer, layout)?;
 
+    let emit_symtab = !layout.args().should_strip_all();
     for ((symbol_id, resolution), symbol) in layout
         .resolutions_in_range(object.symbol_id_range)
         .zip(object.object.symbols.iter())
@@ -733,13 +734,15 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
                 // Symbol needs a copy relocation, which means that the dynamic symbol will be
                 // written by the epilogue not by us. However, we do need to write a regular
                 // symtab entry.
-                table_writer.debug_symbol_writer.copy_symbol(
-                    symbol,
-                    name,
-                    output_section_id::BSS,
-                    res.value(),
-                    ValueFlags::empty(),
-                )?;
+                if emit_symtab {
+                    table_writer.debug_symbol_writer.copy_symbol(
+                        symbol,
+                        name,
+                        output_section_id::BSS,
+                        res.value(),
+                        ValueFlags::empty(),
+                    )?;
+                }
             } else if !res.flags.needs_canonical_plt() {
                 let symbol_type = if symbol.st_type() == object::elf::STT_GNU_IFUNC {
                     // An undefined reference to an IFUNC needs to be emitted as type FUNC.
@@ -764,10 +767,12 @@ pub(crate) fn write_dynamic_file<'data, C: ElfClass, A: Arch<Platform = elf::Elf
 
                 // Match GNU ld: undefined dynamic symbols also appear in .symtab so
                 // `nm -an` prints blank-address `U` lines (needed by nixpkgs blas-3).
-                let symtab_entry = table_writer
-                    .debug_symbol_writer
-                    .undefined_symbol(false, name)?;
-                symtab_entry.set_binding_and_type(symbol.st_bind(), symbol_type);
+                if emit_symtab {
+                    let symtab_entry = table_writer
+                        .debug_symbol_writer
+                        .undefined_symbol(false, name)?;
+                    symtab_entry.set_binding_and_type(symbol.st_bind(), symbol_type);
+                }
             }
 
             table_writer

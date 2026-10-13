@@ -1593,22 +1593,26 @@ impl<C: ElfClass> platform::Platform for Elf<C> {
             let raw_bytes = raw_name.bytes();
             let name = Self::RawSymbolName::parse(raw_bytes).name();
             let strtab_name = symtab_name_for_strtab(raw_bytes);
+            let emit_symtab = !symbol_db.args.should_strip_all();
 
             if flags.needs_copy_relocation() {
                 // The dynamic symbol is a definition, so is handled by the epilogue. We only
                 // need to deal with the symtab entry here.
-                common.allocate(part_id::SYMTAB_GLOBAL, C::SYMTAB_ENTRY_SIZE);
-                common.allocate(part_id::STRTAB, strtab_name.len() as u64 + 1);
-                intern_strtab_name(&mut common.format_specific.strtab_names, strtab_name);
+                if emit_symtab {
+                    common.allocate(part_id::SYMTAB_GLOBAL, C::SYMTAB_ENTRY_SIZE);
+                    common.allocate(part_id::STRTAB, strtab_name.len() as u64 + 1);
+                    intern_strtab_name(&mut common.format_specific.strtab_names, strtab_name);
+                }
             } else if !flags.needs_canonical_plt() {
                 common.allocate(part_id::DYNSTR, name.len() as u64 + 1);
                 common.allocate(part_id::DYNSYM, C::SYMTAB_ENTRY_SIZE);
                 // GNU ld copies symbols from input DSOs into .symtab as well as .dynsym
                 // (`nm -an` blank-address `U` lines). Unresolved symbols that live on a
                 // regular object (DYNAMIC|ABSOLUTE) stay in .dynsym only.
-                if symbol_db
-                    .file(symbol_db.file_id_for_symbol(symbol_id))
-                    .is_dynamic()
+                if emit_symtab
+                    && symbol_db
+                        .file(symbol_db.file_id_for_symbol(symbol_id))
+                        .is_dynamic()
                 {
                     common.allocate(part_id::SYMTAB_GLOBAL, C::SYMTAB_ENTRY_SIZE);
                     common.allocate(part_id::STRTAB, strtab_name.len() as u64 + 1);
