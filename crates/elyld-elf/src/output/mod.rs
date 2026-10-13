@@ -156,6 +156,7 @@ impl<C: ElfClass> Elf<C> {
             kind: Self::primary_section(HASH_SECTION_NAME),
             ty: sht::HASH,
             section_flags: shf::ALLOC,
+            element_size: size_of::<u32>() as u64,
             link: &[output_section_id::DYNSYM],
             min_alignment: alignment::SYSV_HASH,
             ..Self::DEFAULT_DEFS
