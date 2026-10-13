@@ -303,6 +303,12 @@ impl<'data, P: EnginePlatform> PreludeLayoutState<'data, P> {
                     return true;
                 }
 
+                // GNU ld PROVIDEs `__executable_start`. Its value is the load base, outside the
+                // `.text` it is attached to, so elflint rejects it when emitted unreferenced.
+                if matches!(def_info.placement, SymbolPlacement::LoadBaseAddress) {
+                    return false;
+                }
+
                 // We always emit symbols that the user requested be undefined.
                 let mut should_emit = matches!(def_info.placement, SymbolPlacement::ForceUndefined);
 
